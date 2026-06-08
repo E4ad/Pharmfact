@@ -1,0 +1,424 @@
+import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
+import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
+import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
+import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Select,
+  Snackbar,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
+import { useState, useEffect } from 'react';
+import { PageBackButton } from '../../components/PageBackButton';
+import { useAppState, updateAppState } from '../../storage/localStore';
+import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings } from '../../storage/schema';
+import { activePharmacien, selectAppOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions } from '../../storage/selectors';
+
+const missionTypes = [
+  ['REMPLACEMENT_OFFICINE', 'Remplacement officine'],
+  ['GARDE', 'Garde'],
+  ['CLINIQUE', 'Clinique'],
+];
+
+export function OptionsPage() {
+  const state = useAppState();
+  const currentActive = activePharmacien(state);
+
+  const appOptions = selectAppOptions(state);
+  const fiscalSettings = selectFinancialOptions(state);
+  const uiSettings = selectUiOptions(state);
+  const localDataSettings = selectLocalDataOptions(state);
+
+  const [form, setForm] = useState<AppOptions>(() => appOptions);
+  const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
+  const [taxStatus, setTaxStatus] = useState<TaxStatus>(() => fiscalSettings.defaultTaxStatus);
+  const [uiSettingsForm, setUiSettingsForm] = useState<UiSettings>(() => uiSettings);
+  const [localDataSettingsForm, setLocalDataSettingsForm] = useState<LocalDataSettings>(() => localDataSettings);
+
+  useEffect(() => {
+    const appOptions = selectAppOptions(state);
+    const fiscalSettings = selectFinancialOptions(state);
+    const uiSettings = selectUiOptions(state);
+    const localDataSettings = selectLocalDataOptions(state);
+
+    setForm(appOptions);
+    setTaxStatus(fiscalSettings.defaultTaxStatus);
+    setUiSettingsForm(uiSettings);
+    setLocalDataSettingsForm(localDataSettings);
+  }, [state]);
+
+  const handleSave = () => {
+    try {
+      updateAppState((current) => ({
+        ...current,
+        appOptions: form,
+        fiscalSettings: {
+          ...current.fiscalSettings,
+          defaultTaxStatus: taxStatus,
+        },
+        uiSettings: uiSettingsForm,
+        localDataSettings: localDataSettingsForm,
+      }));
+      setToast({ severity: 'success', message: 'Paramètres enregistrés avec succès.' });
+    } catch (error) {
+      setToast({
+        severity: 'error',
+        message: error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.',
+      });
+    }
+  };
+
+  const handleChange =
+    (field: keyof AppOptions) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = event.target.type === 'number' ? Number(event.target.value) : event.target.value;
+      setForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  return (
+    <Stack spacing={3} sx={{ width: 'min(980px, 100%)', mx: 'auto', py: 4 }}>
+      <Stack direction="row" alignItems="center" spacing={2}>
+        <PageBackButton to="/activity" />
+        <Typography variant="h5" fontWeight={700}>
+          Paramètres
+        </Typography>
+      </Stack>
+
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+            <SettingsRoundedIcon />
+            <Typography variant="h6" fontWeight={600}>
+              Informations générales
+            </Typography>
+          </Stack>
+          <Stack spacing={2}>
+            <TextField
+              label="Nom du pharmacien actif"
+              value={currentActive?.nom ?? ''}
+              disabled
+              helperText="Sélectionné dans la section Pharmaciens"
+            />
+            <FormControl>
+              <InputLabel id="tax-status-label">Statut fiscal par défaut</InputLabel>
+              <Select
+                labelId="tax-status-label"
+                value={taxStatus}
+                label="Statut fiscal par défaut"
+                onChange={(event) => setTaxStatus(event.target.value as TaxStatus)}
+              >
+                <MenuItem value="SMALL_SUPPLIER">Petit fournisseur (non inscrit)</MenuItem>
+                <MenuItem value="REGISTERED">Inscrit (TPS/TVQ applicables)</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+            <PersonAddAltRoundedIcon />
+            <Typography variant="h6" fontWeight={600}>
+              Missions
+            </Typography>
+          </Stack>
+          <Stack spacing={2}>
+            <FormControl>
+              <InputLabel id="mission-type-label">Type de mission par défaut</InputLabel>
+              <Select
+                labelId="mission-type-label"
+                value={form.missionDefaults.defaultMissionType ?? 'REMPLACEMENT_OFFICINE'}
+                label="Type de mission par défaut"
+                onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultMissionType: event.target.value } }))}
+              >
+                {missionTypes.map(([value, label]) => (
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Heure de début par défaut"
+              type="time"
+              value={form.missionDefaults.defaultStartTime ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultStartTime: event.target.value } }))}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Heure de fin par défaut"
+              type="time"
+              value={form.missionDefaults.defaultEndTime ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultEndTime: event.target.value } }))}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Pause par défaut (minutes)"
+              type="number"
+              value={form.missionDefaults.defaultBreakMinutes ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultBreakMinutes: Number(event.target.value) } }))}
+              inputProps={{ min: 0, step: 1 }}
+            />
+            <TextField
+              label="Délai de paiement (jours)"
+              type="number"
+              value={form.invoiceDefaults.invoiceDueDays ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, invoiceDueDays: Number(event.target.value) } }))}
+              inputProps={{ min: 0, step: 1 }}
+            />
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={form.missionDefaults.mealAutoEnabled ?? false}
+                  exclusive
+                  onChange={(event, value) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealAutoEnabled: value } }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Repas automatique"
+            />
+            <TextField
+              label="Seuil de repas (heures)"
+              type="number"
+              value={form.missionDefaults.mealThresholdHours ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealThresholdHours: Number(event.target.value) } }))}
+              inputProps={{ min: 0, step: 0.5 }}
+            />
+            <TextField
+              label="Montant de repas par défaut (cents)"
+              type="number"
+              value={form.missionDefaults.mealDefaultCents ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealDefaultCents: Number(event.target.value) } }))}
+              inputProps={{ min: 0, step: 100 }}
+            />
+            <TextField
+              label="Taux de kilométrage (cents)"
+              type="number"
+              value={form.missionDefaults.mileageRateCents ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mileageRateCents: Number(event.target.value) } }))}
+              inputProps={{ min: 0, step: 100 }}
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+            <AddBusinessRoundedIcon />
+            <Typography variant="h6" fontWeight={600}>
+              Facturation
+            </Typography>
+          </Stack>
+          <Stack spacing={2}>
+            <TextField
+              label="Mode de paiement"
+              value={form.invoiceDefaults.paymentTerms ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, paymentTerms: event.target.value } }))}
+            />
+            <TextField
+              label="Conditions de paiement"
+              value={form.invoiceDefaults.paymentTerms ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, paymentTerms: event.target.value } }))}
+              multiline
+              minRows={2}
+            />
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={form.pdfCalendar.pdfFooterEnabled ?? false}
+                  exclusive
+                  onChange={(event, value) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, pdfFooterEnabled: value } }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Pied de page PDF"
+            />
+            <TextField
+              label="Titre de l'événement de calendrier"
+              value={form.pdfCalendar.calendarEventTitle ?? ''}
+              onChange={(event) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, calendarEventTitle: event.target.value } }))}
+            />
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={form.pdfCalendar.calendarIcsEnabled ?? false}
+                  exclusive
+                  onChange={(event, value) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, calendarIcsEnabled: value } }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Calendrier ICS"
+            />
+            <FormControl>
+              <InputLabel id="calendar-reminder-label">Rappel de calendrier</InputLabel>
+              <Select
+                labelId="calendar-reminder-label"
+                value={form.pdfCalendar.calendarReminder ?? 'NONE'}
+                label="Rappel de calendrier"
+                onChange={(event) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, calendarReminder: event.target.value as 'NONE' | 'ONE_HOUR' | 'DAY_BEFORE' } }))}
+              >
+                <MenuItem value="NONE">Aucun</MenuItem>
+                <MenuItem value="ONE_HOUR">1 heure avant</MenuItem>
+                <MenuItem value="DAY_BEFORE">La veille</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+            <SettingsRoundedIcon />
+            <Typography variant="h6" fontWeight={600}>
+              Financier & fiscalité
+            </Typography>
+          </Stack>
+          <Stack spacing={2}>
+            <TextField
+              label="Taux de réserve fiscale"
+              type="number"
+              value={fiscalSettings.reserveRate * 100}
+              onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, reserveRate: Number(event.target.value) / 100 } }))}
+              inputProps={{ min: 0, max: 100, step: 1 }}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Seuil petit fournisseur"
+              type="number"
+              value={fiscalSettings.smallSupplierThresholdCents / 100}
+              onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, smallSupplierThresholdCents: Number(event.target.value) * 100 } }))}
+              inputProps={{ min: 0, step: 1000 }}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Seuil d'alerte petit fournisseur"
+              type="number"
+              value={fiscalSettings.smallSupplierWarningRate * 100}
+              onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, smallSupplierWarningRate: Number(event.target.value) / 100 } }))}
+              inputProps={{ min: 0, max: 100, step: 1 }}
+              InputLabelProps={{ shrink: true }}
+            />
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={fiscalSettings.includeMissionDeductibleExpenses}
+                  exclusive
+                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, includeMissionDeductibleExpenses: value } }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Inclure frais déductibles issus des missions"
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+            <SettingsRoundedIcon />
+            <Typography variant="h6" fontWeight={600}>
+              Apparence
+            </Typography>
+          </Stack>
+          <Stack spacing={2}>
+            <FormControl>
+              <InputLabel id="theme-mode-label">Mode d'affichage</InputLabel>
+              <Select
+                labelId="theme-mode-label"
+                value={uiSettingsForm.themeMode}
+                label="Mode d'affichage"
+                onChange={(event) => setUiSettingsForm(prev => ({ ...prev, themeMode: event.target.value as 'light' | 'dark' | 'system' }))}
+              >
+                <MenuItem value="light">Clair</MenuItem>
+                <MenuItem value="dark">Sombre</MenuItem>
+                <MenuItem value="system">Système</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+            <SettingsRoundedIcon />
+            <Typography variant="h6" fontWeight={600}>
+              Données locales
+            </Typography>
+          </Stack>
+          <Stack spacing={2}>
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={localDataSettingsForm.autoBackupEnabled}
+                  exclusive
+                  onChange={(event, value) => setLocalDataSettingsForm(prev => ({ ...prev, autoBackupEnabled: value }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Sauvegarde automatique"
+            />
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/settings')}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              Gestion avancée des données
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Box>
+        <Button
+          variant="contained"
+          size="large"
+          startIcon={<SaveRoundedIcon />}
+          onClick={handleSave}
+          sx={{ borderRadius: 999, px: 4, py: 1.5 }}
+        >
+          Enregistrer
+        </Button>
+      </Box>
+
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={3200}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {toast ? (
+          <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>
+            {toast.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
+    </Stack>
+  );
+}

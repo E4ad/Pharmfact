@@ -1,0 +1,602 @@
+import { useEffect, useMemo, useState, FormEvent } from 'react';
+import { Box, Button, Card, CardContent, Stack, Typography, Alert } from '@mui/material';
+import { PageBackButton } from '../../components/PageBackButton';
+import { MoneyValue } from '../../components/MoneyValue';
+import { useFinancialSettings } from '../../hooks/useFinancialSettings';
+import { selectFinancialOptions } from '../../storage/selectors';
+import { buildFinancialMetrics, collectMissionDeductibleExpenseRows, type AnnualFinancialSnapshot, type FinancialWarning, type MissionDeductibleExpenseRow, type MonthlyFinancialSnapshot, type QuarterlyFinancialSnapshot } from '../../services/financialMetrics';
+import { createId, todayIso } from '../../services/ids';
+import { formatMoney } from '../../services/money';
+import { updateAppState, useAppState } from '../../storage/localStore';
+import type { DeductibleExpense, TaxPayment } from '../../storage/schema';
+import { FinancialPeriodCard } from './components/FinancialPeriodCard';
+import { FinancialMetricCard } from './components/FinancialMetricCard';
+import { FinancialInfoBanner } from './components/FinancialInfoBanner';
+import { FinancialActionCard } from './components/FinancialActionCard';
+import { TaxPaymentFormDrawer } from './components/TaxPaymentFormDrawer';
+import { DeductibleExpenseFormDrawer } from './components/DeductibleExpenseFormDrawer';
+import { MissionGeneratedExpensesDrawer } from './components/MissionGeneratedExpensesDrawer';
+import { ReceivablesDrawer } from './components/ReceivablesDrawer';
+import { TpsTvqDrawer } from './components/TpsTvqDrawer';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import AttachMoneyRoundedIcon from '@mui/icons-material/AttachMoneyRounded';
+import ReceiptRoundedIcon from '@mui/icons-material/ReceiptRounded';
+import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
+import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded';
+import WarningRoundedIcon from '@mui/icons-material/WarningRounded';
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
+
+type ViewMode = 'monthly' | 'quarterly' | 'annual';
+
+export function FinancialPage() {
+  return <FinancialDashboardPage />;
+}
+
+export function FinancialDashboardPage() {
+  const state = useAppState();
+  const financialSettings = useFinancialSettings();
+  const today = todayIso();
+  const availableViews = useMemo(() => enabledViews(financialSettings), [financialSettings]);
+  const { annual } = useMemo(() => buildFinancialMetrics({
+    invoices: state.invoices,
+    taxPayments: state.taxPayments,
+    expenses: financialSettings.enableExpenseTracking ? state.deductibleExpenses : [],
+    fiscalSettings: financialSettings,
+    todayIso: today,
+    missions: state.missions,
+    pharmaciens: state.pharmaciens,
+    expenseReceipts: state.expenseReceipts,
+  }), [state, today, financialSettings]);
+
+  const missionExpenseRows = useMemo(() => collectMissionDeductibleExpenseRows(state.missions, financialSettings), [state.missions, financialSettings]);
+
+  const [view, setView] = useState<ViewMode>(availableViews[0]);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => annual.months?.find((month: MonthlyFinancialSnapshot) => month.month === today.slice(0, 7))?.month ?? annual.months?.[0]?.month ?? today.slice(0, 7));
+  const selectedMonthly = annual.months?.find((month: MonthlyFinancialSnapshot) => month.month === selectedMonth) ?? annual.months?.[0];
+
+  // Drawers state
+  const [taxPaymentDrawerOpen, setTaxPaymentDrawerOpen] = useState(false);
+  const [deductibleExpenseDrawerOpen, setDeductibleExpenseDrawerOpen] = useState(false);
+  const [missionExpensesDrawerOpen, setMissionExpensesDrawerOpen] = useState(false);
+  const [receivablesDrawerOpen, setReceivablesDrawerOpen] = useState(false);
+  const [tpsTvqDrawerOpen, setTpsTvqDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!availableViews.includes(view)) setView(availableViews[0]);
+  }, [availableViews, view]);
+
+  function exportJson(label: string, payload: unknown) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${label}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const periodLabel = useMemo(() => {
+    if (view === 'monthly') {
+      return new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' }).format(new Date(`${selectedMonth}-01T00:00:00`));
+    } else if (view === 'quarterly') {
+      return selectedMonthly.quarterLabel;
+    } else {
+      return String(annual.year);
+    }
+  }, [view, selectedMonth, selectedMonthly.quarterLabel, annual.year]);
+
+  const availablePeriods = useMemo(() => {
+    if (view === 'monthly') {
+      return annual.months?.map((month: MonthlyFinancialSnapshot) => month.month) || [];
+    } else if (view === 'quarterly') {
+      return annual.quarters?.map((quarter: QuarterlyFinancialSnapshot) => quarter.label) || [];
+    } else {
+      return [String(annual.year)];
+    }
+  }, [view, annual]);
+
+  return (
+    <Stack spacing={4} sx={{ width: 'min(1180px, 100%)', mx: 'auto' }}>
+      <Stack spacing={2}>
+        <PageBackButton to="/activity" label="Accueil" />
+        <Stack spacing={1}>
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+            État financier
+          </Typography>
+          <Typography variant="h2">Pilotage fiscal</Typography>
+          <Typography color="text.secondary">
+            Estimations de pilotage — à valider avec votre comptable.
+          </Typography>
+        </Stack>
+      </Stack>
+
+      <FinancialViewTabs value={view} onChange={setView} availableViews={availableViews} />
+
+      {view === 'monthly' && selectedMonthly ? (
+        <MonthlyFinancialView
+          annual={annual}
+          selectedMonth={selectedMonth}
+          snapshot={selectedMonthly}
+          onMonthChange={setSelectedMonth}
+          onExport={() => exportJson(`synthese-mensuelle-${selectedMonth}`, selectedMonthly)}
+          onAddTaxPayment={() => setTaxPaymentDrawerOpen(true)}
+          onAddDeductibleExpense={() => setDeductibleExpenseDrawerOpen(true)}
+          onViewMissionExpenses={() => setMissionExpensesDrawerOpen(true)}
+          onViewReceivables={() => setReceivablesDrawerOpen(true)}
+          onViewTpsTvq={() => setTpsTvqDrawerOpen(true)}
+        />
+      ) : null}
+
+      {view === 'quarterly' ? (
+        <QuarterlyFinancialView
+          annual={annual}
+          onExport={(quarter) => exportJson(`synthese-trimestrielle-${quarter.label.replaceAll(' ', '-')}`, quarter)}
+        />
+      ) : null}
+
+      {view === 'annual' ? (
+        <AnnualFinancialView
+          annual={annual}
+          onExport={() => exportJson(`synthese-annuelle-${annual.year}`, annual)}
+        />
+      ) : null}
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2 }}>
+        {financialSettings.enableInstalmentTracking ? (
+          <InstalmentSummaryCard annual={annual} onAddTaxPayment={() => setTaxPaymentDrawerOpen(true)} />
+        ) : null}
+        {financialSettings.enableExpenseTracking ? (
+          <DeductibleExpensesSummaryCard
+            annual={annual}
+            onAddDeductibleExpense={() => setDeductibleExpenseDrawerOpen(true)}
+          />
+        ) : null}
+      </Box>
+
+      {financialSettings.enableExpenseTracking && financialSettings.includeMissionDeductibleExpenses ? (
+        <MissionGeneratedExpensesSummaryCard
+          rows={missionExpenseRows}
+          onViewDetail={() => setMissionExpensesDrawerOpen(true)}
+        />
+      ) : null}
+
+      {financialSettings.enableExpenseTracking ? (
+        <ReceivablesSummaryCard
+          receivableCents={selectedMonthly?.receivableCents ?? 0}
+          onViewDetail={() => setReceivablesDrawerOpen(true)}
+        />
+      ) : null}
+
+      {/* Drawers */}
+      <TaxPaymentFormDrawer
+        open={taxPaymentDrawerOpen}
+        onClose={() => setTaxPaymentDrawerOpen(false)}
+        onAdded={() => {}}
+        periodLabel={periodLabel}
+      />
+
+        <DeductibleExpenseFormDrawer
+          open={deductibleExpenseDrawerOpen}
+          onClose={() => setDeductibleExpenseDrawerOpen(false)}
+          onSubmit={() => {}}
+        />
+
+      <MissionGeneratedExpensesDrawer
+        open={missionExpensesDrawerOpen}
+        onClose={() => setMissionExpensesDrawerOpen(false)}
+        rows={missionExpenseRows}
+      />
+
+      <ReceivablesDrawer
+        open={receivablesDrawerOpen}
+        onClose={() => setReceivablesDrawerOpen(false)}
+        invoices={state.invoices.filter(invoice => invoice.status === 'SENT')}
+      />
+
+      <TpsTvqDrawer
+        open={tpsTvqDrawerOpen}
+        onClose={() => setTpsTvqDrawerOpen(false)}
+        isSmallSupplier={state.fiscalSettings.defaultTaxStatus === 'SMALL_SUPPLIER'}
+         gstQstCollectedCents={selectedMonthly?.gstQstCollectedCents ?? 0}
+         gstQstRemittedCents={selectedMonthly?.gstQstRemittedCents ?? 0}
+      />
+    </Stack>
+  );
+}
+
+function enabledViews(settings: {
+  showMonthlyView: boolean;
+  showQuarterlyView: boolean;
+  showAnnualView: boolean;
+}): ViewMode[] {
+  const views: ViewMode[] = [];
+  if (settings.showMonthlyView) views.push('monthly');
+  if (settings.showQuarterlyView) views.push('quarterly');
+  if (settings.showAnnualView) views.push('annual');
+  return views.length ? views : ['annual'];
+}
+
+export function FinancialViewTabs({ value, onChange, availableViews }:
+  { value: ViewMode; onChange: (value: ViewMode) => void; availableViews: ViewMode[] }) {
+  return (
+    <Box sx={{ display: 'flex', gap: 1 }}>
+      {availableViews.includes('monthly') ? (
+        <Button
+          variant={value === 'monthly' ? 'contained' : 'outlined'}
+          onClick={() => onChange('monthly')}
+        >
+          Mensuel
+        </Button>
+      ) : null}
+      {availableViews.includes('quarterly') ? (
+        <Button
+          variant={value === 'quarterly' ? 'contained' : 'outlined'}
+          onClick={() => onChange('quarterly')}
+        >
+          Trimestriel
+        </Button>
+      ) : null}
+      {availableViews.includes('annual') ? (
+        <Button
+          variant={value === 'annual' ? 'contained' : 'outlined'}
+          onClick={() => onChange('annual')}
+        >
+          Annuel
+        </Button>
+      ) : null}
+    </Box>
+  );
+}
+
+export function MonthlyFinancialView({
+  annual,
+  selectedMonth,
+  snapshot,
+  onMonthChange,
+  onExport,
+  onAddTaxPayment,
+  onAddDeductibleExpense,
+  onViewMissionExpenses,
+  onViewReceivables,
+  onViewTpsTvq,
+}: {
+  annual: AnnualFinancialSnapshot;
+  selectedMonth: string;
+  snapshot: MonthlyFinancialSnapshot;
+  onMonthChange: (month: string) => void;
+  onExport: () => void;
+  onAddTaxPayment: () => void;
+  onAddDeductibleExpense: () => void;
+  onViewMissionExpenses: () => void;
+  onViewReceivables: () => void;
+  onViewTpsTvq: () => void;
+}) {
+  const periodLabel = new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' }).format(new Date(`${selectedMonth}-01T00:00:00`));
+
+  return (
+    <Stack spacing={3}>
+      <FinancialPeriodCard
+        periodType="monthly"
+        periodLabel={periodLabel}
+        amountToCollect={snapshot.receivableCents}
+        expenses={snapshot.deductibleExpensesCents}
+        instalmentsPaid={snapshot.incomeTaxInstalmentsPaidCents}
+        onPeriodChange={onMonthChange}
+        availablePeriods={annual.months?.map((month: MonthlyFinancialSnapshot) => month.month) || []}
+        onExport={onExport}
+      />
+
+      <FinancialInfoBanner
+        type={snapshot.receivableCents > 0 && snapshot.collectedCents === 0 ? 'info' : 'info'}
+        messages={[
+          snapshot.receivableCents > 0 && snapshot.collectedCents === 0
+            ? `Une facture de ${formatMoney(snapshot.receivableCents)} est à encaisser. Elle sera intégrée à l’encaissé après paiement.`
+            : 'Aucune alerte prioritaire pour cette période.',
+        ]}
+      />
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 2 }}>
+        <FinancialMetricCard
+          iconTone="green"
+          icon={<AttachMoneyRoundedIcon fontSize="small" />}
+          label="Encaissé"
+          valueCents={snapshot.collectedCents}
+          helperText="Factures payées sur la période"
+        />
+        <FinancialMetricCard
+          iconTone="blue"
+          icon={<SavingsRoundedIcon fontSize="small" />}
+          label="Bénéfice net estimé"
+          valueCents={snapshot.estimatedNetProfitCents}
+          helperText="Encaissé moins dépenses déductibles"
+        />
+        <FinancialMetricCard
+          iconTone="amber"
+          icon={<AccountBalanceWalletRoundedIcon fontSize="small" />}
+          label="Réserve recommandée"
+          valueCents={snapshot.targetReserveCents}
+          helperText={`${Math.round(snapshot.reserveRate * 100)} % du bénéfice estimé`}
+        />
+        <FinancialMetricCard
+          iconTone="purple"
+          icon={<WarningRoundedIcon fontSize="small" />}
+          label="Reste à prévoir"
+          valueCents={snapshot.remainingProvisionCents}
+          helperText="Réserve moins acomptes"
+        />
+      </Box>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 2 }}>
+        <FinancialActionCard
+          iconTone="blue"
+          icon={<AddRoundedIcon fontSize="small" />}
+          title="Acomptes provisionnels"
+          description={`Ajouter un acompte pour cette période.`}
+          onClick={onAddTaxPayment}
+        />
+        <FinancialActionCard
+          iconTone="amber"
+          icon={<AddRoundedIcon fontSize="small" />}
+          title="Dépenses déductibles"
+          description={`Ajouter une dépense manuelle.`}
+          onClick={onAddDeductibleExpense}
+        />
+        <FinancialActionCard
+          iconTone="green"
+          icon={<PictureAsPdfRoundedIcon fontSize="small" />}
+          title="Factures à encaisser"
+          description={`Voir les factures en attente de paiement.`}
+          onClick={onViewReceivables}
+        />
+        <FinancialActionCard
+          iconTone="gray"
+          icon={<ReceiptRoundedIcon fontSize="small" />}
+          title="TPS/TVQ"
+          description={`Voir le détail des montants TPS/TVQ.`}
+          onClick={onViewTpsTvq}
+        />
+      </Box>
+    </Stack>
+  );
+}
+
+export function QuarterlyFinancialView({
+  annual,
+  onExport,
+}: {
+  annual: AnnualFinancialSnapshot;
+  onExport: (quarter: QuarterlyFinancialSnapshot) => void;
+}) {
+  return (
+    <Stack spacing={3}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
+        {annual.quarters.map((quarter) => (
+          <Card key={quarter.label}>
+            <CardContent sx={{ p: 3 }}>
+              <Stack spacing={2}>
+                <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
+                  <Typography variant="h5">{quarter.label}</Typography>
+                  <Button size="small" onClick={() => onExport(quarter)}>
+                    Exporter
+                  </Button>
+                </Stack>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+                  <FinancialMetricCard
+                    iconTone="green"
+                    icon={<AttachMoneyRoundedIcon fontSize="small" />}
+                    label="Encaissé"
+                    valueCents={quarter.collectedCents}
+                    helperText=""
+                    compact
+                  />
+                  <FinancialMetricCard
+                    iconTone="blue"
+                    icon={<SavingsRoundedIcon fontSize="small" />}
+                    label="Bénéfice net"
+                    valueCents={quarter.estimatedNetProfitCents}
+                    helperText=""
+                    compact
+                  />
+                  <FinancialMetricCard
+                    iconTone="amber"
+                    icon={<AccountBalanceWalletRoundedIcon fontSize="small" />}
+                    label="Réserve"
+                    valueCents={quarter.targetReserveCents}
+                    helperText=""
+                    compact
+                  />
+                  <FinancialMetricCard
+                    iconTone="purple"
+                    icon={<WarningRoundedIcon fontSize="small" />}
+                    label="Reste"
+                    valueCents={quarter.remainingProvisionCents}
+                    helperText=""
+                    compact
+                  />
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+    </Stack>
+  );
+}
+
+export function AnnualFinancialView({
+  annual,
+  onExport,
+}: {
+  annual: AnnualFinancialSnapshot;
+  onExport: () => void;
+}) {
+  const financialSettings = useFinancialSettings();
+
+  return (
+    <Stack spacing={3}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4">Année {annual.year}</Typography>
+        <Button startIcon={<PictureAsPdfRoundedIcon />} onClick={onExport}>
+          Exporter synthèse annuelle
+        </Button>
+      </Box>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 2 }}>
+        <FinancialMetricCard
+          iconTone="green"
+          icon={<AttachMoneyRoundedIcon fontSize="small" />}
+          label="Encaissé annuel"
+          valueCents={annual.collectedCents}
+          helperText="Factures payées"
+        />
+        <FinancialMetricCard
+          iconTone="blue"
+          icon={<SavingsRoundedIcon fontSize="small" />}
+          label="Bénéfice net"
+          valueCents={annual.estimatedNetProfitCents}
+          helperText="Après dépenses déductibles"
+        />
+        <FinancialMetricCard
+          iconTone="amber"
+          icon={<AccountBalanceWalletRoundedIcon fontSize="small" />}
+          label="Réserve"
+          valueCents={annual.targetReserveCents}
+          helperText="Cible annuelle"
+        />
+        <FinancialMetricCard
+          iconTone="purple"
+          icon={<WarningRoundedIcon fontSize="small" />}
+          label="Reste"
+          valueCents={annual.remainingProvisionCents}
+          helperText="Réserve moins acomptes"
+        />
+      </Box>
+    </Stack>
+  );
+}
+
+export function InstalmentSummaryCard({
+  annual,
+  onAddTaxPayment,
+}: {
+  annual: AnnualFinancialSnapshot;
+  onAddTaxPayment: () => void;
+}) {
+  const nextQuarter = annual.quarters.find((quarter) => quarter.nextInstalmentDate) ?? annual.quarters[0];
+
+  return (
+    <Card>
+      <CardContent sx={{ p: 3 }}>
+        <Stack spacing={2}>
+          <Typography variant="h5">Acomptes provisionnels</Typography>
+          <Typography>
+            Prochain acompte : {nextQuarter.nextInstalmentDate ?? 'À déterminer'}
+          </Typography>
+          <Typography>
+            Montant suggéré : {formatMoney(nextQuarter.suggestedInstalmentCents ?? 0)}
+          </Typography>
+          <Typography>
+            Déjà versé : {formatMoney(nextQuarter.incomeTaxInstalmentsPaidCents ?? 0)}
+          </Typography>
+          <Typography>
+            Écart estimé : {formatMoney(nextQuarter.instalmentGapCents ?? 0)}
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<AddRoundedIcon />}
+            onClick={onAddTaxPayment}
+          >
+            Ajouter un acompte
+          </Button>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function DeductibleExpensesSummaryCard({
+  annual,
+  onAddDeductibleExpense,
+}: {
+  annual: AnnualFinancialSnapshot;
+  onAddDeductibleExpense: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent sx={{ p: 3 }}>
+        <Stack spacing={2}>
+          <Typography variant="h5">Dépenses déductibles</Typography>
+          <Typography variant="h4">
+            <MoneyValue cents={annual.deductibleExpensesCents} />
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<AddRoundedIcon />}
+            onClick={onAddDeductibleExpense}
+          >
+            Ajouter une dépense
+          </Button>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function MissionGeneratedExpensesSummaryCard({
+  rows,
+  onViewDetail,
+}: {
+  rows: MissionDeductibleExpenseRow[];
+  onViewDetail: () => void;
+}) {
+  const totalDeductible = rows.reduce((sum, row) => sum + (row.deductibleAmountCents ?? 0), 0);
+
+  return (
+    <Card>
+      <CardContent sx={{ p: 3 }}>
+        <Stack spacing={2}>
+          <Typography variant="h5">Dépenses issues des missions</Typography>
+          <Typography variant="h4">
+            <MoneyValue cents={totalDeductible} />
+          </Typography>
+          <Typography color="text.secondary">
+            {rows.length} frais de mission déductibles.
+          </Typography>
+          <Button
+            variant="outlined"
+            onClick={onViewDetail}
+          >
+            Voir détail
+          </Button>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function ReceivablesSummaryCard({
+  receivableCents,
+  onViewDetail,
+}: {
+  receivableCents: number;
+  onViewDetail: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent sx={{ p: 3 }}>
+        <Stack spacing={2}>
+          <Typography variant="h5">Factures à encaisser</Typography>
+          <Typography variant="h4">
+            <MoneyValue cents={receivableCents} />
+          </Typography>
+          <Button
+            variant="outlined"
+            onClick={onViewDetail}
+          >
+            Voir les factures
+          </Button>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}

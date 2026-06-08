@@ -1,0 +1,50 @@
+{
+  "name": "mission-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "server": "node server/index.js",
+    "dev:server": "node server/index.js",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "qa:proxy": "vitest run server/proxy.test.js",
+    "test:e2e": "playwright test",
+    "screenshots": "node scripts/capture-ui.js",
+    "screenshots:auto": "./scripts/run-captures.sh",
+    "start": "vite"
+  },
+  "dependencies": {
+    "@emotion/react": "latest",
+    "@emotion/styled": "latest",
+    "@mui/icons-material": "latest",
+    "@mui/material": "latest",
+    "@vitejs/plugin-react": "latest",
+    "date-fns": "latest",
+    "express": "latest",
+    "playwright": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router-dom": "latest",
+    "uuid": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "@types/express": "^5.0.6",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/uuid": "latest",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.8.3",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

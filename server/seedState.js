@@ -1,0 +1,87 @@
+export function createServerSeedState() {
+  const now = new Date().toISOString();
+
+  return {
+    version: 1,
+    activePharmacienId: 'ph_seed_1',
+    pharmaciens: [
+      {
+        id: 'ph_seed_1',
+        nom: 'Alex Tremblay',
+        adresse: '100 rue Sainte-Catherine Ouest',
+        ville: 'Montréal',
+        codePostal: 'H2X 1Z6',
+        telephone: '514-555-0101',
+        email: 'alex@example.com',
+        hourlyRateCents: 8000,
+        distanceKmDomicile: 12,
+        taxStatus: 'SMALL_SUPPLIER',
+      },
+    ],
+    pharmacies: [
+      {
+        id: 'pha_seed_1',
+        nom: 'Pharmacie Centrale',
+        adresse: '200 boulevard René-Lévesque Ouest',
+        ville: 'Montréal',
+        codePostal: 'H2Z 1X4',
+        telephone: '514-555-0202',
+        email: 'centrale@example.com',
+        defaultBreakMinutes: 60,
+      },
+    ],
+    missions: [
+      {
+        id: 'mis_seed_1',
+        missionCode: 'MIS-2026-0001',
+        pharmacienId: 'ph_seed_1',
+        pharmacieId: 'pha_seed_1',
+        status: 'COMPLETED',
+        dateDebut: '2026-01-12',
+        dateFin: '2026-01-12',
+        days: [
+          {
+            id: 'day_seed_1',
+            dateService: '2026-01-12',
+            startTime: '09:00',
+            endTime: '17:00',
+            unpaidBreakMinutes: 60,
+            description: 'Service professionnel en pharmacie',
+            hours: 7,
+            expenses: [],
+          },
+        ],
+        hourlyRateCents: 8000,
+        mealFeeCents: 0,
+        mileageKm: 0,
+        mileageRateCents: 0,
+        totalHours: 7,
+        subtotalCents: 56000,
+        mealTotalCents: 0,
+        mileageTotalCents: 0,
+        totalCents: 56000,
+        invoiceId: 'inv_seed_1',
+        events: [],
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    invoices: [
+      {
+        id: 'inv_seed_1',
+        numero: 'FAC-2026-0001',
+        missionId: 'mis_seed_1',
+        pharmacienId: 'ph_seed_1',
+        pharmacieId: 'pha_seed_1',
+        dateFacture: '2026-01-12',
+        dateEcheance: '2026-02-11',
+        status: 'GENERATED',
+        hours: 7,
+        amountCents: 56000,
+        createdAt: now,
+      },
+    ],
+    taxPayments: [],
+    ui: { missionFilters: {}, lastVisitedAt: now },
+  };
+}

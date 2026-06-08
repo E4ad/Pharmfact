@@ -1,0 +1,486 @@
+.mission-form-page {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.mission-form-heading {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 34px;
+}
+
+.mission-form-heading h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  letter-spacing: -0.055em;
+  font-weight: 520;
+}
+
+.mission-form-heading p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.mission-heading-summary {
+  width: fit-content;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 9px 14px;
+  color: #374151;
+  font-weight: 700;
+}
+
+.mission-form-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.mission-form-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  padding: 28px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.mission-form-card h2 {
+  margin: 0 0 18px 0;
+  font-size: 1.15rem;
+}
+
+.mission-pharmacien-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 12px 16px;
+  color: #6b7280;
+}
+
+.mission-pharmacien-strip strong {
+  color: #111827;
+}
+
+.mission-form-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.mission-form-field {
+  display: grid;
+  gap: 7px;
+}
+
+.mission-form-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+.mission-form-field.is-half {
+  grid-column: span 2;
+}
+
+.mission-form-field label,
+.mission-form-field span,
+.mission-day-summary span:first-child,
+.mission-preview-line span:first-child {
+  color: #6b7280;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.mission-form-field input,
+.mission-form-field select,
+.mission-form-field textarea {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px 13px;
+  font: inherit;
+  background: #fff;
+  color: #111827;
+}
+
+.mission-form-field textarea {
+  resize: vertical;
+}
+
+.mission-active-pharmacien {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.mission-active-pharmacien strong {
+  display: block;
+}
+
+.mission-link-button,
+.mission-small-button {
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mission-small-button {
+  border: 1px solid #e5e7eb;
+  color: #111827;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+
+.mission-distance-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.mission-distance-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.mission-distance-display input {
+  width: 90px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+
+.mission-checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #374151;
+  font-weight: 700;
+  min-height: 48px;
+}
+
+.mission-checkbox-field input {
+  width: 18px;
+  height: 18px;
+}
+
+.mission-schedule-summary {
+  margin: -4px 0 18px 0;
+  color: #374151;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-weight: 750;
+}
+
+.mission-warning {
+  border: 1px solid #f4d38a;
+  background: #fff8e6;
+  color: #854d0e;
+  border-radius: 16px;
+  padding: 14px 16px;
+  line-height: 1.45;
+}
+
+.mission-day-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mission-day-accordion {
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.mission-day-button {
+  width: 100%;
+  border: 0;
+  background: #fff;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mission-day-button strong {
+  display: block;
+}
+
+.mission-day-button small {
+  display: block;
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.mission-day-summary {
+  display: grid;
+  gap: 4px;
+}
+
+.mission-day-panel {
+  border-top: 1px solid #e5e7eb;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.mission-expense-list {
+  display: grid;
+  gap: 8px;
+}
+
+.mission-expenses-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.mission-expenses-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mission-empty-expenses {
+  margin: 0;
+  color: #6b7280;
+}
+
+.mission-expense-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.mission-expense-main,
+.mission-expense-amount {
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mission-expense-amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.mission-expense-main:focus-visible,
+.mission-expense-amount:focus-visible,
+.mission-link-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.mission-expense-edit-row,
+.mission-expense-edit-card {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.mission-expense-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mission-expense-edit-row input,
+.mission-expense-edit-card input,
+.mission-expense-edit-card textarea {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 9px 10px;
+  font: inherit;
+  background: #ffffff;
+}
+
+.mission-expense-edit-row input {
+  width: 110px;
+}
+
+.mission-expense-edit-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mission-expense-edit-card label {
+  display: grid;
+  gap: 6px;
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.mission-expense-edit-card textarea,
+.mission-expense-edit-actions {
+  grid-column: 1 / -1;
+}
+
+.mission-expense-edit-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mission-expense-edit-row button,
+.mission-expense-edit-actions button {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mission-expense-edit-row button.is-danger,
+.mission-expense-edit-actions button.is-danger {
+  color: #b91c1c;
+}
+
+.mission-expense-actions,
+.mission-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mission-expense-type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mission-expense-icon {
+  display: inline-grid;
+  min-width: 22px;
+  color: #374151;
+}
+
+.mission-receipt-uploader {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.mission-receipt-preview,
+.mission-receipt-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mission-receipt-error {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.mission-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mission-preview-line {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  gap: 5px;
+}
+
+.mission-preview-line strong {
+  font-size: 1.2rem;
+}
+
+.mission-summary-card h2 {
+  margin-bottom: 10px;
+}
+
+.mission-summary-main {
+  display: grid;
+  gap: 8px;
+}
+
+.mission-summary-main > strong {
+  font-size: clamp(2rem, 4vw, 3rem);
+  letter-spacing: -0.05em;
+}
+
+.mission-summary-main > span {
+  color: #6b7280;
+}
+
+.mission-summary-main .mission-link-button {
+  justify-self: start;
+  padding: 0;
+}
+
+.mission-notes-card h2 {
+  margin-bottom: 12px;
+}
+
+.mission-form-actions {
+  justify-content: flex-end;
+}
+
+.mission-form-actions button {
+  border: 1px solid #111827;
+  background: #111827;
+  color: #fff;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mission-form-actions button.is-secondary {
+  background: #fff;
+  color: #111827;
+  border-color: #e5e7eb;
+}
+
+@media (max-width: 820px) {
+  .mission-form-fields,
+  .mission-preview-grid,
+  .mission-day-button {
+    grid-template-columns: 1fr;
+  }
+
+  .mission-form-field.is-half {
+    grid-column: 1 / -1;
+  }
+}
