@@ -55,9 +55,14 @@ export function OptionsPage() {
     const uiSettings = selectUiOptions(state);
     const localDataSettings = selectLocalDataOptions(state);
 
+    // Synchronisation initiale des states avec le store
+    // eslint-disable-next-line react/no-sync-state-update
     setForm(appOptions);
+    // eslint-disable-next-line react/no-sync-state-update
     setTaxStatus(fiscalSettings.defaultTaxStatus);
+    // eslint-disable-next-line react/no-sync-state-update
     setUiSettingsForm(uiSettings);
+    // eslint-disable-next-line react/no-sync-state-update
     setLocalDataSettingsForm(localDataSettings);
   }, [state]);
 
@@ -157,7 +162,7 @@ export function OptionsPage() {
               type="time"
               value={form.missionDefaults.defaultStartTime ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultStartTime: event.target.value } }))}
-              slotProps={{ input: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <TextField
@@ -165,7 +170,7 @@ export function OptionsPage() {
               type="time"
               value={form.missionDefaults.defaultEndTime ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultEndTime: event.target.value } }))}
-              slotProps={{ input: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <TextField
@@ -173,7 +178,7 @@ export function OptionsPage() {
               type="number"
               value={form.missionDefaults.defaultBreakMinutes ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultBreakMinutes: Number(event.target.value) } }))}
-              slotProps={{ input: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <TextField
@@ -181,7 +186,7 @@ export function OptionsPage() {
               type="number"
               value={form.invoiceDefaults.invoiceDueDays ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, invoiceDueDays: Number(event.target.value) } }))}
-              slotProps={{ input: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <FormControlLabel
@@ -202,7 +207,7 @@ export function OptionsPage() {
               type="number"
               value={form.missionDefaults.mealThresholdHours ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealThresholdHours: Number(event.target.value) } }))}
-              slotProps={{ input: { min: 0, step: 0.5 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, step: 0.5 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <TextField
@@ -210,7 +215,7 @@ export function OptionsPage() {
               type="number"
               value={form.missionDefaults.mealDefaultCents ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealDefaultCents: Number(event.target.value) } }))}
-              slotProps={{ input: { min: 0, step: 100 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, step: 100 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <TextField
@@ -218,7 +223,7 @@ export function OptionsPage() {
               type="number"
               value={form.missionDefaults.mileageRateCents ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mileageRateCents: Number(event.target.value) } }))}
-              slotProps={{ input: { min: 0, step: 100 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, step: 100 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
           </Stack>
@@ -314,7 +319,7 @@ export function OptionsPage() {
               type="number"
               value={fiscalSettings.reserveRate * 100}
               onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, reserveRate: Number(event.target.value) / 100 } }))}
-              slotProps={{ input: { min: 0, max: 100, step: 1 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, max: 100, step: 1 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <TextField
@@ -322,7 +327,7 @@ export function OptionsPage() {
               type="number"
               value={fiscalSettings.smallSupplierThresholdCents / 100}
               onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, smallSupplierThresholdCents: Number(event.target.value) * 100 } }))}
-              slotProps={{ input: { min: 0, step: 1000 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, step: 1000 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <TextField
@@ -330,7 +335,7 @@ export function OptionsPage() {
               type="number"
               value={fiscalSettings.smallSupplierWarningRate * 100}
               onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, smallSupplierWarningRate: Number(event.target.value) / 100 } }))}
-              slotProps={{ input: { min: 0, max: 100, step: 1 }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { min: 0, max: 100, step: 1 }, inputLabel: { shrink: true } }}
               variant="outlined"
             />
             <FormControlLabel
@@ -378,11 +383,11 @@ export function OptionsPage() {
 
       <Card>
         <CardContent>
-          <Stack direction="row" component="div" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
             <SettingsRoundedIcon />
-<Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-               Financier & fiscalité
-             </Typography>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+              Données locales
+            </Typography>
           </Stack>
           <Stack spacing={2}>
             <FormControlLabel
