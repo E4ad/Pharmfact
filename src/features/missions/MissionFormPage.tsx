@@ -1,37 +1,27 @@
 import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageBackButton } from '../../components/PageBackButton';
-import { createId, addDaysIso, todayIso } from '../../services/ids';
+import { createId } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels } from '../../services/invoiceWorkflow';
 import { formatMoney } from '../../services/money';
 import { 
   calculateDayHours,
-  moneyToCents,
-  centsToMoney,
-  parseMoney,
   dayName,
-  daysBetween,
+  centsToMoney,
+  moneyToCents,
+  parseMoney,
   addressOf,
-  estimateDistanceKm,
-  createExpense,
-  createDay,
-  missionToForm,
-  buildMissionFromForm,
-  recalcDay as recalcDayFn,
-  regenerateDays as regenerateDaysFn,
-  type MissionDayFormValue,
   type MissionFormValues,
+  type MissionDayFormValue,
   type ExpenseType,
 } from '../../services/missionCalculator';
-import { buildMissionDefaults } from '../../hooks/useMissionDefaults';
-import { resolveMissionDefaults } from '../../storage/selectors';
+import { useMissionForm } from '../../hooks/useMissionForm';
 import { useMissionFinancialPreview } from '../../hooks/useMissionFinancialPreview';
-import { createLocalReceipt, validateReceiptFile } from '../../services/expenseReceipts';
-import { createMissionExpenseDraft, expenseTypeConfig, missionQuickExpenseTypes, normalizeMissionExpense } from '../../services/expenseTypes';
+import { expenseTypeConfig, missionQuickExpenseTypes } from '../../services/expenseTypes';
 import { getAvailableEditActions, getInvoiceEditImpact, type MissionEditAction } from '../../services/missionEditRules';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { ExpenseReceipt, Invoice, Mission, MissionDay, MissionExpense, MissionStatus } from '../../storage/schema';
-import { activePharmacien, findInvoice, findMission, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
+import { findInvoice, findMission, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
 import './MissionFormPage.css';
 
 type MissionExpenseFormValue = MissionExpense;
@@ -41,70 +31,43 @@ const missionTypes = [{ value: 'REMPLACEMENT_OFFICINE', label: 'Remplacement off
 
 export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { missionId } = useParams();
-  const state = useAppState();
   const navigate = useNavigate();
-  const existing = mode === 'edit' ? findMission(state, missionId) : undefined;
+  const state = useAppState();
+  
+  // Utilisation du hook useMissionForm pour toute la logique de formulaire
+  const {
+    values,
+    setValues,
+    pendingReceipts,
+    setPendingReceipts,
+    existing,
+    pharmacien,
+    pharmacie,
+    setField,
+    regenerateDays,
+    recalcDay,
+    updateDay,
+    addExpense,
+    addTypedExpense,
+    removeExpense,
+    updateExpense,
+    addReceipt,
+    deleteReceipt,
+    recalcDistance,
+    changePharmacien,
+    changePharmacie,
+    buildMissionFromForm,
+  } = useMissionForm(mode, missionId);
+
   const invoice = existing ? findInvoice(state, existing.invoiceId) ?? missionInvoice(state, existing) : undefined;
-  const defaults = buildMissionDefaults(state, state.activePharmacienId ?? undefined);
-  const currentPharmacien = activePharmacien(state) ?? defaults.pharmacien ?? state.pharmaciens[0];
-  const defaultPharmacie = defaults.defaultPharmacie?.id ?? currentPharmacien?.favoritePharmacieId ?? state.pharmacies[0]?.id ?? '';
-  const [values, setValues] = useState<MissionFormValues>(() => existing ? missionToForm(existing) : {
-    pharmacienId: currentPharmacien?.id ?? '', pharmacieId: defaultPharmacie, actType: defaults.defaultMissionType, dateDebut: todayIso(), dateFin: todayIso(), isMultiDay: false,
-    defaultStartTime: defaults.scheduleDefaults.startTime, defaultEndTime: defaults.scheduleDefaults.endTime, defaultUnpaidBreakMinutes: defaults.scheduleDefaults.breakMinutes,
-    tauxHoraire: centsToMoney(currentPharmacien?.hourlyRateCents ?? 8500), distanceReferenceKm: defaults.mileageDefaults.distanceKm, kmUnitRate: centsToMoney(defaults.mileageDefaults.rateCents), days: [], notes: '',
-  });
-  const missionDefaults = resolveMissionDefaults(state, state.activePharmacienId ?? undefined, values.pharmacieId);
-  const [pendingReceipts, setPendingReceipts] = useState<ExpenseReceipt[]>([]);
   const [openDayId, setOpenDayId] = useState<string | null>(null);
   const [showNotes, setShowNotes] = useState(false);
-  const pharmacien = findPharmacien(state, values.pharmacienId);
-  const pharmacie = findPharmacie(state, values.pharmacieId);
   const preview = useMissionFinancialPreview(values);
 
+  // Effet pour régénérer les jours au montage
   useEffect(() => {
     setValues((current) => regenerateDays(current));
-  }, []);
-
-  useEffect(() => {
-    const km = estimateDistanceKm(pharmacien, pharmacie);
-    if (km > 0 && values.distanceReferenceKm === 0) {
-      setField('distanceReferenceKm', km);
-    }
-  }, [values.pharmacienId, values.pharmacieId]);
-
-  function setField<K extends keyof MissionFormValues>(field: K, value: MissionFormValues[K]) { setValues((current) => ({ ...current, [field]: value })); }
-  function regenerateDays(source = values) {
-    return regenerateDaysFn(source, { mealDefaults: defaults.mealDefaults });
-  }
-  function recalcDay(day: MissionDayFormValue) { return recalcDayFn(day); }
-  function updateDay(dayId: string, patch: Partial<MissionDayFormValue>) { setValues((current) => ({ ...current, days: current.days.map((day) => day.id === dayId ? recalcDay({ ...day, ...patch }) : day) })); }
-  function addExpense(dayId: string, type: ExpenseType) {
-    setValues((current) => {
-      const distanceKm = current.distanceReferenceKm || estimateDistanceKm(findPharmacien(state, current.pharmacienId), findPharmacie(state, current.pharmacieId));
-      return {
-        ...current,
-        distanceReferenceKm: type === 'KM' && distanceKm > 0 ? distanceKm : current.distanceReferenceKm,
-        days: current.days.map((day) => day.id === dayId ? { ...day, expenses: [...day.expenses, type === 'KM' ? createExpense('KM', { distanceKm, unitRateCents: moneyToCents(current.kmUnitRate), unitRate: current.kmUnitRate, quantity: distanceKm, amountCents: Math.round(distanceKm * moneyToCents(current.kmUnitRate)), amount: Math.round(distanceKm * current.kmUnitRate * 100) / 100 }) : createExpense(type, { amountCents: type === 'REPAS' ? defaults.mealDefaults.amountCents : 0, amount: type === 'REPAS' ? centsToMoney(defaults.mealDefaults.amountCents) : 0 })] } : day),
-      };
-    });
-  }
-  function addTypedExpense(dayId: string, typeKey: string) { setValues((current) => ({ ...current, days: current.days.map((day) => day.id === dayId ? { ...day, expenses: [...day.expenses, createMissionExpenseDraft({ id: createId('fee'), typeKey, missionDayId: dayId })] } : day) })); }
-  function removeExpense(dayId: string, feeId: string) { setValues((current) => ({ ...current, days: current.days.map((day) => day.id === dayId ? { ...day, expenses: day.expenses.filter((fee) => fee.id !== feeId) } : day) })); }
-  function updateExpense(dayId: string, expense: MissionExpenseFormValue) { setValues((current) => ({ ...current, days: current.days.map((day) => day.id === dayId ? { ...day, expenses: day.expenses.map((fee) => fee.id === expense.id ? expense : fee) } : day) })); }
-  function addReceipt(dayId: string, expenseId: string, file: File): string | null { const error = validateReceiptFile(file); if (error) return error; const receipt = createLocalReceipt({ file, expenseId, missionId: existing?.id ?? 'draft', missionDayId: dayId }); setPendingReceipts((current) => [...current, receipt]); setValues((current) => ({ ...current, days: current.days.map((day) => day.id === dayId ? { ...day, expenses: day.expenses.map((fee) => fee.id === expenseId ? { ...fee, receiptIds: [...(fee.receiptIds ?? []), receipt.id] } : fee) } : day) })); return null; }
-  function deleteReceipt(receiptId: string) { setPendingReceipts((current) => current.filter((receipt) => receipt.id !== receiptId)); setValues((current) => ({ ...current, days: current.days.map((day) => ({ ...day, expenses: day.expenses.map((fee) => ({ ...fee, receiptIds: fee.receiptIds?.filter((id) => id !== receiptId) })) })) })); }
-  function recalcDistance() {
-    const km = estimateDistanceKm(pharmacien, pharmacie);
-    setField('distanceReferenceKm', km);
-  }
-  function changePharmacien(id: string) {
-    const next = findPharmacien(state, id);
-    setValues((current) => ({ ...current, pharmacienId: id, tauxHoraire: centsToMoney(next?.hourlyRateCents ?? moneyToCents(current.tauxHoraire)), pharmacieId: next?.favoritePharmacieId ?? current.pharmacieId }));
-  }
-  function changePharmacie(id: string) {
-    const next = findPharmacie(state, id);
-    setValues((current) => regenerateDays({ ...current, pharmacieId: id, defaultUnpaidBreakMinutes: next?.defaultBreakMinutes ?? current.defaultUnpaidBreakMinutes }));
-  }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   function submit(action: WorkflowAction) {
     const mission = buildMissionFromForm(values, existing);
     const status: MissionStatus = action === 'save_draft' ? 'DRAFT' : action === 'confirm' || action === 'confirm_generate' ? 'CONFIRMED' : mission.status;
