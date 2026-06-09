@@ -4,8 +4,25 @@ import { PageBackButton } from '../../components/PageBackButton';
 import { createId, addDaysIso, todayIso } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels } from '../../services/invoiceWorkflow';
 import { formatMoney } from '../../services/money';
-import { calculateDayHours } from '../../services/missionCalculator';
-import { calculateLocalDistance } from '../../hooks/useDistanceCalculator';
+import { 
+  calculateDayHours,
+  moneyToCents,
+  centsToMoney,
+  parseMoney,
+  dayName,
+  daysBetween,
+  addressOf,
+  estimateDistanceKm,
+  createExpense,
+  createDay,
+  missionToForm,
+  buildMissionFromForm,
+  recalcDay as recalcDayFn,
+  regenerateDays as regenerateDaysFn,
+  type MissionDayFormValue,
+  type MissionFormValues,
+  type ExpenseType,
+} from '../../services/missionCalculator';
 import { buildMissionDefaults } from '../../hooks/useMissionDefaults';
 import { resolveMissionDefaults } from '../../storage/selectors';
 import { useMissionFinancialPreview } from '../../hooks/useMissionFinancialPreview';
@@ -17,113 +34,10 @@ import type { ExpenseReceipt, Invoice, Mission, MissionDay, MissionExpense, Miss
 import { activePharmacien, findInvoice, findMission, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
 import './MissionFormPage.css';
 
-type ExpenseType = 'REPAS' | 'KM' | 'AUTRE';
 type MissionExpenseFormValue = MissionExpense;
-type MissionDayFormValue = { id: string; dateService: string; startTime: string; endTime: string; unpaidBreakMinutes: number; paidHours: number; expenses: MissionExpenseFormValue[]; notes?: string };
 type WorkflowAction = 'save_draft' | 'confirm' | 'confirm_generate' | MissionEditAction;
-type MissionFormValues = {
-  pharmacienId: string;
-  pharmacieId: string;
-  actType: string;
-  dateDebut: string;
-  dateFin: string;
-  isMultiDay: boolean;
-  defaultStartTime: string;
-  defaultEndTime: string;
-  defaultUnpaidBreakMinutes: number;
-  tauxHoraire: number;
-  distanceReferenceKm: number;
-  kmUnitRate: number;
-  days: MissionDayFormValue[];
-  notes: string;
-};
 
-const fallbackMealRule = { mealAutoEnabled: true, mealThresholdHours: 8, mealDefaultAmount: 20 };
 const missionTypes = [{ value: 'REMPLACEMENT_OFFICINE', label: 'Remplacement officine' }, { value: 'GARDE', label: 'Garde' }, { value: 'CLINIQUE', label: 'Clinique' }];
-
-function moneyToCents(value: number) { return Math.round((Number(value) || 0) * 100); }
-function centsToMoney(cents: number) { return Math.round(cents) / 100; }
-function parseMoney(value: string) { return Number(value.replace(',', '.')) || 0; }
-function dayName(dateIso: string) { return new Intl.DateTimeFormat('fr-CA', { weekday: 'long', day: '2-digit', month: 'short' }).format(new Date(`${dateIso}T00:00:00`)); }
-function daysBetween(startIso: string, endIso: string): string[] {
-  const days: string[] = [];
-  let current = startIso;
-  while (current <= endIso && days.length < 60) { days.push(current); current = addDaysIso(current, 1); }
-  return days;
-}
-function addressOf(entity?: { adresse?: string; ville?: string; codePostal?: string }) { return [entity?.adresse, entity?.ville, entity?.codePostal].filter(Boolean).join(', '); }
-function estimateDistanceKm(home?: { adresse?: string; ville?: string; codePostal?: string; lat?: number; lng?: number }, work?: { adresse?: string; ville?: string; codePostal?: string; lat?: number; lng?: number }) {
-  return calculateLocalDistance({
-    homeAddress: addressOf(home),
-    workAddress: addressOf(work),
-    homeLat: home?.lat,
-    homeLng: home?.lng,
-    workLat: work?.lat,
-    workLng: work?.lng,
-  }).distanceKm;
-}
-
-function createExpense(type: ExpenseType, overrides: Partial<MissionExpenseFormValue> = {}): MissionExpenseFormValue {
-  const typeKey = type === 'REPAS' ? 'MEAL' : type === 'KM' ? 'MILEAGE' : 'OTHER_NON_DEDUCTIBLE';
-  return createMissionExpenseDraft({ id: createId('fee'), typeKey, amountCents: 0, overrides });
-}
-function createDay(dateService: string, values: Pick<MissionFormValues, 'defaultStartTime' | 'defaultEndTime' | 'defaultUnpaidBreakMinutes'>, expenses: MissionExpenseFormValue[] = [], mealRule = fallbackMealRule): MissionDayFormValue {
-  const paidHours = calculateDayHours(values.defaultStartTime, values.defaultEndTime, values.defaultUnpaidBreakMinutes);
-  const autoMeal = mealRule.mealAutoEnabled && paidHours > mealRule.mealThresholdHours ? [createExpense('REPAS', { amount: mealRule.mealDefaultAmount })] : [];
-  return { id: createId('day'), dateService, startTime: values.defaultStartTime, endTime: values.defaultEndTime, unpaidBreakMinutes: values.defaultUnpaidBreakMinutes, paidHours, expenses: expenses.length ? expenses : autoMeal };
-}
-
-function missionToForm(mission: Mission): MissionFormValues {
-  return {
-    pharmacienId: mission.pharmacienId,
-    pharmacieId: mission.pharmacieId,
-    actType: 'REMPLACEMENT_OFFICINE',
-    dateDebut: mission.dateDebut,
-    dateFin: mission.dateFin,
-    isMultiDay: mission.dateDebut !== mission.dateFin,
-    defaultStartTime: mission.days[0]?.startTime ?? '08:00',
-    defaultEndTime: mission.days[0]?.endTime ?? '17:00',
-    defaultUnpaidBreakMinutes: mission.days[0]?.unpaidBreakMinutes ?? 60,
-    tauxHoraire: centsToMoney(mission.hourlyRateCents),
-    distanceReferenceKm: mission.mileageKm,
-    kmUnitRate: centsToMoney(mission.mileageRateCents || 61),
-    days: mission.days.map((day) => ({ ...day, paidHours: day.hours, expenses: (day.expenses ?? []).map((expense) => normalizeMissionExpense(expense, mission.id, day.id)) })),
-    notes: mission.notes ?? '',
-  };
-}
-
-function buildMissionFromForm(values: MissionFormValues, existing?: Mission): Mission {
-  const now = new Date().toISOString();
-  const missionId = existing?.id ?? createId('mis');
-  const days: MissionDay[] = values.days.map((day) => ({ id: day.id, dateService: day.dateService, startTime: day.startTime, endTime: day.endTime, unpaidBreakMinutes: day.unpaidBreakMinutes, description: 'Remplacement en officine', hours: day.paidHours, expenses: day.expenses.map((expense) => normalizeMissionExpense(expense, missionId, day.id)) }));
-  const totalHours = Math.round(values.days.reduce((sum, day) => sum + day.paidHours, 0) * 100) / 100;
-  const subtotalCents = Math.round(totalHours * moneyToCents(values.tauxHoraire));
-  const expenseTotalCents = values.days.reduce((sum, day) => sum + day.expenses.reduce((feeSum, fee) => feeSum + fee.amountCents, 0), 0);
-  return {
-    id: missionId,
-    missionCode: existing?.missionCode ?? `MIS-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
-    pharmacienId: values.pharmacienId,
-    pharmacieId: values.pharmacieId,
-    status: existing?.status ?? 'DRAFT',
-    dateDebut: values.days[0]?.dateService ?? values.dateDebut,
-    dateFin: values.days[values.days.length - 1]?.dateService ?? values.dateFin,
-    days,
-    hourlyRateCents: moneyToCents(values.tauxHoraire),
-    mealFeeCents: 0,
-    mileageKm: values.distanceReferenceKm,
-    mileageRateCents: moneyToCents(values.kmUnitRate),
-    totalHours,
-    subtotalCents,
-    mealTotalCents: values.days.flatMap((day) => day.expenses).filter((fee) => fee.typeKey === 'MEAL').reduce((sum, fee) => sum + fee.amountCents, 0),
-    mileageTotalCents: values.days.flatMap((day) => day.expenses).filter((fee) => fee.typeKey === 'MILEAGE').reduce((sum, fee) => sum + fee.amountCents, 0),
-    totalCents: subtotalCents + expenseTotalCents,
-    notes: values.notes,
-    invoiceId: existing?.invoiceId,
-    events: [...(existing?.events ?? []), { id: createId('evt'), eventType: existing ? 'UPDATED' : 'CREATED', label: existing ? 'Mission modifiée depuis le formulaire' : 'Mission créée', eventDate: now }],
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  };
-}
 
 export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { missionId } = useParams();
@@ -160,14 +74,9 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
   function setField<K extends keyof MissionFormValues>(field: K, value: MissionFormValues[K]) { setValues((current) => ({ ...current, [field]: value })); }
   function regenerateDays(source = values) {
-    const end = source.isMultiDay ? source.dateFin : source.dateDebut;
-    const nextDays = daysBetween(source.dateDebut, end || source.dateDebut).map((date) => {
-      const existingDay = source.days.find((day) => day.dateService === date);
-      return existingDay ? recalcDay({ ...existingDay, startTime: source.defaultStartTime, endTime: source.defaultEndTime, unpaidBreakMinutes: source.defaultUnpaidBreakMinutes }) : createDay(date, source, [], { mealAutoEnabled: defaults.mealDefaults.enabled, mealThresholdHours: defaults.mealDefaults.thresholdHours, mealDefaultAmount: centsToMoney(defaults.mealDefaults.amountCents) });
-    });
-    return { ...source, dateFin: end || source.dateDebut, days: nextDays };
+    return regenerateDaysFn(source, { mealDefaults: defaults.mealDefaults });
   }
-  function recalcDay(day: MissionDayFormValue) { return { ...day, paidHours: calculateDayHours(day.startTime, day.endTime, day.unpaidBreakMinutes) }; }
+  function recalcDay(day: MissionDayFormValue) { return recalcDayFn(day); }
   function updateDay(dayId: string, patch: Partial<MissionDayFormValue>) { setValues((current) => ({ ...current, days: current.days.map((day) => day.id === dayId ? recalcDay({ ...day, ...patch }) : day) })); }
   function addExpense(dayId: string, type: ExpenseType) {
     setValues((current) => {
