@@ -1,8 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
   server: {
     proxy: {
       '/api': {
@@ -12,6 +18,9 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    sourcemap: 'hidden',
+  },
   test: {
     include: [
       'src/**/*.{test,spec}.{ts,tsx}',
@@ -19,6 +28,6 @@ export default defineConfig({
       'src/**/__tests__/**/*.{ts,tsx}',
       'server/__tests__/**/*.js',
     ],
-    exclude: ['node_modules/**', 'dist/**', 'tests/e2e/**', '.kilo/**'],
+    exclude: ['node_modules/**', 'dist/**', 'tests/e2e/**'],
   },
 });

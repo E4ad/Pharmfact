@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { activePharmacien, findPharmacien, findPharmacie, findMission, findInvoice, missionInvoice, selectAppOptions, selectMissionOptions, selectInvoiceOptions, selectPdfCalendarOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions, resolveMissionDefaults, resolveInvoiceDefaults, resolveTaxSettingsForInvoice } from './selectors';
 import type { AppState } from './schema';
+import type { TaxStatus } from './schema';
 
 const state: AppState = {
   version: 2,
@@ -10,24 +11,60 @@ const state: AppState = {
     { id: 'ph2', nom: 'B', adresse: '', ville: '', codePostal: '', telephone: '', email: '', hourlyRateCents: 0, distanceKmDomicile: 0, taxStatus: 'REGISTERED', gstNumber: '123', defaultBreakMinutes: 45 },
   ],
   pharmacies: [
-    { id: 'pha1', nom: 'P1', adresse: '', ville: '', codePostal: '', defaultBreakMinutes: 60 },
-    { id: 'pha2', nom: 'P2', adresse: '', ville: '', codePostal: '' },
+    { id: 'pha1', nom: 'P1', adresse: '', ville: '', codePostal: '', telephone: '', email: '', defaultBreakMinutes: 60 },
+    { id: 'pha2', nom: 'P2', adresse: '', ville: '', codePostal: '', telephone: '', email: '', defaultBreakMinutes: 60 },
   ],
   missions: [{ id: 'mis1', pharmacienId: 'ph1', pharmacieId: 'pha1', invoiceId: 'inv1', status: 'COMPLETED', dateDebut: '', dateFin: '', days: [], totalHours: 0, mealFeeCents: 0, mileageKm: 0, subtotalCents: 0, mealTotalCents: 0, mileageTotalCents: 0, totalCents: 0 } as any],
   invoices: [{ id: 'inv1', numero: 'F1', pharmacienId: 'ph1', pharmacieId: 'pha1', missionId: 'mis1', dateFacture: '2026-06-10', dateEcheance: '2026-07-10', status: 'SENT', amountCents: 10000, hours: 0, createdAt: '' }],
   taxPayments: [],
   deductibleExpenses: [],
   expenseReceipts: [],
-  fiscalSettings: { reserveRate: 30, defaultTaxStatus: 'SMALL_SUPPLIER', enableInstalmentTracking: true },
+  fiscalSettings: {
+    reserveRate: 0.3,
+    fiscalYearStartMonth: 1,
+    currentFiscalYear: 2026,
+    smallSupplierThresholdCents: 3000000,
+    smallSupplierWarningRate: 0.8,
+    instalmentDates: ['03-15', '06-15', '09-15', '12-15'],
+    quebecNetTaxOwingThresholdCents: 180000,
+    federalNetTaxOwingThresholdCents: 300000,
+    federalDefaultNetTaxOwingThresholdCents: 300000,
+    currentYear: 2026,
+    defaultTaxStatus: 'SMALL_SUPPLIER',
+    includeMissionDeductibleExpenses: true,
+    trackExpenseReceipts: true,
+    warnMissingExpenseReceipts: true,
+    showMonthlyView: true,
+    showQuarterlyView: true,
+    showAnnualView: true,
+    enableInstalmentTracking: true,
+    enableSmallSupplierTracking: true,
+    enableExpenseTracking: true,
+  },
   distanceReferences: [],
   appOptions: {
-    missionDefaults: { defaultBreakMinutes: 60 },
+    missionDefaults: {
+      defaultMissionType: 'REMPLACEMENT_OFFICINE',
+      defaultStartTime: '08:00',
+      defaultEndTime: '17:00',
+      defaultBreakMinutes: 60,
+      mealAutoEnabled: true,
+      mealThresholdHours: 8,
+      mealDefaultCents: 2000,
+      mileageRateCents: 61,
+    },
     invoiceDefaults: { invoiceDueDays: 30, paymentTerms: 'Net' },
-    pdfCalendar: { calendarIcsEnabled: true },
+    pdfCalendar: {
+      calendarIcsEnabled: true,
+      calendarReminderMinutes: null,
+      pdfFooterEnabled: true,
+      calendarEventTitle: 'Mission pharmacie',
+      calendarReminder: 'NONE',
+    },
   },
   uiSettings: { themeMode: 'light' },
   localDataSettings: { autoBackupEnabled: true },
-  ui: {},
+  ui: { missionFilters: {}, lastVisitedAt: undefined },
 };
 
 describe('selectors', () => {
@@ -64,7 +101,7 @@ describe('selectors', () => {
       expect(selectMissionOptions(state).defaultBreakMinutes).toBe(60);
       expect(selectInvoiceOptions(state).invoiceDueDays).toBe(30);
       expect(selectPdfCalendarOptions(state).calendarIcsEnabled).toBe(true);
-      expect(selectFinancialOptions(state).reserveRate).toBe(30);
+      expect(selectFinancialOptions(state).reserveRate).toBe(0.3);
       expect(selectUiOptions(state).themeMode).toBe('light');
       expect(selectLocalDataOptions(state).autoBackupEnabled).toBe(true);
     });

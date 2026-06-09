@@ -255,21 +255,27 @@ export function createDefaultFiscalSettings(year = new Date().getFullYear()): Fi
 
 export function createDefaultAppOptions(): AppOptions {
   return {
-    defaultMissionType: 'REMPLACEMENT_OFFICINE',
-    defaultStartTime: '08:00',
-    defaultEndTime: '17:00',
-    defaultBreakMinutes: 60,
-    invoiceDueDays: 30,
-    mealAutoEnabled: true,
-    mealThresholdHours: 8,
-    mealDefaultCents: 2000,
-    mileageRateCents: 61,
-    legalPdfFooter: 'Facture générée électroniquement — aucune signature requise.',
-    paymentModeLabel: 'Virement bancaire',
-    pdfDownloadMode: 'PLAYWRIGHT',
-    calendarIcsEnabled: true,
-    calendarEventTitle: 'Mission pharmacie',
-    calendarReminder: 'NONE',
+    missionDefaults: {
+      defaultMissionType: 'REMPLACEMENT_OFFOCINE',
+      defaultStartTime: '08:00',
+      defaultEndTime: '17:00',
+      defaultBreakMinutes: 60,
+      mealAutoEnabled: true,
+      mealThresholdHours: 8,
+      mealDefaultCents: 2000,
+      mileageRateCents: 61,
+    },
+    invoiceDefaults: {
+      invoiceDueDays: 30,
+      paymentTerms: 'Paiement par virement dans les 30 jours.',
+    },
+    pdfCalendar: {
+      calendarIcsEnabled: true,
+      calendarReminderMinutes: null,
+      pdfFooterEnabled: true,
+      calendarEventTitle: 'Mission pharmacie',
+      calendarReminder: 'NONE',
+    },
   };
 }
 

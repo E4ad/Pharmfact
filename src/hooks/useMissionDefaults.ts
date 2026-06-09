@@ -6,7 +6,7 @@ import { findPharmacie } from '../storage/selectors';
 export function buildMissionDefaults(state: AppState, activePharmacienId?: string) {
   const pharmacien = state.pharmaciens.find((item) => item.id === (activePharmacienId ?? state.activePharmacienId)) ?? state.pharmaciens.find((item) => item.isDefaultProfile) ?? state.pharmaciens[0];
   const defaultPharmacie = pharmacien?.favoritePharmacieId ? findPharmacie(state, pharmacien.favoritePharmacieId) : state.pharmacies[0];
-  const options = state.options;
+  const options = state.appOptions;
   const distanceReference = pharmacien && defaultPharmacie
     ? state.distanceReferences.find((item) => item.pharmacienId === pharmacien.id && item.pharmacieId === defaultPharmacie.id)
     : undefined;
@@ -14,23 +14,23 @@ export function buildMissionDefaults(state: AppState, activePharmacienId?: strin
   return {
     pharmacien,
     defaultPharmacie,
-    defaultMissionType: defaultPharmacie?.defaultMissionType ?? pharmacien?.defaultMissionType ?? options.defaultMissionType,
+    defaultMissionType: defaultPharmacie?.defaultMissionType ?? pharmacien?.defaultMissionType ?? options.missionDefaults.defaultMissionType,
     scheduleDefaults: {
-      startTime: pharmacien?.defaultStartTime ?? options.defaultStartTime,
-      endTime: pharmacien?.defaultEndTime ?? options.defaultEndTime,
-      breakMinutes: defaultPharmacie?.defaultBreakMinutes ?? pharmacien?.defaultBreakMinutes ?? options.defaultBreakMinutes,
+      startTime: pharmacien?.defaultStartTime ?? options.missionDefaults.defaultStartTime,
+      endTime: pharmacien?.defaultEndTime ?? options.missionDefaults.defaultEndTime,
+      breakMinutes: defaultPharmacie?.defaultBreakMinutes ?? pharmacien?.defaultBreakMinutes ?? options.missionDefaults.defaultBreakMinutes,
     },
     mealDefaults: {
-      enabled: pharmacien?.mealAutoEnabled ?? options.mealAutoEnabled,
-      thresholdHours: pharmacien?.mealThresholdHours ?? options.mealThresholdHours,
-      amountCents: pharmacien?.mealDefaultCents ?? options.mealDefaultCents,
+      enabled: pharmacien?.mealAutoEnabled ?? options.missionDefaults.mealAutoEnabled,
+      thresholdHours: pharmacien?.mealThresholdHours ?? options.missionDefaults.mealThresholdHours,
+      amountCents: pharmacien?.mealDefaultCents ?? options.missionDefaults.mealDefaultCents,
     },
     mileageDefaults: {
-      rateCents: pharmacien?.mileageRateCents ?? options.mileageRateCents,
+      rateCents: pharmacien?.mileageRateCents ?? options.missionDefaults.mileageRateCents,
       distanceKm: distanceReference?.distanceKm ?? 0,
     },
     billingDefaults: {
-      invoiceDueDays: pharmacien?.invoiceDueDays ?? options.invoiceDueDays,
+      invoiceDueDays: pharmacien?.invoiceDueDays ?? options.invoiceDefaults.invoiceDueDays,
       paymentTerms: pharmacien?.paymentTerms,
     },
     taxDefaults: {

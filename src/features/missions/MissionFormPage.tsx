@@ -132,7 +132,6 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const existing = mode === 'edit' ? findMission(state, missionId) : undefined;
   const invoice = existing ? findInvoice(state, existing.invoiceId) ?? missionInvoice(state, existing) : undefined;
   const defaults = buildMissionDefaults(state, state.activePharmacienId ?? undefined);
-  const missionDefaults = resolveMissionDefaults(state, state.activePharmacienId, values.pharmacieId);
   const currentPharmacien = activePharmacien(state) ?? defaults.pharmacien ?? state.pharmaciens[0];
   const defaultPharmacie = defaults.defaultPharmacie?.id ?? currentPharmacien?.favoritePharmacieId ?? state.pharmacies[0]?.id ?? '';
   const [values, setValues] = useState<MissionFormValues>(() => existing ? missionToForm(existing) : {
@@ -140,6 +139,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     defaultStartTime: defaults.scheduleDefaults.startTime, defaultEndTime: defaults.scheduleDefaults.endTime, defaultUnpaidBreakMinutes: defaults.scheduleDefaults.breakMinutes,
     tauxHoraire: centsToMoney(currentPharmacien?.hourlyRateCents ?? 8500), distanceReferenceKm: defaults.mileageDefaults.distanceKm, kmUnitRate: centsToMoney(defaults.mileageDefaults.rateCents), days: [], notes: '',
   });
+  const missionDefaults = resolveMissionDefaults(state, state.activePharmacienId ?? undefined, values.pharmacieId);
   const [pendingReceipts, setPendingReceipts] = useState<ExpenseReceipt[]>([]);
   const [openDayId, setOpenDayId] = useState<string | null>(null);
   const [showNotes, setShowNotes] = useState(false);

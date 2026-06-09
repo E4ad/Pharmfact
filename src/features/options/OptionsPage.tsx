@@ -21,6 +21,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageBackButton } from '../../components/PageBackButton';
 import { useAppState, updateAppState } from '../../storage/localStore';
 import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings } from '../../storage/schema';
@@ -33,6 +34,7 @@ const missionTypes = [
 ];
 
 export function OptionsPage() {
+  const navigate = useNavigate();
   const state = useAppState();
   const currentActive = activePharmacien(state);
 
@@ -73,10 +75,7 @@ export function OptionsPage() {
       }));
       setToast({ severity: 'success', message: 'Paramètres enregistrés avec succès.' });
     } catch (error) {
-      setToast({
-        severity: 'error',
-        message: error instanceof Error ? error.message : 'Erreur lors de l’enregistrement.',
-      });
+      setToast({ severity: 'error', message: `Erreur lors de l'enregistrement.` });
     }
   };
 
@@ -88,19 +87,19 @@ export function OptionsPage() {
     };
 
   return (
-    <Stack spacing={3} sx={{ width: 'min(980px, 100%)', mx: 'auto', py: 4 }}>
-      <Stack direction="row" alignItems="center" spacing={2}>
+    <Stack component="div" spacing={3} sx={{ width: 'min(980px, 100%)', mx: 'auto', py: 4 }}>
+      <Stack direction="row" component="div" spacing={2} sx={{ alignItems: 'center', width: '100%' }}>
         <PageBackButton to="/activity" />
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
           Paramètres
         </Typography>
       </Stack>
 
       <Card>
         <CardContent>
-          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
             <SettingsRoundedIcon />
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
               Informations générales
             </Typography>
           </Stack>
@@ -110,6 +109,8 @@ export function OptionsPage() {
               value={currentActive?.nom ?? ''}
               disabled
               helperText="Sélectionné dans la section Pharmaciens"
+              variant="outlined"
+              slotProps={{ inputLabel: { shrink: true } }}
             />
             <FormControl>
               <InputLabel id="tax-status-label">Statut fiscal par défaut</InputLabel>
@@ -129,9 +130,9 @@ export function OptionsPage() {
 
       <Card>
         <CardContent>
-          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
             <PersonAddAltRoundedIcon />
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
               Missions
             </Typography>
           </Stack>
@@ -156,28 +157,32 @@ export function OptionsPage() {
               type="time"
               value={form.missionDefaults.defaultStartTime ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultStartTime: event.target.value } }))}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ input: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <TextField
               label="Heure de fin par défaut"
               type="time"
               value={form.missionDefaults.defaultEndTime ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultEndTime: event.target.value } }))}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ input: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <TextField
               label="Pause par défaut (minutes)"
               type="number"
               value={form.missionDefaults.defaultBreakMinutes ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultBreakMinutes: Number(event.target.value) } }))}
-              inputProps={{ min: 0, step: 1 }}
+              slotProps={{ input: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <TextField
               label="Délai de paiement (jours)"
               type="number"
               value={form.invoiceDefaults.invoiceDueDays ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, invoiceDueDays: Number(event.target.value) } }))}
-              inputProps={{ min: 0, step: 1 }}
+              slotProps={{ input: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <FormControlLabel
               control={
@@ -197,21 +202,24 @@ export function OptionsPage() {
               type="number"
               value={form.missionDefaults.mealThresholdHours ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealThresholdHours: Number(event.target.value) } }))}
-              inputProps={{ min: 0, step: 0.5 }}
+              slotProps={{ input: { min: 0, step: 0.5 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <TextField
               label="Montant de repas par défaut (cents)"
               type="number"
               value={form.missionDefaults.mealDefaultCents ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealDefaultCents: Number(event.target.value) } }))}
-              inputProps={{ min: 0, step: 100 }}
+              slotProps={{ input: { min: 0, step: 100 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <TextField
               label="Taux de kilométrage (cents)"
               type="number"
               value={form.missionDefaults.mileageRateCents ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mileageRateCents: Number(event.target.value) } }))}
-              inputProps={{ min: 0, step: 100 }}
+              slotProps={{ input: { min: 0, step: 100 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
           </Stack>
         </CardContent>
@@ -219,9 +227,9 @@ export function OptionsPage() {
 
       <Card>
         <CardContent>
-          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
             <AddBusinessRoundedIcon />
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
               Facturation
             </Typography>
           </Stack>
@@ -230,6 +238,8 @@ export function OptionsPage() {
               label="Mode de paiement"
               value={form.invoiceDefaults.paymentTerms ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, paymentTerms: event.target.value } }))}
+              variant="outlined"
+              slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
               label="Conditions de paiement"
@@ -237,6 +247,8 @@ export function OptionsPage() {
               onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, paymentTerms: event.target.value } }))}
               multiline
               minRows={2}
+              variant="outlined"
+              slotProps={{ inputLabel: { shrink: true } }}
             />
             <FormControlLabel
               control={
@@ -255,6 +267,8 @@ export function OptionsPage() {
               label="Titre de l'événement de calendrier"
               value={form.pdfCalendar.calendarEventTitle ?? ''}
               onChange={(event) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, calendarEventTitle: event.target.value } }))}
+              variant="outlined"
+              slotProps={{ inputLabel: { shrink: true } }}
             />
             <FormControlLabel
               control={
@@ -288,9 +302,9 @@ export function OptionsPage() {
 
       <Card>
         <CardContent>
-          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
             <SettingsRoundedIcon />
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
               Financier & fiscalité
             </Typography>
           </Stack>
@@ -300,24 +314,24 @@ export function OptionsPage() {
               type="number"
               value={fiscalSettings.reserveRate * 100}
               onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, reserveRate: Number(event.target.value) / 100 } }))}
-              inputProps={{ min: 0, max: 100, step: 1 }}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ input: { min: 0, max: 100, step: 1 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <TextField
               label="Seuil petit fournisseur"
               type="number"
               value={fiscalSettings.smallSupplierThresholdCents / 100}
               onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, smallSupplierThresholdCents: Number(event.target.value) * 100 } }))}
-              inputProps={{ min: 0, step: 1000 }}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ input: { min: 0, step: 1000 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <TextField
               label="Seuil d'alerte petit fournisseur"
               type="number"
               value={fiscalSettings.smallSupplierWarningRate * 100}
               onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, smallSupplierWarningRate: Number(event.target.value) / 100 } }))}
-              inputProps={{ min: 0, max: 100, step: 1 }}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ input: { min: 0, max: 100, step: 1 }, inputLabel: { shrink: true } }}
+              variant="outlined"
             />
             <FormControlLabel
               control={
@@ -338,9 +352,9 @@ export function OptionsPage() {
 
       <Card>
         <CardContent>
-          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
             <SettingsRoundedIcon />
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
               Apparence
             </Typography>
           </Stack>
@@ -364,11 +378,11 @@ export function OptionsPage() {
 
       <Card>
         <CardContent>
-          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Stack direction="row" component="div" alignItems="center" spacing={1} sx={{ mb: 2 }}>
             <SettingsRoundedIcon />
-            <Typography variant="h6" fontWeight={600}>
-              Données locales
-            </Typography>
+<Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+               Financier & fiscalité
+             </Typography>
           </Stack>
           <Stack spacing={2}>
             <FormControlLabel

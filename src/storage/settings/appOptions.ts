@@ -1,30 +1,5 @@
-import type { TaxStatus } from '../schema';
-
-export type AppOptions = {
-  missionDefaults: {
-    defaultMissionType: string;
-    defaultStartTime: string;
-    defaultEndTime: string;
-    defaultBreakMinutes: number;
-    mealAutoEnabled: boolean;
-    mealThresholdHours: number;
-    mealDefaultCents: number;
-    mileageRateCents: number;
-  };
-
-  invoiceDefaults: {
-    invoiceDueDays: number;
-    paymentTerms?: string;
-  };
-
-  pdfCalendar: {
-    calendarIcsEnabled: boolean;
-    calendarReminderMinutes?: number | null;
-    pdfFooterEnabled: boolean;
-    calendarEventTitle: string;
-    calendarReminder: 'NONE' | 'ONE_HOUR' | 'DAY_BEFORE';
-  };
-};
+export type { AppOptions } from '../schema';
+import type { AppOptions } from '../schema';
 
 export function createDefaultAppOptions(): AppOptions {
   return {

@@ -1,4 +1,4 @@
-import type { AppState, Invoice, Mission, Pharmacien, Pharmacie, AppOptions, FiscalSettings, UiSettings, LocalDataSettings } from './schema';
+import type { AppState, Invoice, Mission, Pharmacien, Pharmacie, AppOptions, FiscalSettings, UiSettings, LocalDataSettings, TaxStatus } from './schema';
 
 export function activePharmacien(state: AppState): Pharmacien | undefined {
   return state.pharmaciens.find((pharmacien) => pharmacien.id === state.activePharmacienId);

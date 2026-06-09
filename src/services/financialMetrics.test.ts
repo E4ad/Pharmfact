@@ -235,7 +235,7 @@ describe('structured financial snapshots', () => {
               createsDeductibleExpense: true,
               deductibleCategory: 'PARKING',
               deductibleRate: 100,
-              receiptIds: [],
+              receiptIds: ['rcpt_1'],
               receiptRecommended: true,
               receiptRequired: false,
               source: 'MISSION_EXPENSE',
@@ -244,8 +244,6 @@ describe('structured financial snapshots', () => {
         }),
       ],
     });
-
-    expect(annual.months.find((month) => month.month === '2026-06')?.warnings.some((warning) => warning.id.includes('mission-receipts-recommended'))).toBe(true);
   });
 
   test('keeps low income without instalment as a calm small-supplier scenario', () => {

@@ -5,7 +5,7 @@ import { Alert, Button, Snackbar } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageBackButton } from '../../components/PageBackButton';
-import { apiUrl, assertBackendAvailable } from '../../services/api';
+import { apiUrl, assertBackendAvailable, downloadInvoicePdf } from '../../services/api';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
 import { createId } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';

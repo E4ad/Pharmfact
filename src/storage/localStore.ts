@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { APP_SCHEMA_VERSION, APP_STORAGE_KEY, type AppState, type TaxPayment } from './schema';
+import type { AppOptions } from './settings/appOptions';
 import { createDefaultFiscalSettings, createSeedState } from './seedData';
 import { createDefaultUiSettings } from './settings/uiSettings';
 import { createDefaultLocalDataSettings } from './settings/localDataSettings';
@@ -10,8 +11,10 @@ type Listener = () => void;
 let cachedState: AppState | null = null;
 const listeners = new Set<Listener>();
 
+type MigrationCandidate = AppState & { options?: AppOptions };
+
 function migrate(raw: unknown): AppState {
-  const candidate = raw as Partial<AppState> | null;
+  const candidate = raw as MigrationCandidate | null;
   if (!candidate || candidate.version === 2) {
     return candidate as AppState;
   }
@@ -50,29 +53,29 @@ function migrate(raw: unknown): AppState {
     })),
   }));
 
-  // Migrer les anciennes options vers la nouvelle structure
-  const oldOptions = candidate.options ?? {};
+  // Migrer les anciennes options vers la nouvelle structure, en supportant v1 plat et v2 imbriqué
+  const rawOptions = (candidate as { options?: AppOptions | Record<string, unknown> }).options;
   const appOptions: AppOptions = {
     missionDefaults: {
-      defaultMissionType: oldOptions.defaultMissionType ?? 'REMPLACEMENT_OFFICINE',
-      defaultStartTime: oldOptions.defaultStartTime ?? '08:00',
-      defaultEndTime: oldOptions.defaultEndTime ?? '17:00',
-      defaultBreakMinutes: oldOptions.defaultBreakMinutes ?? 60,
-      mealAutoEnabled: oldOptions.mealAutoEnabled ?? true,
-      mealThresholdHours: oldOptions.mealThresholdHours ?? 8,
-      mealDefaultCents: oldOptions.mealDefaultCents ?? 2000,
-      mileageRateCents: oldOptions.mileageRateCents ?? 61,
+      defaultMissionType: (rawOptions as any)?.missionDefaults?.defaultMissionType ?? (rawOptions as any)?.defaultMissionType ?? 'REMPLACEMENT_OFFICINE',
+      defaultStartTime: (rawOptions as any)?.missionDefaults?.defaultStartTime ?? (rawOptions as any)?.defaultStartTime ?? '08:00',
+      defaultEndTime: (rawOptions as any)?.missionDefaults?.defaultEndTime ?? (rawOptions as any)?.defaultEndTime ?? '17:00',
+      defaultBreakMinutes: (rawOptions as any)?.missionDefaults?.defaultBreakMinutes ?? (rawOptions as any)?.defaultBreakMinutes ?? 60,
+      mealAutoEnabled: (rawOptions as any)?.missionDefaults?.mealAutoEnabled ?? (rawOptions as any)?.mealAutoEnabled ?? true,
+      mealThresholdHours: (rawOptions as any)?.missionDefaults?.mealThresholdHours ?? (rawOptions as any)?.mealThresholdHours ?? 8,
+      mealDefaultCents: (rawOptions as any)?.missionDefaults?.mealDefaultCents ?? (rawOptions as any)?.mealDefaultCents ?? 2000,
+      mileageRateCents: (rawOptions as any)?.missionDefaults?.mileageRateCents ?? (rawOptions as any)?.mileageRateCents ?? 61,
     },
     invoiceDefaults: {
-      invoiceDueDays: oldOptions.invoiceDueDays ?? 30,
-      paymentTerms: oldOptions.paymentTerms ?? 'Paiement par virement dans les 30 jours.',
+      invoiceDueDays: (rawOptions as any)?.invoiceDefaults?.invoiceDueDays ?? (rawOptions as any)?.invoiceDueDays ?? 30,
+      paymentTerms: (rawOptions as any)?.invoiceDefaults?.paymentTerms ?? (rawOptions as any)?.paymentTerms ?? 'Paiement par virement dans les 30 jours.',
     },
     pdfCalendar: {
-      calendarIcsEnabled: oldOptions.calendarIcsEnabled ?? true,
-      calendarReminderMinutes: null,
-      pdfFooterEnabled: true,
-      calendarEventTitle: oldOptions.calendarEventTitle ?? 'Mission pharmacie',
-      calendarReminder: oldOptions.calendarReminder ?? 'NONE',
+      calendarIcsEnabled: (rawOptions as any)?.pdfCalendar?.calendarIcsEnabled ?? (rawOptions as any)?.calendarIcsEnabled ?? true,
+      calendarReminderMinutes: (rawOptions as any)?.pdfCalendar?.calendarReminderMinutes ?? null,
+      pdfFooterEnabled: (rawOptions as any)?.pdfCalendar?.pdfFooterEnabled ?? true,
+      calendarEventTitle: (rawOptions as any)?.pdfCalendar?.calendarEventTitle ?? (rawOptions as any)?.calendarEventTitle ?? 'Mission pharmacie',
+      calendarReminder: (rawOptions as any)?.pdfCalendar?.calendarReminder ?? (rawOptions as any)?.calendarReminder ?? 'NONE',
     },
   };
 

@@ -22,7 +22,7 @@ describe('useMissionDefaults helpers', () => {
     const state = stateWithDefaults();
     const pharmacien = { ...state.pharmaciens[0], defaultBreakMinutes: 30, favoritePharmacieId: state.pharmacies[0].id };
     const pharmacie = { ...state.pharmacies[0], defaultBreakMinutes: undefined as unknown as number };
-    const next = { ...state, pharmaciens: [pharmacien], pharmacies: [pharmacie], activePharmacienId: pharmacien.id, options: { ...state.options, defaultBreakMinutes: 75 } };
+    const next = { ...state, pharmaciens: [pharmacien], pharmacies: [pharmacie], activePharmacienId: pharmacien.id, appOptions: { ...state.appOptions, missionDefaults: { ...state.appOptions.missionDefaults, defaultBreakMinutes: 75 } } };
 
     expect(buildMissionDefaults(next).scheduleDefaults.breakMinutes).toBe(30);
     expect(resolveBreakMinutes({ globalDefault: 75 })).toBe(75);

@@ -193,6 +193,7 @@ export type Invoice = {
   id: string;
   numero: string;
   missionId: string;
+  pharmacienId: string;
   pharmacieId: string;
   dateFacture: string;
   dateEcheance: string;

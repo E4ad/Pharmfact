@@ -10,18 +10,24 @@ const baseMission = {
   status: 'CONFIRMED',
   dateDebut: '2026-06-10',
   dateFin: '2026-06-11',
+  hourlyRateCents: 0,
+  mealFeeCents: 0,
+  mileageKm: 0,
+  mileageRateCents: 0,
   days: [
     { id: 'day1', dateService: '2026-06-10', startTime: '08:00', endTime: '12:00', description: 'Matin', unpaidBreakMinutes: 0, hours: 4 } as any,
     { id: 'day2', dateService: '2026-06-11', startTime: '13:00', endTime: '17:00', description: 'Après-midi', unpaidBreakMinutes: 0, hours: 4 } as any,
   ],
-  hours: 8,
   totalHours: 8,
+  subtotalCents: 0,
+  mealTotalCents: 0,
+  mileageTotalCents: 0,
   totalCents: 80000,
   notes: 'Remplacement',
   events: [],
   createdAt: '',
   updatedAt: '',
-} satisfies Partial<Mission> as Mission;
+} satisfies Mission;
 
 const basePharmacien = {
   id: 'ph1',

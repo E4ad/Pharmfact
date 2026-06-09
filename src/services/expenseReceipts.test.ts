@@ -30,7 +30,7 @@ describe('expenseReceipts', () => {
 
   it('removes receipt from state and linked mission expenses', () => {
     const state = {
-      expenseReceipts: [{ id: 'rcpt1', expenseId: 'exp1', missionId: 'mis1', receiptIds: [] }] as ExpenseReceipt[],
+      expenseReceipts: [{ id: 'rcpt1', expenseId: 'exp1', missionId: 'mis1', receiptIds: [] }] as unknown as ExpenseReceipt[],
       missions: [
         {
           id: 'mis1',
@@ -44,7 +44,7 @@ describe('expenseReceipts', () => {
           ],
         },
       ],
-    } as any;
+    } as unknown as any;
 
     const result = removeReceiptFromState(state, 'rcpt1');
 
