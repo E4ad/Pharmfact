@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, redirect } from 'react-router-dom';
 import { lazy, Suspense, type ReactElement } from 'react';
 import { AppShell } from '../components/AppShell';
 import { ActivityPage } from '../features/activity/ActivityPage';
@@ -43,6 +43,7 @@ export const router = createBrowserRouter([
   route('/welcome', shell(<OnboardingPage />)),
   route('/activity', shell(<ActivityPage />)),
   lazyRoute('/mission/new', shell(<MissionFormPageLazy mode="create" />)),
+  lazyRoute('/missions/new', shell(<MissionFormPageLazy mode="create" />)),
   lazyRoute('/missions/:missionId/edit', shell(<MissionFormPageLazy mode="edit" />)),
   lazyRoute('/missions', <MissionsPage />),
   lazyRoute('/invoices', shell(<InvoicesPage />)),
