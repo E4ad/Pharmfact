@@ -43,7 +43,6 @@ export const router = createBrowserRouter([
   route('/welcome', shell(<OnboardingPage />)),
   route('/activity', shell(<ActivityPage />)),
   lazyRoute('/mission/new', shell(<MissionFormPageLazy mode="create" />)),
-  lazyRoute('/missions/new', shell(<MissionFormPageLazy mode="create" />)),
   lazyRoute('/missions/:missionId/edit', shell(<MissionFormPageLazy mode="edit" />)),
   lazyRoute('/missions', <MissionsPage />),
   lazyRoute('/invoices', shell(<InvoicesPage />)),

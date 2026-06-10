@@ -17,14 +17,33 @@ let useIndexedDB = false;
 
 type MigrationCandidate = AppState & { options?: AppOptions };
 
-function migrate(raw: unknown): AppState {
-  const candidate = raw as MigrationCandidate | null;
-  if (!candidate || candidate.version === 2) {
-    return candidate as AppState;
-  }
-  if (!candidate || candidate.version !== 1) {
-    return createSeedState();
-  }
+function createDefaultAppOptions(): AppOptions {
+  return {
+    missionDefaults: {
+      defaultMissionType: 'REMPLACEMENT_OFFICINE',
+      defaultStartTime: '08:00',
+      defaultEndTime: '17:00',
+      defaultBreakMinutes: 60,
+      mealAutoEnabled: true,
+      mealThresholdHours: 8,
+      mealDefaultCents: 2000,
+      mileageRateCents: 61,
+    },
+    invoiceDefaults: {
+      invoiceDueDays: 30,
+      paymentTerms: 'Paiement par virement dans les 30 jours.',
+    },
+    pdfCalendar: {
+      calendarIcsEnabled: true,
+      calendarReminderMinutes: null,
+      pdfFooterEnabled: true,
+      calendarEventTitle: 'Mission pharmacie',
+      calendarReminder: 'NONE',
+    },
+  };
+}
+
+function migrateV1ToV2(candidate: MigrationCandidate): AppState {
   const taxPayments = (candidate.taxPayments ?? []).map((payment) => {
     const legacy = payment as TaxPayment & { paymentDate?: string; periodLabel?: string; recipient?: string; label?: string; taxYear?: number };
     if (legacy.date && legacy.period && legacy.authority && legacy.type) return legacy;
@@ -103,6 +122,52 @@ function migrate(raw: unknown): AppState {
       lastVisitedAt: candidate.ui?.lastVisitedAt,
     },
   };
+}
+
+function migrateLegacyToV2(candidate: MigrationCandidate): AppState {
+  // Pour les anciens états sans version, essayer de préserver les données critiques
+  return {
+    version: 2,
+    activePharmacienId: candidate.activePharmacienId ?? null,
+    pharmaciens: candidate.pharmaciens ?? [],
+    pharmacies: candidate.pharmacies ?? [],
+    missions: candidate.missions ?? [],
+    invoices: candidate.invoices ?? [],
+    taxPayments: candidate.taxPayments ?? [],
+    deductibleExpenses: candidate.deductibleExpenses ?? [],
+    expenseReceipts: candidate.expenseReceipts ?? [],
+    fiscalSettings: candidate.fiscalSettings ?? createDefaultFiscalSettings(),
+    distanceReferences: candidate.distanceReferences ?? [],
+    appOptions: candidate.appOptions ?? createDefaultAppOptions(),
+    uiSettings: candidate.uiSettings ?? createDefaultUiSettings(),
+    localDataSettings: candidate.localDataSettings ?? createDefaultLocalDataSettings(),
+    ui: {
+      missionFilters: candidate.ui?.missionFilters ?? {},
+      lastVisitedAt: candidate.ui?.lastVisitedAt,
+    },
+  };
+}
+
+function migrate(raw: unknown): AppState {
+  const candidate = raw as MigrationCandidate | null;
+  
+  // Si déjà version 2, retourner tel quel
+  if (candidate?.version === 2) {
+    return candidate as AppState;
+  }
+  
+  // Si version 1, migrer vers v2
+  if (candidate?.version === 1) {
+    return migrateV1ToV2(candidate);
+  }
+  
+  // Si pas de version ou version inconnue, essayer de préserver les données
+  if (candidate) {
+    return migrateLegacyToV2(candidate);
+  }
+  
+  // Aucun état valide, retourner seed
+  return createSeedState();
 }
 
 // Initialisation asynchrone de IndexedDB et migration des données

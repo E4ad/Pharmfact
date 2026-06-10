@@ -17,6 +17,8 @@ export type MonthlyFinancialSnapshot = {
   collectedCents: number;
   receivableCents: number;
   overdueCents: number;
+  manualDeductibleExpensesCents: number;
+  missionGeneratedDeductibleExpensesCents: number;
   deductibleExpensesCents: number;
   incomeTaxInstalmentsPaidCents: number;
   estimatedNetProfitCents: number;
@@ -38,6 +40,8 @@ export type QuarterlyFinancialSnapshot = {
   collectedCents: number;
   receivableCents: number;
   overdueCents: number;
+  manualDeductibleExpensesCents: number;
+  missionGeneratedDeductibleExpensesCents: number;
   deductibleExpensesCents: number;
   estimatedNetProfitCents: number;
   targetReserveCents: number;
@@ -57,6 +61,8 @@ export type AnnualFinancialSnapshot = {
   collectedCents: number;
   receivableCents: number;
   overdueCents: number;
+  manualDeductibleExpensesCents: number;
+  missionGeneratedDeductibleExpensesCents: number;
   deductibleExpensesCents: number;
   estimatedNetProfitCents: number;
   targetReserveCents: number;
@@ -221,9 +227,9 @@ export function buildMonthlyFinancialSnapshots(data: {
       0,
     );
 
-    const expenseDeductibles = expenses.reduce((sum, expense) => sum + expense.amountCents, 0);
-    const missionDeductibles = missionExpenses.reduce((sum, expense) => sum + (expense.deductibleAmountCents || 0), 0);
-    const deductibleExpensesCents = expenseDeductibles + missionDeductibles;
+    const manualDeductibleExpensesCents = expenses.reduce((sum, expense) => sum + expense.amountCents, 0);
+    const missionGeneratedDeductibleExpensesCents = missionExpenses.reduce((sum, expense) => sum + (expense.deductibleAmountCents || 0), 0);
+    const deductibleExpensesCents = manualDeductibleExpensesCents + missionGeneratedDeductibleExpensesCents;
 
     const incomeTaxInstalmentsPaidCents = taxPayments.reduce((sum, payment) => sum + payment.amountCents, 0);
 
@@ -242,6 +248,8 @@ export function buildMonthlyFinancialSnapshots(data: {
       collectedCents,
       receivableCents,
       overdueCents,
+      manualDeductibleExpensesCents,
+      missionGeneratedDeductibleExpensesCents,
       deductibleExpensesCents,
       incomeTaxInstalmentsPaidCents,
       estimatedNetProfitCents,
@@ -285,6 +293,8 @@ export function buildQuarterlyFinancialSnapshots(data: {
     const collectedCents = quarterMonths.reduce((sum, m) => sum + m.collectedCents, 0);
     const receivableCents = quarterMonths.reduce((sum, m) => sum + m.receivableCents, 0);
     const overdueCents = quarterMonths.reduce((sum, m) => sum + m.overdueCents, 0);
+    const manualDeductibleExpensesCents = quarterMonths.reduce((sum, m) => sum + m.manualDeductibleExpensesCents, 0);
+    const missionGeneratedDeductibleExpensesCents = quarterMonths.reduce((sum, m) => sum + m.missionGeneratedDeductibleExpensesCents, 0);
     const deductibleExpensesCents = quarterMonths.reduce((sum, m) => sum + m.deductibleExpensesCents, 0);
     const estimatedNetProfitCents = quarterMonths.reduce((sum, m) => sum + m.estimatedNetProfitCents, 0);
     const targetReserveCents = quarterMonths.reduce((sum, m) => sum + m.targetReserveCents, 0);
@@ -324,6 +334,8 @@ export function buildQuarterlyFinancialSnapshots(data: {
       collectedCents,
       receivableCents,
       overdueCents,
+      manualDeductibleExpensesCents,
+      missionGeneratedDeductibleExpensesCents,
       deductibleExpensesCents,
       estimatedNetProfitCents,
       targetReserveCents,
@@ -356,6 +368,8 @@ export function buildAnnualFinancialSnapshot(data: {
   const collectedCents = monthlySnapshots.reduce((sum, m) => sum + m.collectedCents, 0);
   const receivableCents = monthlySnapshots.reduce((sum, m) => sum + m.receivableCents, 0);
   const overdueCents = monthlySnapshots.reduce((sum, m) => sum + m.overdueCents, 0);
+  const manualDeductibleExpensesCents = monthlySnapshots.reduce((sum, m) => sum + m.manualDeductibleExpensesCents, 0);
+  const missionGeneratedDeductibleExpensesCents = monthlySnapshots.reduce((sum, m) => sum + m.missionGeneratedDeductibleExpensesCents, 0);
   const deductibleExpensesCents = monthlySnapshots.reduce((sum, m) => sum + m.deductibleExpensesCents, 0);
   const incomeTaxInstalmentsPaidCents = monthlySnapshots.reduce((sum, m) => sum + m.incomeTaxInstalmentsPaidCents, 0);
   const estimatedNetProfitCents = monthlySnapshots.reduce((sum, m) => sum + m.estimatedNetProfitCents, 0);
@@ -418,6 +432,8 @@ export function buildAnnualFinancialSnapshot(data: {
     collectedCents,
     receivableCents,
     overdueCents,
+    manualDeductibleExpensesCents,
+    missionGeneratedDeductibleExpensesCents,
     deductibleExpensesCents,
     estimatedNetProfitCents,
     targetReserveCents,

@@ -421,6 +421,7 @@ export function OptionsPage() {
           startIcon={<SaveRoundedIcon />}
           onClick={handleSave}
           sx={{ borderRadius: 999, px: 4, py: 1.5 }}
+          data-testid="options-save-button"
         >
           Enregistrer
         </Button>

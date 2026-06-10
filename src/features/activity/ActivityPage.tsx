@@ -22,12 +22,14 @@ export function ActivityPage() {
         <Typography color="text.secondary">Choisissez une action. L’interface reste volontairement calme et centrée sur la mission.</Typography>
       </Stack>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(5, 1fr)' }, gap: 2 }}>
-        <ActionCard title="Nouvelle mission" description="Créer une mission et calculer le résumé financier." icon={<AssignmentRoundedIcon />} onClick={() => navigate('/mission/new')} />
-        <ActionCard title="Suivi des missions" description="Ouvrir la liste focalisée des missions." icon={<FactCheckRoundedIcon />} onClick={() => navigate('/missions')} />
-        <ActionCard title="État financier" description="Revenus, acomptes, taxes et réserve fiscale." icon={<QueryStatsRoundedIcon />} onClick={() => navigate('/financial')} />
-        <ActionCard title="Options" description="Profils, pharmacies et paramètres par défaut." icon={<SettingsRoundedIcon />} onClick={() => navigate('/options')} />
-        <ActionCard title="Ajouter une pharmacie" description="Créer une fiche pharmacie et ses paramètres." icon={<LocalHospitalRoundedIcon />} onClick={() => navigate('/pharmacy/add')} />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
+        <ActionCard data-testid="activity-card-new-mission" title="Nouvelle mission" description="Créer une mission et calculer le résumé financier." icon={<AssignmentRoundedIcon />} onClick={() => navigate('/mission/new')} />
+        <ActionCard data-testid="activity-card-missions" title="Suivi des missions" description="Ouvrir la liste focalisée des missions." icon={<FactCheckRoundedIcon />} onClick={() => navigate('/missions')} />
+        <ActionCard data-testid="activity-card-financial" title="État financier" description="Revenus, acomptes, taxes et réserve fiscale." icon={<QueryStatsRoundedIcon />} onClick={() => navigate('/financial')} />
+        <ActionCard data-testid="activity-card-options" title="Options" description="Profils, pharmacies et paramètres par défaut." icon={<SettingsRoundedIcon />} onClick={() => navigate('/options')} />
+      </Box>
+      <Box sx={{ mt: 2 }}>
+        <ActionCard data-testid="activity-card-pharmacy" title="Ajouter une pharmacie" description="Créer une fiche pharmacie et ses paramètres." icon={<LocalHospitalRoundedIcon />} onClick={() => navigate('/pharmacy/add')} />
       </Box>
     </Stack>
   );

@@ -6,11 +6,12 @@ type Props = {
   description: string;
   icon: ReactNode;
   onClick: () => void;
+  'data-testid'?: string;
 };
 
-export function ActionCard({ title, description, icon, onClick }: Props) {
+export function ActionCard({ title, description, icon, onClick, 'data-testid': testId }: Props) {
   return (
-    <Card>
+    <Card data-testid={testId}>
       <CardActionArea onClick={onClick} sx={{ height: '100%', p: { xs: 3, md: 4 } }}>
         <Stack spacing={3} sx={{ minHeight: 180, justifyContent: 'space-between' }}>
           <Stack spacing={2}>

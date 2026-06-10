@@ -63,7 +63,7 @@ export function InvoicesPage() {
         <Stack spacing={1}>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Factures</Typography>
           <Typography variant="h2">Vue d’ensemble</Typography>
-          <Typography color="text.secondary">Aperçu clair des factures générées, avec une facture imprimable 100% React inspirée du modèle existant.</Typography>
+          <Typography color="text.secondary">Aperçu clair des factures générées.</Typography>
         </Stack>
       </Stack>
       {!state.invoices.length ? (
@@ -120,7 +120,7 @@ export function InvoicesPage() {
               <Typography>Échéance: {selected.dateEcheance}</Typography>
               <Typography>Heures: {selected.hours.toFixed(2)} h</Typography>
               <MoneyValue cents={selected.amountCents} variant="h4" />
-              <Typography color="text.secondary">Le PDF final est généré côté serveur avec Playwright.</Typography>
+              <Typography color="text.secondary">Les PDF sont générés automatiquement au format professionnel.</Typography>
             </Stack>
           ) : null}
         </DialogContent>

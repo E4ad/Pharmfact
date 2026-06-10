@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, FormEvent } from 'react';
-import { Box, Button, Card, CardContent, Stack, Typography, Alert } from '@mui/material';
+import { Box, Button, Card, CardContent, Stack, Typography, Alert, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
 import { PageBackButton } from '../../components/PageBackButton';
 import { MoneyValue } from '../../components/MoneyValue';
 import { useFinancialSettings } from '../../hooks/useFinancialSettings';
@@ -53,6 +53,9 @@ export function FinancialDashboardPage() {
   const [view, setView] = useState<ViewMode>(availableViews[0]);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => annual.months?.find((month: MonthlyFinancialSnapshot) => month.month === today.slice(0, 7))?.month ?? annual.months?.[0]?.month ?? today.slice(0, 7));
   const selectedMonthly = annual.months?.find((month: MonthlyFinancialSnapshot) => month.month === selectedMonth) ?? annual.months?.[0];
+
+  // Toast state
+  const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
 
   // Drawers state
   const [taxPaymentDrawerOpen, setTaxPaymentDrawerOpen] = useState(false);
@@ -124,6 +127,7 @@ export function FinancialDashboardPage() {
           onViewMissionExpenses={() => setMissionExpensesDrawerOpen(true)}
           onViewReceivables={() => setReceivablesDrawerOpen(true)}
           onViewTpsTvq={() => setTpsTvqDrawerOpen(true)}
+          missionExpenseRows={missionExpenseRows}
         />
       ) : null}
 
@@ -171,14 +175,14 @@ export function FinancialDashboardPage() {
       <TaxPaymentFormDrawer
         open={taxPaymentDrawerOpen}
         onClose={() => setTaxPaymentDrawerOpen(false)}
-        onAdded={() => {}}
+        onAdded={() => setToast({ severity: 'success', message: 'Acompte ajouté avec succès.' })}
         periodLabel={periodLabel}
       />
 
         <DeductibleExpenseFormDrawer
           open={deductibleExpenseDrawerOpen}
           onClose={() => setDeductibleExpenseDrawerOpen(false)}
-          onSubmit={() => {}}
+          onSubmit={() => setToast({ severity: 'success', message: 'Dépense ajoutée avec succès.' })}
         />
 
       <MissionGeneratedExpensesDrawer
@@ -200,6 +204,14 @@ export function FinancialDashboardPage() {
          gstQstCollectedCents={selectedMonthly?.gstQstCollectedCents ?? 0}
          gstQstRemittedCents={selectedMonthly?.gstQstRemittedCents ?? 0}
       />
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={3200}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {toast ? <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>{toast.message}</Alert> : undefined}
+      </Snackbar>
     </Stack>
   );
 }
@@ -259,6 +271,7 @@ export function MonthlyFinancialView({
   onViewMissionExpenses,
   onViewReceivables,
   onViewTpsTvq,
+  missionExpenseRows,
 }: {
   annual: AnnualFinancialSnapshot;
   selectedMonth: string;
@@ -270,8 +283,10 @@ export function MonthlyFinancialView({
   onViewMissionExpenses: () => void;
   onViewReceivables: () => void;
   onViewTpsTvq: () => void;
+  missionExpenseRows?: MissionDeductibleExpenseRow[];
 }) {
   const periodLabel = new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' }).format(new Date(`${selectedMonth}-01T00:00:00`));
+  const missionRowsForMonth = missionExpenseRows?.filter(row => row.date.startsWith(selectedMonth)) || [];
 
   return (
     <Stack spacing={3}>
@@ -325,6 +340,43 @@ export function MonthlyFinancialView({
           helperText="Réserve moins acomptes"
         />
       </Box>
+
+      {missionRowsForMonth.length > 0 ? (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2 }}>Dépenses issues des missions</Typography>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Mission</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell align="right">Montant facturé</TableCell>
+                  <TableCell align="right">Montant déductible</TableCell>
+                  <TableCell>Justificatif</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {missionRowsForMonth.map((row) => (
+                  <TableRow key={row.id} hover>
+                    <TableCell>{row.date}</TableCell>
+                    <TableCell>{row.missionCode ?? row.missionId.slice(0, 8)}</TableCell>
+                    <TableCell>{row.category || row.label}</TableCell>
+                    <TableCell align="right"><MoneyValue cents={row.amountCents} /></TableCell>
+                    <TableCell align="right"><MoneyValue cents={row.deductibleAmountCents ?? 0} /></TableCell>
+                    <TableCell>{row.hasReceipt ? '✓' : '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <Box sx={{ mt: 2, textAlign: 'right' }}>
+              <Button variant="outlined" size="small" onClick={onViewMissionExpenses}>
+                Voir tout le détail
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 2 }}>
         <FinancialActionCard
