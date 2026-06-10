@@ -1,6 +1,11 @@
 .mission-form-page {
   width: min(1120px, 100%);
   margin: 0 auto;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+[data-theme="dark"] .mission-form-page {
+  color: rgba(255, 255, 255, 0.87);
 }
 
 .mission-form-heading {
@@ -39,7 +44,7 @@
 }
 
 .mission-form-card {
-  background: inherit;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid;
   border-color: rgba(0, 0, 0, 0.12);
   border-radius: 22px;
@@ -58,7 +63,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 14px;
-  background: inherit;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid;
   border-color: rgba(0, 0, 0, 0.12);
   border-radius: 999px;
@@ -106,8 +111,8 @@
   border-radius: 14px;
   padding: 12px 13px;
   font: inherit;
-  background: inherit;
-  color: inherit;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(0, 0, 0, 0.87);
 }
 
 .mission-form-field textarea {
@@ -568,6 +573,11 @@
   color: rgba(255, 255, 255, 0.87);
 }
 
+[data-theme="dark"] .mission-form-field label,
+[data-theme="dark"] .mission-form-field span {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 [data-theme="dark"] .mission-form-field textarea {
   background: rgba(255, 255, 255, 0.04);
 }
@@ -587,6 +597,7 @@
 }
 
 [data-theme="dark"] .mission-form-card {
+  background: rgba(255, 255, 255, 0.04);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
 }
 

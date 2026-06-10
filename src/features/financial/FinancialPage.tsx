@@ -385,21 +385,7 @@ export function MonthlyFinancialView({
         </Card>
       ) : null}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 2 }}>
-        <FinancialActionCard
-          iconTone="blue"
-          icon={<AddRoundedIcon fontSize="small" />}
-          title="Acomptes provisionnels"
-          description={`Ajouter un acompte pour cette période.`}
-          onClick={onAddTaxPayment}
-        />
-        <FinancialActionCard
-          iconTone="amber"
-          icon={<AddRoundedIcon fontSize="small" />}
-          title="Dépenses déductibles"
-          description={`Ajouter une dépense manuelle.`}
-          onClick={onAddDeductibleExpense}
-        />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
         <FinancialActionCard
           iconTone="green"
           icon={<PictureAsPdfRoundedIcon fontSize="small" />}
