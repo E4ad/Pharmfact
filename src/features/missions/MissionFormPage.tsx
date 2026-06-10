@@ -147,7 +147,7 @@ function MissionExpenseEditor({ expense, receipts, onSave, onCancel, onDelete, o
 function ExpenseReceiptUploader({ receipts, onAddReceipt, onDeleteReceipt }: { receipts: ExpenseReceipt[]; onAddReceipt: (file: File) => string | null; onDeleteReceipt: (receiptId: string) => void }) {
   const [error, setError] = useState<string | null>(null);
   function onChange(file?: File) { if (!file) return; const nextError = onAddReceipt(file); setError(nextError); }
-  return <div className="mission-receipt-uploader"><strong>Justificatif</strong>{receipts.length ? <ExpenseReceiptList receipts={receipts} onDeleteReceipt={onDeleteReceipt} /> : <label className="mission-link-button">Ajouter reçu<input type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onChange={(event) => onChange(event.target.files?.[0])} hidden /></label>}{error ? <span className="mission-receipt-error">{error}</span> : null}</div>;
+  return <div className="mission-receipt-uploader" data-testid="expense-receipt-uploader"><strong>Justificatif</strong>{receipts.length ? <ExpenseReceiptList receipts={receipts} onDeleteReceipt={onDeleteReceipt} /> : <label className="mission-link-button">Ajouter reçu<input type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onChange={(event) => onChange(event.target.files?.[0])} hidden /></label>}{error ? <span className="mission-receipt-error">{error}</span> : null}</div>;
 }
 
 function ExpenseReceiptList({ receipts, onDeleteReceipt }: { receipts: ExpenseReceipt[]; onDeleteReceipt: (receiptId: string) => void }) {
