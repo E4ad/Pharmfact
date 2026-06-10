@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
-import { buildFinancialMetrics, buildMonthlyFinancialSnapshots, buildQuarterlyFinancialSnapshots, buildAnnualFinancialSnapshot, collectMissionDeductibleExpenseRows } from './financialMetrics';
+import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
+import { buildFinancialMetrics, buildMonthlyFinancialSnapshots, buildQuarterlyFinancialSnapshots, buildAnnualFinancialSnapshot, collectMissionDeductibleExpenseRows, buildAnnualExpenseRows } from './financialMetrics';
 
 // Minimal settings for testing
 const baseSettings = {
@@ -515,5 +515,186 @@ describe('receipt management', () => {
 
   test('rejects invalid receipt mime types and oversized files', () => {
     expect(true).toBe(true);
+  });
+});
+
+// ============================================================================
+// Tests pour buildAnnualExpenseRows
+// ============================================================================
+
+describe('buildAnnualExpenseRows', () => {
+  const mockAnnual: any = {
+    year: 2024,
+    invoicedCents: 0,
+    collectedCents: 0,
+    receivableCents: 0,
+    overdueCents: 0,
+    manualDeductibleExpensesCents: 12000,
+    missionGeneratedDeductibleExpensesCents: 4500,
+    deductibleExpensesCents: 16500,
+    estimatedNetProfitCents: 0,
+    targetReserveCents: 0,
+    remainingProvisionCents: 0,
+    quarters: [],
+    months: [
+      {
+        month: '2024-01-01',
+        quarterLabel: 'Q1 2024',
+        invoicedCents: 0,
+        collectedCents: 0,
+        receivableCents: 0,
+        overdueCents: 0,
+        manualDeductibleExpensesCents: 2000,
+        missionGeneratedDeductibleExpensesCents: 500,
+        deductibleExpensesCents: 2500,
+        estimatedNetProfitCents: 0,
+        targetReserveCents: 0,
+        remainingProvisionCents: 0,
+        warnings: [],
+      },
+      {
+        month: '2024-02-01',
+        quarterLabel: 'Q1 2024',
+        invoicedCents: 0,
+        collectedCents: 0,
+        receivableCents: 0,
+        overdueCents: 0,
+        manualDeductibleExpensesCents: 3000,
+        missionGeneratedDeductibleExpensesCents: 1000,
+        deductibleExpensesCents: 4000,
+        estimatedNetProfitCents: 0,
+        targetReserveCents: 0,
+        remainingProvisionCents: 0,
+        warnings: [],
+      },
+      ...Array.from({ length: 10 }, (_, i) => ({
+        month: `2024-${String(i + 3).padStart(2, '0')}-01`,
+        quarterLabel: i < 6 ? 'Q2 2024' : i < 9 ? 'Q3 2024' : 'Q4 2024',
+        invoicedCents: 0,
+        collectedCents: 0,
+        receivableCents: 0,
+        overdueCents: 0,
+        manualDeductibleExpensesCents: 0,
+        missionGeneratedDeductibleExpensesCents: 0,
+        deductibleExpensesCents: 0,
+        estimatedNetProfitCents: 0,
+        targetReserveCents: 0,
+        remainingProvisionCents: 0,
+        warnings: [],
+      })),
+    ],
+    deductibleExpenses: [
+      {
+        id: 'exp-1',
+        date: '2024-01-15',
+        label: 'Repas client',
+        category: 'MEAL' as const,
+        amountCents: 2000,
+        taxDeductible: true,
+        hasReceipt: true,
+      },
+      {
+        id: 'exp-2',
+        date: '2024-02-20',
+        label: 'Logiciel',
+        category: 'SOFTWARE' as const,
+        amountCents: 3000,
+        taxDeductible: true,
+        hasReceipt: false,
+      },
+    ],
+    warnings: [],
+  };
+
+  const mockMissionExpenseRows: any[] = [
+    {
+      id: 'mission-exp-1',
+      date: '2024-01-10',
+      label: 'Kilométrage',
+      category: 'MILEAGE' as const,
+      amountCents: 500,
+      missionId: 'mission-1',
+      missionCode: 'MIS-001',
+      deductibleAmountCents: 500,
+      hasReceipt: false,
+    },
+    {
+      id: 'mission-exp-2',
+      date: '2024-02-15',
+      label: 'Repas',
+      category: 'MEAL' as const,
+      amountCents: 1000,
+      missionId: 'mission-2',
+      missionCode: 'MIS-002',
+      deductibleAmountCents: 1000,
+      hasReceipt: true,
+    },
+  ];
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-06-15T00:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('retourne 12 mois', () => {
+    const result = buildAnnualExpenseRows({
+      annual: mockAnnual,
+      missionExpenseRows: mockMissionExpenseRows,
+      today: '2024-06-15',
+    });
+
+    expect(result).toHaveLength(12);
+  });
+
+  test('les mois passés ont le statut PAST', () => {
+    const result = buildAnnualExpenseRows({
+      annual: mockAnnual,
+      missionExpenseRows: mockMissionExpenseRows,
+      today: '2024-06-15',
+    });
+
+    for (let i = 0; i < 5; i++) {
+      expect(result[i].status).toBe('PAST');
+    }
+  });
+
+  test('le mois en cours a le statut CURRENT', () => {
+    const result = buildAnnualExpenseRows({
+      annual: mockAnnual,
+      missionExpenseRows: mockMissionExpenseRows,
+      today: '2024-06-15',
+    });
+
+    expect(result[5].status).toBe('CURRENT');
+  });
+
+  test('les mois futurs ont le statut FUTURE', () => {
+    const result = buildAnnualExpenseRows({
+      annual: mockAnnual,
+      missionExpenseRows: mockMissionExpenseRows,
+      today: '2024-06-15',
+    });
+
+    for (let i = 6; i < 12; i++) {
+      expect(result[i].status).toBe('FUTURE');
+    }
+  });
+
+  test('calcule correctement les dépenses manuelles par mois', () => {
+    const result = buildAnnualExpenseRows({
+      annual: mockAnnual,
+      missionExpenseRows: [],
+      today: '2024-06-15',
+    });
+
+    expect(result[0].manualDeductibleExpensesCents).toBe(2000);
+    expect(result[1].manualDeductibleExpensesCents).toBe(3000);
+    for (let i = 2; i < 12; i++) {
+      expect(result[i].manualDeductibleExpensesCents).toBe(0);
+    }
   });
 });

@@ -1,570 +1,427 @@
-import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
-import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  FormControl,
-  FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Select,
-  Snackbar,
-  Stack,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageBackButton } from '../../components/PageBackButton';
-import { useAppState, updateAppState } from '../../storage/localStore';
-import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings } from '../../storage/schema';
-import { activePharmacien, selectAppOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions } from '../../storage/selectors';
+import { 
+  Alert, 
+  Box, 
+  Button, 
+  Grid, 
+  Snackbar, 
+  Stack, 
+  Typography 
+} from '@mui/material';
+import { 
+  AccountCircleRounded as AccountCircleRoundedIcon,
+  AccountBalanceRounded as AccountBalanceRoundedIcon,
+  AddBusinessRounded as AddBusinessRoundedIcon,
+  DarkModeRounded as DarkModeRoundedIcon,
+  DescriptionRounded as DescriptionRoundedIcon,
+  LocalPharmacyRounded as LocalPharmacyRoundedIcon,
+  PersonAddAltRounded as PersonAddAltRoundedIcon,
+  SettingsRounded as SettingsRoundedIcon,
+} from '@mui/icons-material';
 
-const missionTypes = [
-  ['REMPLACEMENT_OFFICINE', 'Remplacement officine'],
-  ['GARDE', 'Garde'],
-  ['CLINIQUE', 'Clinique'],
-];
+import { BackHomeButton } from '../../components/BackHomeButton';
+import { OptionsTile } from '../../components/OptionsTile';
+import { OptionsDrawer } from '../../components/OptionsDrawer';
+import { useAppState, setAppState } from '../../storage/localStore';
+import { activePharmacien, selectAppOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions } from '../../storage/selectors';
+import type { AppOptions, FiscalSettings, UiSettings, LocalDataSettings, AppState } from '../../storage/schema';
+
+// Import des drawers
+import { AppearanceDrawer } from './drawers/AppearanceDrawer';
+import { FinancialDrawer } from './drawers/FinancialDrawer';
+import { MissionSettingsDrawer } from './drawers/MissionSettingsDrawer';
+import { PdfCalendarDrawer } from './drawers/PdfCalendarDrawer';
+import { MissionRefDrawer } from './drawers/MissionRefDrawer';
+import { LocalDataDrawer } from './drawers/LocalDataDrawer';
+import { ProfileDrawer } from './drawers/ProfileDrawer';
+import { PharmaciesDrawer } from './drawers/PharmaciesDrawer';
 
 export function OptionsPage() {
   const navigate = useNavigate();
   const state = useAppState();
   const currentActive = activePharmacien(state);
 
-  const appOptions = selectAppOptions(state);
-  const fiscalSettings = selectFinancialOptions(state);
-  const uiSettings = selectUiOptions(state);
-  const localDataSettings = selectLocalDataOptions(state);
+  // States pour les formulaires
+  const [appOptions, setAppOptions] = useState<AppOptions>(selectAppOptions(state));
+  const [fiscalSettings, setFiscalSettings] = useState<FiscalSettings>(selectFinancialOptions(state));
+  const [uiSettings, setUiSettings] = useState<UiSettings>(selectUiOptions(state));
+  const [localDataSettings, setLocalDataSettings] = useState<LocalDataSettings>(selectLocalDataOptions(state));
 
-  const [form, setForm] = useState<AppOptions>(() => appOptions);
+  // State pour les toast notifications
   const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
-  const [taxStatus, setTaxStatus] = useState<TaxStatus>(() => fiscalSettings.defaultTaxStatus);
-  const [uiSettingsForm, setUiSettingsForm] = useState<UiSettings>(() => uiSettings);
-  const [localDataSettingsForm, setLocalDataSettingsForm] = useState<LocalDataSettings>(() => localDataSettings);
 
+  // State pour le drawer actif
+  const [activeDrawer, setActiveDrawer] = useState<string | null>(null);
+
+  // Synchroniser avec le state global
   useEffect(() => {
-    const appOptions = selectAppOptions(state);
-    const fiscalSettings = selectFinancialOptions(state);
-    const uiSettings = selectUiOptions(state);
-    const localDataSettings = selectLocalDataOptions(state);
-
-    // Synchronisation initiale des states avec le store
-    // eslint-disable-next-line react/no-sync-state-update
-    setForm(appOptions);
-    // eslint-disable-next-line react/no-sync-state-update
-    setTaxStatus(fiscalSettings.defaultTaxStatus);
-    // eslint-disable-next-line react/no-sync-state-update
-    setUiSettingsForm(uiSettings);
-    // eslint-disable-next-line react/no-sync-state-update
-    setLocalDataSettingsForm(localDataSettings);
+    setAppOptions(selectAppOptions(state));
+    setFiscalSettings(selectFinancialOptions(state));
+    setUiSettings(selectUiOptions(state));
+    setLocalDataSettings(selectLocalDataOptions(state));
   }, [state]);
 
-  const validateForm = (): boolean => {
-    // Validation des champs numériques dans appOptions
-    if (form.missionDefaults.defaultBreakMinutes < 0 || form.missionDefaults.defaultBreakMinutes > 1440) {
-      setToast({ severity: 'error', message: 'La pause doit être entre 0 et 1440 minutes.' });
-      return false;
-    }
-    if (form.missionDefaults.mealThresholdHours < 0 || form.missionDefaults.mealThresholdHours > 24) {
-      setToast({ severity: 'error', message: 'Le seuil de repas doit être entre 0 et 24 heures.' });
-      return false;
-    }
-    if (form.missionDefaults.mealDefaultCents < 0) {
-      setToast({ severity: 'error', message: 'Le montant de repas doit être positif.' });
-      return false;
-    }
-    if (form.missionDefaults.mileageRateCents < 0) {
-      setToast({ severity: 'error', message: 'Le taux de kilométrage doit être positif.' });
-      return false;
-    }
-    if (form.invoiceDefaults.invoiceDueDays < 0 || form.invoiceDefaults.invoiceDueDays > 365) {
-      setToast({ severity: 'error', message: 'Le délai de paiement doit être entre 0 et 365 jours.' });
-      return false;
-    }
-    return true;
-  };
-
-  const handleSave = () => {
-    if (!validateForm()) return;
-    try {
-      updateAppState((current) => ({
-        ...current,
-        appOptions: form,
-        fiscalSettings: {
-          ...current.fiscalSettings,
-          defaultTaxStatus: taxStatus,
-        },
-        uiSettings: uiSettingsForm,
-        localDataSettings: localDataSettingsForm,
-      }));
-      setToast({ severity: 'success', message: 'Paramètres enregistrés avec succès.' });
-    } catch (error) {
-      setToast({ severity: 'error', message: `Erreur lors de l'enregistrement.` });
-    }
-  };
-
-  const handleChange =
-    (field: keyof AppOptions) =>
-    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      const value = event.target.type === 'number' ? Number(event.target.value) : event.target.value;
-      setForm((prev) => ({ ...prev, [field]: value }));
+  // Gestion du clavier pour fermer le drawer avec Escape
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && activeDrawer) {
+        setActiveDrawer(null);
+        // Réinitialiser les states locaux depuis le state global
+        setAppOptions(selectAppOptions(state));
+        setFiscalSettings(selectFinancialOptions(state));
+        setUiSettings(selectUiOptions(state));
+        setLocalDataSettings(selectLocalDataOptions(state));
+      }
     };
 
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeDrawer, state]);
+
+  // Fonction pour sauvegarder toutes les modifications
+  const handleSave = useCallback(() => {
+    try {
+      setAppState({
+        ...state,
+        appOptions,
+        fiscalSettings,
+        uiSettings,
+        localDataSettings,
+        ui: {
+          ...state.ui,
+          lastVisitedAt: new Date().toISOString(),
+        },
+      });
+      setToast({ severity: 'success', message: 'Paramètres enregistrés avec succès.' });
+    } catch (error) {
+      setToast({ severity: 'error', message: 'Erreur lors de l\'enregistrement.' });
+    }
+  }, [state, appOptions, fiscalSettings, uiSettings, localDataSettings]);
+
+  // Fonction pour annuler les modifications d'un drawer
+  const handleDrawerCancel = useCallback(() => {
+    setActiveDrawer(null);
+    // Réinitialiser les states locaux depuis le state global
+    setAppOptions(selectAppOptions(state));
+    setFiscalSettings(selectFinancialOptions(state));
+    setUiSettings(selectUiOptions(state));
+    setLocalDataSettings(selectLocalDataOptions(state));
+  }, [state]);
+
+  // Définition des tuiles
+  const tiles = [
+    {
+      id: 'profile',
+      icon: <AccountCircleRoundedIcon fontSize="small" />,
+      title: 'Profil actif',
+      description: 'Pharmacien et pharmacie par défaut.',
+      value: currentActive?.nom,
+      onClick: () => setActiveDrawer('profile'),
+      testId: 'options-tile-profile',
+    },
+    {
+      id: 'pharmaciens',
+      icon: <PersonAddAltRoundedIcon fontSize="small" />,
+      title: 'Pharmaciens',
+      description: `Gérer les profils pharmacien (${state.pharmaciens.length}).`,
+      onClick: () => navigate('/pharmacien/new'),
+      testId: 'options-tile-pharmaciens',
+    },
+    {
+      id: 'pharmacies',
+      icon: <LocalPharmacyRoundedIcon fontSize="small" />,
+      title: 'Pharmacies',
+      description: `Gérer les pharmacies (${state.pharmacies.length}).`,
+      onClick: () => setActiveDrawer('pharmacies'),
+      testId: 'options-tile-pharmacies',
+    },
+    {
+      id: 'mission-settings',
+      icon: <SettingsRoundedIcon fontSize="small" />,
+      title: 'Paramètres mission',
+      description: 'Horaires, pause, repas et kilométrage par défaut.',
+      onClick: () => setActiveDrawer('mission-settings'),
+      testId: 'options-tile-mission-settings',
+    },
+    {
+      id: 'financial',
+      icon: <AccountBalanceRoundedIcon fontSize="small" />,
+      title: 'Financier & fiscalité',
+      description: 'Réserve fiscale, acomptes et seuils.',
+      onClick: () => setActiveDrawer('financial'),
+      testId: 'options-tile-financial',
+    },
+    {
+      id: 'pdf-calendar',
+      icon: <DescriptionRoundedIcon fontSize="small" />,
+      title: 'PDF & calendrier',
+      description: 'Facturation, conditions de paiement et calendrier.',
+      onClick: () => setActiveDrawer('pdf-calendar'),
+      testId: 'options-tile-pdf-calendar',
+    },
+    {
+      id: 'mission-ref',
+      icon: <AddBusinessRoundedIcon fontSize="small" />,
+      title: 'Référentiel des missions',
+      description: 'Types de mission, frais, statuts et règles.',
+      onClick: () => setActiveDrawer('mission-ref'),
+      testId: 'options-tile-mission-ref',
+    },
+    {
+      id: 'local-data',
+      icon: <SettingsRoundedIcon fontSize="small" />,
+      title: 'Données locales',
+      description: 'Sauvegarde automatique et gestion des données.',
+      onClick: () => setActiveDrawer('local-data'),
+      testId: 'options-tile-local-data',
+    },
+    {
+      id: 'appearance',
+      icon: <DarkModeRoundedIcon fontSize="small" />,
+      title: 'Apparence',
+      description: 'Thème clair, sombre ou système.',
+      value: uiSettings.themeMode === 'light' ? 'Clair' : 
+             uiSettings.themeMode === 'dark' ? 'Sombre' : 'Système',
+      onClick: () => setActiveDrawer('appearance'),
+      testId: 'options-tile-appearance',
+    },
+  ];
+
   return (
-    <Stack component="div" spacing={3} sx={{ width: 'min(980px, 100%)', mx: 'auto', py: 4 }}>
-      <Stack direction="row" component="div" spacing={2} sx={{ alignItems: 'center', width: '100%' }}>
-        <PageBackButton to="/activity" data-testid="options-back-button" />
+    <Stack spacing={3} sx={{ width: 'min(980px, 100%)', mx: 'auto', py: 4 }}>
+      {/* En-tête */}
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', width: '100%' }}>
+        <BackHomeButton to="/activity" data-testid="options-back-button" />
         <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
-          Paramètres
+          Options
         </Typography>
       </Stack>
 
-      <Card>
-        <CardContent>
-          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
-            <SettingsRoundedIcon />
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-              Informations générales
-            </Typography>
-          </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Profil actif et statut fiscal par défaut.
-          </Typography>
-          <Stack spacing={2}>
-            <TextField
-              label="Nom du pharmacien actif"
-              value={currentActive?.nom ?? ''}
-              disabled
-              helperText="Sélectionné dans la section Pharmaciens"
-              variant="outlined"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <FormControl>
-              <InputLabel id="tax-status-label">Statut fiscal par défaut</InputLabel>
-              <Select
-                labelId="tax-status-label"
-                value={taxStatus}
-                label="Statut fiscal par défaut"
-                onChange={(event) => setTaxStatus(event.target.value as TaxStatus)}
-              >
-                <MenuItem value="SMALL_SUPPLIER">Petit fournisseur (non inscrit)</MenuItem>
-                <MenuItem value="REGISTERED">Inscrit (TPS/TVQ applicables)</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-        </CardContent>
-      </Card>
+      {/* Description */}
+      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+        Centre de configuration de l'application
+      </Typography>
 
-      <Card>
-        <CardContent>
-          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
-            <PersonAddAltRoundedIcon />
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-              Missions
-            </Typography>
-          </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Paramètres par défaut pour la création de missions.
-          </Typography>
-          <Stack spacing={2}>
-            <FormControl>
-              <InputLabel id="mission-type-label">Type de mission par défaut</InputLabel>
-              <Select
-                labelId="mission-type-label"
-                value={form.missionDefaults.defaultMissionType ?? 'REMPLACEMENT_OFFICINE'}
-                label="Type de mission par défaut"
-                onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultMissionType: event.target.value } }))}
-              >
-                {missionTypes.map(([value, label]) => (
-                  <MenuItem key={value} value={value}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Heure de début par défaut"
-              type="time"
-              value={form.missionDefaults.defaultStartTime ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultStartTime: event.target.value } }))}
-              slotProps={{ htmlInput: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
-              variant="outlined"
+      {/* Grille de tuiles */}
+      <Grid container spacing={2}>
+        {tiles.map((tile) => (
+          <Grid item xs={12} sm={6} md={4} key={tile.id}>
+            <OptionsTile
+              icon={tile.icon}
+              title={tile.title}
+              description={tile.description}
+              value={tile.value}
+              onClick={tile.onClick}
+              data-testid={tile.testId}
             />
-            <TextField
-              label="Heure de fin par défaut"
-              type="time"
-              value={form.missionDefaults.defaultEndTime ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultEndTime: event.target.value } }))}
-              slotProps={{ htmlInput: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-            <TextField
-              label="Pause par défaut (minutes)"
-              type="number"
-              value={form.missionDefaults.defaultBreakMinutes ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, defaultBreakMinutes: Number(event.target.value) } }))}
-              slotProps={{ htmlInput: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-            <TextField
-              label="Délai de paiement (jours)"
-              type="number"
-              value={form.invoiceDefaults.invoiceDueDays ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, invoiceDueDays: Number(event.target.value) } }))}
-              slotProps={{ htmlInput: { min: 0, step: 1 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={form.missionDefaults.mealAutoEnabled ?? false}
-                  exclusive
-                  onChange={(event, value) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealAutoEnabled: value } }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Repas automatique"
-            />
-            <TextField
-              label="Seuil de repas (heures)"
-              type="number"
-              value={form.missionDefaults.mealThresholdHours ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealThresholdHours: Number(event.target.value) } }))}
-              slotProps={{ htmlInput: { min: 0, step: 0.5 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-            <TextField
-              label="Montant de repas par défaut (cents)"
-              type="number"
-              value={form.missionDefaults.mealDefaultCents ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mealDefaultCents: Number(event.target.value) } }))}
-              slotProps={{ htmlInput: { min: 0, step: 100 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-            <TextField
-              label="Taux de kilométrage (cents)"
-              type="number"
-              value={form.missionDefaults.mileageRateCents ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, missionDefaults: { ...prev.missionDefaults, mileageRateCents: Number(event.target.value) } }))}
-              slotProps={{ htmlInput: { min: 0, step: 100 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-          </Stack>
-        </CardContent>
-      </Card>
+          </Grid>
+        ))}
+      </Grid>
 
-      <Card>
-        <CardContent>
-          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
-            <AddBusinessRoundedIcon />
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-              Facturation & PDF
-            </Typography>
-          </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Paramètres de facture, conditions de paiement et génération PDF.
-          </Typography>
-          <Stack spacing={2}>
-            <TextField
-              label="Mode de paiement"
-              value={form.invoiceDefaults.paymentTerms ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, paymentTerms: event.target.value } }))}
-              variant="outlined"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <TextField
-              label="Conditions de paiement"
-              value={form.invoiceDefaults.paymentTerms ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, invoiceDefaults: { ...prev.invoiceDefaults, paymentTerms: event.target.value } }))}
-              multiline
-              minRows={2}
-              variant="outlined"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={form.pdfCalendar.pdfFooterEnabled ?? false}
-                  exclusive
-                  onChange={(event, value) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, pdfFooterEnabled: value } }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Pied de page PDF"
-            />
-            <TextField
-              label="Titre de l'événement de calendrier"
-              value={form.pdfCalendar.calendarEventTitle ?? ''}
-              onChange={(event) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, calendarEventTitle: event.target.value } }))}
-              variant="outlined"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={form.pdfCalendar.calendarIcsEnabled ?? false}
-                  exclusive
-                  onChange={(event, value) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, calendarIcsEnabled: value } }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Calendrier ICS"
-            />
-            <FormControl>
-              <InputLabel id="calendar-reminder-label">Rappel de calendrier</InputLabel>
-              <Select
-                labelId="calendar-reminder-label"
-                value={form.pdfCalendar.calendarReminder ?? 'NONE'}
-                label="Rappel de calendrier"
-                onChange={(event) => setForm(prev => ({ ...prev, pdfCalendar: { ...prev.pdfCalendar, calendarReminder: event.target.value as 'NONE' | 'ONE_HOUR' | 'DAY_BEFORE' } }))}
-              >
-                <MenuItem value="NONE">Aucun</MenuItem>
-                <MenuItem value="ONE_HOUR">1 heure avant</MenuItem>
-                <MenuItem value="DAY_BEFORE">La veille</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-        </CardContent>
-      </Card>
+      {/* Info: sauvegarde se fait par drawer */}
+      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+        Cliquez sur une tuile pour configurer. Les modifications sont enregistrées par section.
+      </Typography>
 
-      <Card>
-        <CardContent>
-          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
-            <SettingsRoundedIcon />
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-              Financier & fiscalité
-            </Typography>
-          </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Réserve fiscale, acomptes provisionnels, seuils et suivi des dépenses déductibles.
-          </Typography>
-          <Stack spacing={2}>
-            <TextField
-              label="Taux de réserve fiscale"
-              type="number"
-              value={fiscalSettings.reserveRate * 100}
-              onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, reserveRate: Number(event.target.value) / 100 } }))}
-              slotProps={{ htmlInput: { min: 0, max: 100, step: 1 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-            <TextField
-              label="Seuil petit fournisseur"
-              type="number"
-              value={fiscalSettings.smallSupplierThresholdCents / 100}
-              onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, smallSupplierThresholdCents: Number(event.target.value) * 100 } }))}
-              slotProps={{ htmlInput: { min: 0, step: 1000 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-            <TextField
-              label="Seuil d'alerte petit fournisseur"
-              type="number"
-              value={fiscalSettings.smallSupplierWarningRate * 100}
-              onChange={(event) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, smallSupplierWarningRate: Number(event.target.value) / 100 } }))}
-              slotProps={{ htmlInput: { min: 0, max: 100, step: 1 }, inputLabel: { shrink: true } }}
-              variant="outlined"
-            />
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={fiscalSettings.includeMissionDeductibleExpenses}
-                  exclusive
-                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, includeMissionDeductibleExpenses: value } }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Inclure frais déductibles issus des missions"
-            />
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={fiscalSettings.enableInstalmentTracking}
-                  exclusive
-                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, enableInstalmentTracking: value } }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Suivi des acomptes provisionnels"
-            />
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={fiscalSettings.enableExpenseTracking}
-                  exclusive
-                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, enableExpenseTracking: value } }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Suivi des dépenses manuelles"
-            />
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={fiscalSettings.trackExpenseReceipts}
-                  exclusive
-                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, trackExpenseReceipts: value } }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Suivre les justificatifs"
-            />
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={fiscalSettings.warnMissingExpenseReceipts}
-                  exclusive
-                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, warnMissingExpenseReceipts: value } }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Alerter si justificatif manquant"
-            />
-            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>Vues financières</Typography>
-            <Stack direction="row" spacing={2}>
-              <FormControlLabel
-                control={
-                  <ToggleButtonGroup
-                    value={fiscalSettings.showMonthlyView}
-                    exclusive
-                    onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, showMonthlyView: value } }))}
-                  >
-                    <ToggleButton value={true}>Activé</ToggleButton>
-                    <ToggleButton value={false}>Désactivé</ToggleButton>
-                  </ToggleButtonGroup>
-                }
-                label="Mensuelle"
-              />
-              <FormControlLabel
-                control={
-                  <ToggleButtonGroup
-                    value={fiscalSettings.showQuarterlyView}
-                    exclusive
-                    onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, showQuarterlyView: value } }))}
-                  >
-                    <ToggleButton value={true}>Activé</ToggleButton>
-                    <ToggleButton value={false}>Désactivé</ToggleButton>
-                  </ToggleButtonGroup>
-                }
-                label="Trimestrielle"
-              />
-              <FormControlLabel
-                control={
-                  <ToggleButtonGroup
-                    value={fiscalSettings.showAnnualView}
-                    exclusive
-                    onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, showAnnualView: value } }))}
-                  >
-                    <ToggleButton value={true}>Activé</ToggleButton>
-                    <ToggleButton value={false}>Désactivé</ToggleButton>
-                  </ToggleButtonGroup>
-                }
-                label="Annuelle"
-              />
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
+      {/* Drawers */}
+      
+      {/* Drawer: Profil actif */}
+      <OptionsDrawer
+        open={activeDrawer === 'profile'}
+        onClose={() => setActiveDrawer(null)}
+        title="Profil actif"
+        actions={
+          <Button variant="outlined" onClick={() => setActiveDrawer(null)} data-testid="profile-drawer-close">
+            Fermer
+          </Button>
+        }
+        data-testid="profile-drawer"
+      >
+        <ProfileDrawer state={state} />
+      </OptionsDrawer>
 
-      <Card>
-        <CardContent>
-          <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
-            <SettingsRoundedIcon />
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-              Apparence
-            </Typography>
-          </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Thème et couleurs de l'application.
-          </Typography>
-          <Stack spacing={2}>
-            <FormControl>
-              <InputLabel id="theme-mode-label">Mode d'affichage</InputLabel>
-              <Select
-                labelId="theme-mode-label"
-                value={uiSettingsForm.themeMode}
-                label="Mode d'affichage"
-                onChange={(event) => setUiSettingsForm(prev => ({ ...prev, themeMode: event.target.value as 'light' | 'dark' | 'system' }))}
-              >
-                <MenuItem value="light">Clair</MenuItem>
-                <MenuItem value="dark">Sombre</MenuItem>
-                <MenuItem value="system">Système</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-        </CardContent>
-      </Card>
+      {/* Drawer: Pharmacies */}
+      <OptionsDrawer
+        open={activeDrawer === 'pharmacies'}
+        onClose={() => setActiveDrawer(null)}
+        title="Pharmacies"
+        actions={
+          <Button variant="outlined" onClick={() => setActiveDrawer(null)} data-testid="pharmacies-drawer-close">
+            Fermer
+          </Button>
+        }
+        data-testid="pharmacies-drawer"
+      >
+        <PharmaciesDrawer state={state} />
+      </OptionsDrawer>
 
-      <Card>
-        <CardContent>
-          <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
-            <SettingsRoundedIcon />
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-              Données locales
-            </Typography>
-          </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Sauvegarde automatique et gestion des données.
-          </Typography>
-          <Stack spacing={2}>
-            <FormControlLabel
-              control={
-                <ToggleButtonGroup
-                  value={localDataSettingsForm.autoBackupEnabled}
-                  exclusive
-                  onChange={(event, value) => setLocalDataSettingsForm(prev => ({ ...prev, autoBackupEnabled: value }))}
-                >
-                  <ToggleButton value={true}>Activé</ToggleButton>
-                  <ToggleButton value={false}>Désactivé</ToggleButton>
-                </ToggleButtonGroup>
-              }
-              label="Sauvegarde automatique"
-            />
-            <Button
-              variant="outlined"
-              onClick={() => navigate('/settings')}
-              sx={{ alignSelf: 'flex-start' }}
-            >
-              Gestion avancée des données
+      {/* Drawer: Paramètres mission */}
+      <OptionsDrawer
+        open={activeDrawer === 'mission-settings'}
+        onClose={() => setActiveDrawer(null)}
+        title="Paramètres mission"
+        actions={
+          <>
+            <Button variant="outlined" onClick={handleDrawerCancel} data-testid="mission-settings-drawer-cancel">
+              Annuler
             </Button>
-          </Stack>
-        </CardContent>
-      </Card>
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                setActiveDrawer(null);
+                handleSave();
+              }}
+              data-testid="mission-settings-drawer-save"
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+        data-testid="mission-settings-drawer"
+      >
+        <MissionSettingsDrawer 
+          settings={appOptions} 
+          onChange={setAppOptions} 
+        />
+      </OptionsDrawer>
 
-      <Box>
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<SaveRoundedIcon />}
-          onClick={handleSave}
-          sx={{ borderRadius: 999, px: 4, py: 1.5 }}
-          data-testid="options-save-button"
-        >
-          Enregistrer
-        </Button>
-      </Box>
+      {/* Drawer: Financier & fiscalité */}
+      <OptionsDrawer
+        open={activeDrawer === 'financial'}
+        onClose={() => setActiveDrawer(null)}
+        title="Financier & fiscalité"
+        actions={
+          <>
+            <Button variant="outlined" onClick={handleDrawerCancel} data-testid="financial-drawer-cancel">
+              Annuler
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                setActiveDrawer(null);
+                handleSave();
+              }}
+              data-testid="financial-drawer-save"
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+        data-testid="financial-drawer"
+      >
+        <FinancialDrawer 
+          settings={fiscalSettings} 
+          onChange={setFiscalSettings} 
+        />
+      </OptionsDrawer>
 
+      {/* Drawer: PDF & calendrier */}
+      <OptionsDrawer
+        open={activeDrawer === 'pdf-calendar'}
+        onClose={() => setActiveDrawer(null)}
+        title="PDF & calendrier"
+        actions={
+          <>
+            <Button variant="outlined" onClick={handleDrawerCancel} data-testid="pdf-calendar-drawer-cancel">
+              Annuler
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                setActiveDrawer(null);
+                handleSave();
+              }}
+              data-testid="pdf-calendar-drawer-save"
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+        data-testid="pdf-calendar-drawer"
+      >
+        <PdfCalendarDrawer 
+          settings={appOptions} 
+          onChange={setAppOptions} 
+        />
+      </OptionsDrawer>
+
+      {/* Drawer: Référentiel des missions */}
+      <OptionsDrawer
+        open={activeDrawer === 'mission-ref'}
+        onClose={() => setActiveDrawer(null)}
+        title="Référentiel des missions"
+        actions={
+          <Button variant="outlined" onClick={() => setActiveDrawer(null)} data-testid="mission-ref-drawer-close">
+            Fermer
+          </Button>
+        }
+        data-testid="mission-ref-drawer"
+      >
+        <MissionRefDrawer />
+      </OptionsDrawer>
+
+      {/* Drawer: Données locales */}
+      <OptionsDrawer
+        open={activeDrawer === 'local-data'}
+        onClose={() => setActiveDrawer(null)}
+        title="Données locales"
+        actions={
+          <>
+            <Button variant="outlined" onClick={handleDrawerCancel} data-testid="local-data-drawer-cancel">
+              Annuler
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                setActiveDrawer(null);
+                handleSave();
+              }}
+              data-testid="local-data-drawer-save"
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+        data-testid="local-data-drawer"
+      >
+        <LocalDataDrawer 
+          settings={localDataSettings} 
+          onChange={setLocalDataSettings} 
+        />
+      </OptionsDrawer>
+
+      {/* Drawer: Apparence */}
+      <OptionsDrawer
+        open={activeDrawer === 'appearance'}
+        onClose={() => setActiveDrawer(null)}
+        title="Apparence"
+        actions={
+          <>
+            <Button variant="outlined" onClick={handleDrawerCancel} data-testid="appearance-drawer-cancel">
+              Annuler
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                setActiveDrawer(null);
+                handleSave();
+              }}
+              data-testid="appearance-drawer-save"
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+        data-testid="appearance-drawer"
+      >
+        <AppearanceDrawer 
+          settings={uiSettings} 
+          onChange={setUiSettings} 
+        />
+      </OptionsDrawer>
+
+      {/* Snackbar pour les notifications */}
       <Snackbar
         open={Boolean(toast)}
         autoHideDuration={3200}

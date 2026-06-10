@@ -7,7 +7,7 @@ import { Alert, Button, Card, CardContent, Dialog, DialogContent, DialogTitle, S
 import { useState } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { MoneyValue } from '../../components/MoneyValue';
-import { PageBackButton } from '../../components/PageBackButton';
+import { BackHomeButton } from '../../components/BackHomeButton';
 import { StatusChip } from '../../components/StatusChip';
 import { apiUrl, assertBackendAvailable } from '../../services/api';
 import { invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
@@ -59,7 +59,7 @@ export function InvoicesPage() {
   return (
     <Stack spacing={4}>
       <Stack spacing={2}>
-        <PageBackButton to="/activity" data-testid="invoices-back-button" />
+        <BackHomeButton to="/activity" data-testid="invoices-back-button" />
         <Stack spacing={1}>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Factures</Typography>
           <Typography variant="h2">Vue d’ensemble</Typography>

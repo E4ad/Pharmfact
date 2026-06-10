@@ -4,7 +4,7 @@ import UploadRoundedIcon from '@mui/icons-material/UploadRounded';
 import { Alert, Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
 import { ChangeEvent, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { PageBackButton } from '../../components/PageBackButton';
+import { BackHomeButton } from '../../components/BackHomeButton';
 import { exportAppState, importAppState, resetAppState, useAppState } from '../../storage/localStore';
 
 export function SettingsPage() {
@@ -46,7 +46,7 @@ export function SettingsPage() {
   return (
     <Stack spacing={4} sx={{ width: 'min(980px, 100%)', mx: 'auto' }}>
       <Stack spacing={2}>
-        <PageBackButton to="/activity" data-testid="settings-back-button" />
+        <BackHomeButton to="/activity" data-testid="settings-back-button" />
         <Stack spacing={1}>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Réglages</Typography>
           <Typography variant="h2">Données locales</Typography>

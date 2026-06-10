@@ -4,7 +4,7 @@ import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
-import { PageBackButton } from '../../components/PageBackButton';
+import { BackHomeButton } from '../../components/BackHomeButton';
 import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
 import { eurosToCents } from '../../services/money';
 import { updateAppState, useAppState } from '../../storage/localStore';
@@ -61,7 +61,7 @@ export function PharmacienNewPage() {
   return (
     <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
-        <PageBackButton to="/activity" label="Accueil" data-testid="pharmacien-back-button" />
+        <BackHomeButton to="/activity" label="Accueil" data-testid="pharmacien-back-button" />
         <Typography variant="h2">Nouveau pharmacien</Typography>
       </Stack>
       <Card sx={{ width: '100%' }}>

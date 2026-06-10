@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
 import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
-import { PageBackButton } from '../../components/PageBackButton';
+import { BackHomeButton } from '../../components/BackHomeButton';
 import { updateAppState } from '../../storage/localStore';
 import type { Pharmacie } from '../../storage/schema';
 
@@ -55,7 +55,7 @@ export function PharmacieAddPage() {
   return (
     <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
-        <PageBackButton to="/activity" label="Accueil" data-testid="pharmacy-back-button" />
+        <BackHomeButton to="/activity" label="Accueil" data-testid="pharmacy-back-button" />
         <Typography variant="h2">Ajouter une pharmacie</Typography>
       </Stack>
       <Card sx={{ width: '100%' }}>

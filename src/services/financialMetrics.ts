@@ -470,3 +470,119 @@ export function buildFinancialMetrics(data: {
     quarterly: buildQuarterlyFinancialSnapshots(data),
   };
 }
+
+// ============================================================================
+// Fonctions pour le tableau annuel des dépenses
+// ============================================================================
+
+/**
+ * Type pour une ligne du tableau annuel des dépenses
+ */
+export type AnnualExpenseRow = {
+  month: number; // 1-12
+  monthLabel: string;
+  status: 'PAST' | 'CURRENT' | 'FUTURE';
+  manualDeductibleExpensesCents: number;
+  missionGeneratedDeductibleExpensesCents: number;
+  totalDeductibleExpensesCents: number;
+  missingRecommendedReceiptsCount: number;
+  missingRequiredReceiptsCount: number;
+};
+
+/**
+ * Paramètres pour buildAnnualExpenseRows
+ */
+export interface BuildAnnualExpenseRowsParams {
+  annual: AnnualFinancialSnapshot;
+  missionExpenseRows: MissionDeductibleExpenseRow[];
+  today: string; // YYYY-MM-DD
+  year?: number;
+}
+
+/**
+ * Construit les lignes du tableau annuel des dépenses
+ * @param params - Paramètres incluant l'année financière, les dépenses missions, et la date courante
+ * @returns Tableau de 12 lignes (une par mois)
+ */
+export function buildAnnualExpenseRows({
+  annual,
+  missionExpenseRows,
+  today,
+  year = annual.year,
+}: BuildAnnualExpenseRowsParams): AnnualExpenseRow[] {
+  const todayDate = new Date(today);
+  const currentYear = todayDate.getFullYear();
+  const currentMonth = todayDate.getMonth(); // 0-11
+  
+  const monthLabels = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+  ];
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1; // 1-12
+    const monthLabel = monthLabels[index];
+    
+    // Déterminer le statut temporel
+    let status: 'PAST' | 'CURRENT' | 'FUTURE' = 'FUTURE';
+    if (year < currentYear) {
+      status = 'PAST';
+    } else if (year > currentYear) {
+      status = 'FUTURE';
+    } else {
+      // Même année
+      if (index < currentMonth) {
+        status = 'PAST';
+      } else if (index === currentMonth) {
+        status = 'CURRENT';
+      } else {
+        status = 'FUTURE';
+      }
+    }
+
+    // Calculer la date de début du mois (YYYY-MM-01)
+    const monthStartDate = new Date(year, index, 1);
+    const monthStart = `${year}-${String(index + 1).padStart(2, '0')}-01`;
+    
+    // Calculer la date de fin du mois (YYYY-MM-dd)
+    const monthEndDate = new Date(year, index + 1, 0);
+    const monthEnd = `${year}-${String(index + 1).padStart(2, '0')}-${String(monthEndDate.getDate()).padStart(2, '0')}`;
+
+    // Dépenses manuelles pour le mois
+    const monthlySnapshot = annual.months?.find(m => m.month === monthStart);
+    const manualDeductibleExpensesCents = monthlySnapshot?.manualDeductibleExpensesCents ?? 0;
+
+    // Dépenses issues des missions pour le mois
+    const missionGeneratedDeductibleExpensesCents = missionExpenseRows
+      .filter(row => row.date >= monthStart && row.date <= monthEnd)
+      .reduce((sum, row) => sum + (row.deductibleAmountCents ?? 0), 0);
+
+    // Total des dépenses déductibles
+    const totalDeductibleExpensesCents = manualDeductibleExpensesCents + missionGeneratedDeductibleExpensesCents;
+
+    // Compter les justificatifs manquants
+    // Pour les dépenses manuelles
+    const manualExpensesWithoutReceipt = annual.deductibleExpenses
+      ?.filter(e => {
+        const expenseDate = new Date(e.date);
+        return expenseDate >= monthStartDate && expenseDate <= monthEndDate && !e.hasReceipt;
+      })
+      .length ?? 0;
+
+    // Pour les dépenses missions
+    const missionExpensesWithoutReceipt = missionExpenseRows
+      .filter(row => row.date >= monthStart && row.date <= monthEnd && !row.hasReceipt)
+      .length;
+
+    return {
+      month,
+      monthLabel,
+      status,
+      manualDeductibleExpensesCents,
+      missionGeneratedDeductibleExpensesCents,
+      totalDeductibleExpensesCents,
+      missingRecommendedReceiptsCount: manualExpensesWithoutReceipt + missionExpensesWithoutReceipt,
+      missingRequiredReceiptsCount: manualExpensesWithoutReceipt + missionExpensesWithoutReceipt,
+    };
+  });
+}

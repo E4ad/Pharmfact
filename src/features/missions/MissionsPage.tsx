@@ -4,7 +4,7 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import { Alert, Button, Snackbar } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { PageBackButton } from '../../components/PageBackButton';
+import { BackHomeButton } from '../../components/BackHomeButton';
 import { apiUrl, assertBackendAvailable, downloadInvoicePdf } from '../../services/api';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
 import { createId } from '../../services/ids';
@@ -181,7 +181,7 @@ export function MissionsPage() {
   return (
     <main className={`mission-focus-page ${selected ? 'has-selection' : ''}`}>
       <header className="mission-focus-header">
-        <PageBackButton to="/activity" data-testid="missions-back-button" />
+        <BackHomeButton to="/activity" data-testid="missions-back-button" />
         <h1>Pilotage des missions</h1>
       </header>
 
