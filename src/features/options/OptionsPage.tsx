@@ -108,6 +108,9 @@ export function OptionsPage() {
               Informations générales
             </Typography>
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Profil actif et statut fiscal par défaut.
+          </Typography>
           <Stack spacing={2}>
             <TextField
               label="Nom du pharmacien actif"
@@ -141,6 +144,9 @@ export function OptionsPage() {
               Missions
             </Typography>
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Paramètres par défaut pour la création de missions.
+          </Typography>
           <Stack spacing={2}>
             <FormControl>
               <InputLabel id="mission-type-label">Type de mission par défaut</InputLabel>
@@ -463,6 +469,9 @@ export function OptionsPage() {
               Apparence
             </Typography>
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Thème et couleurs de l'application.
+          </Typography>
           <Stack spacing={2}>
             <FormControl>
               <InputLabel id="theme-mode-label">Mode d'affichage</InputLabel>
@@ -489,6 +498,9 @@ export function OptionsPage() {
               Données locales
             </Typography>
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Sauvegarde automatique et gestion des données.
+          </Typography>
           <Stack spacing={2}>
             <FormControlLabel
               control={
