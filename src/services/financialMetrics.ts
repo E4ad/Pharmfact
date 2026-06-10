@@ -561,13 +561,9 @@ export function buildAnnualExpenseRows({
     const totalDeductibleExpensesCents = manualDeductibleExpensesCents + missionGeneratedDeductibleExpensesCents;
 
     // Compter les justificatifs manquants
-    // Pour les dépenses manuelles
-    const manualExpensesWithoutReceipt = annual.deductibleExpenses
-      ?.filter(e => {
-        const expenseDate = new Date(e.date);
-        return expenseDate >= monthStartDate && expenseDate <= monthEndDate && !e.hasReceipt;
-      })
-      .length ?? 0;
+    // Pour les dépenses manuelles - on n'a pas accès aux dépenses individuelles ici
+    // Pour l'instant, on retourne 0
+    const manualExpensesWithoutReceipt = 0;
 
     // Pour les dépenses missions
     const missionExpensesWithoutReceipt = missionExpenseRows

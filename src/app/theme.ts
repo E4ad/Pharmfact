@@ -43,7 +43,7 @@ const baseTheme = {
     },
     MuiTextField: {
       defaultProps: {
-        variant: 'outlined',
+        variant: 'outlined' as const,
       },
     },
     MuiButton: {
@@ -493,7 +493,7 @@ const darkThemeOverrides = {
 
 // Créer les thèmes
 const lightTheme = createTheme(deepmerge(baseTheme, { palette: lightThemePalette }));
-const darkTheme = createTheme(deepmerge(baseTheme, { palette: darkThemePalette }, darkThemeOverrides));
+const darkTheme = createTheme(deepmerge(deepmerge(baseTheme, { palette: darkThemePalette }), darkThemeOverrides));
 
 // Détecter le mode système
 export function getSystemMode(): 'light' | 'dark' {

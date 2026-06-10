@@ -1,6 +1,6 @@
 import { CssBaseline, ThemeProvider as MuiThemeProvider } from '@mui/material';
 import { RouterProvider } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { router } from './router';
 import { getTheme, type ThemeMode } from './theme';
 import { ThemeProvider as AppThemeProvider, useThemeContext } from '../contexts/ThemeContext';

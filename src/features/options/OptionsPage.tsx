@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Drawer, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Drawer, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton } from '@mui/material';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
 import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import LocalPharmacyRoundedIcon from '@mui/icons-material/LocalPharmacyRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useNavigate } from 'react-router-dom';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { OptionActionCard } from '../../components/OptionActionCard';
@@ -174,8 +175,9 @@ export function OptionsPage() {
         </Box>
       </Stack>
 
-      {/* General Settings Drawer */}
-      <SettingsDrawer
+      {/* General Settings Panel */}
+      <SettingsModal
+        
         open={activeCategory === 'general'}
         onClose={handleCloseDrawer}
         onSave={handleSave}
@@ -201,10 +203,11 @@ export function OptionsPage() {
             slotProps={{ inputLabel: { shrink: true } }}
           />
         </Stack>
-      </SettingsDrawer>
+      </SettingsModal>
 
-      {/* Missions Settings Drawer */}
-      <SettingsDrawer
+      {/* Missions Settings Panel */}
+      <SettingsModal
+        
         open={activeCategory === 'missions'}
         onClose={handleCloseDrawer}
         onSave={handleSave}
@@ -296,10 +299,11 @@ export function OptionsPage() {
             variant="outlined"
           />
         </Stack>
-      </SettingsDrawer>
+      </SettingsModal>
 
-      {/* Invoicing Settings Drawer */}
-      <SettingsDrawer
+      {/* Invoicing Settings Panel */}
+      <SettingsModal
+        
         open={activeCategory === 'invoicing'}
         onClose={handleCloseDrawer}
         onSave={handleSave}
@@ -371,10 +375,11 @@ export function OptionsPage() {
             </Select>
           </FormControl>
         </Stack>
-      </SettingsDrawer>
+      </SettingsModal>
 
-      {/* Financial Settings Drawer */}
-      <SettingsDrawer
+      {/* Financial Settings Panel */}
+      <SettingsModal
+        
         open={activeCategory === 'financial'}
         onClose={handleCloseDrawer}
         onSave={handleSave}
@@ -502,10 +507,11 @@ export function OptionsPage() {
             />
           </Stack>
         </Stack>
-      </SettingsDrawer>
+      </SettingsModal>
 
-      {/* Appearance Settings Drawer */}
-      <SettingsDrawer
+      {/* Appearance Settings Panel */}
+      <SettingsModal
+        
         open={activeCategory === 'appearance'}
         onClose={handleCloseDrawer}
         onSave={handleSave}
@@ -528,10 +534,11 @@ export function OptionsPage() {
             </Select>
           </FormControl>
         </Stack>
-      </SettingsDrawer>
+      </SettingsModal>
 
-      {/* Data Settings Drawer */}
-      <SettingsDrawer
+      {/* Data Settings Panel */}
+      <SettingsModal
+        
         open={activeCategory === 'data'}
         onClose={handleCloseDrawer}
         onSave={handleSave}
@@ -561,32 +568,39 @@ export function OptionsPage() {
             Gestion avancée
           </Button>
         </Stack>
-      </SettingsDrawer>
+      </SettingsModal>
 
-      {/* References Settings Drawer */}
-      <Drawer
-        anchor="right"
+      {/* References Modal */}
+      <Dialog
         open={activeCategory === 'references'}
         onClose={() => setActiveCategory(null)}
-        sx={{
-          width: 400,
-          '& .MuiDrawer-paper': {
-            width: 400,
-            p: 3,
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+            },
           },
         }}
       >
-        <Stack spacing={3} sx={{ height: '100%' }}>
+        <DialogTitle sx={{ p: 3, pb: 0 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <LocalPharmacyRoundedIcon color="primary" />
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
               Pharmaciens & Pharmacies
             </Typography>
+            <IconButton onClick={() => setActiveCategory(null)} sx={{ p: 0.5 }}>
+              <CloseRoundedIcon />
+            </IconButton>
           </Stack>
-          <Typography variant="body2" color="text.secondary">Gérez vos profils et lieux de mission.</Typography>
-          <Divider />
-          
-          <Stack spacing={2} sx={{ flex: 1, overflowY: 'auto' }}>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, pt: 1, overflowY: 'auto' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Gérez vos profils et lieux de mission.</Typography>
+          <Divider sx={{ my: 1 }} />
+          <Stack spacing={2}>
             {/* Pharmacies Section */}
             <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
               Pharmacies ({state.pharmacies.length})
@@ -609,10 +623,10 @@ export function OptionsPage() {
                         <Button
                           variant="text"
                           size="small"
-                          onClick={() => navigate('/pharmacy/add')}
-                          startIcon={<AddBusinessRoundedIcon />}
+                          onClick={() => navigate(`/pharmacy/add?id=${pharmacie.id}`)}
+                          startIcon={<LocalPharmacyRoundedIcon />}
                         >
-                          Voir
+                          Modifier
                         </Button>
                       </Stack>
                       <Typography variant="body2" color="text.secondary">
@@ -652,10 +666,10 @@ export function OptionsPage() {
                         <Button
                           variant="text"
                           size="small"
-                          onClick={() => navigate('/pharmacien/new')}
+                          onClick={() => navigate(`/pharmacien/new?id=${pharmacien.id}`)}
                           startIcon={<PersonAddAltRoundedIcon />}
                         >
-                          Voir
+                          Modifier
                         </Button>
                       </Stack>
                       <Typography variant="body2" color="text.secondary">
@@ -671,8 +685,8 @@ export function OptionsPage() {
               </Typography>
             )}
           </Stack>
-        </Stack>
-      </Drawer>
+        </DialogContent>
+      </Dialog>
 
       <Snackbar
         open={Boolean(toast)}
@@ -686,8 +700,8 @@ export function OptionsPage() {
   );
 }
 
-// Reusable drawer component
-function SettingsDrawer({
+// Reusable modal component
+function SettingsModal({
   open,
   onClose,
   onSave,
@@ -705,41 +719,48 @@ function SettingsDrawer({
   children: React.ReactNode;
 }) {
   return (
-    <Drawer
-      anchor="right"
+    <Dialog
       open={open}
       onClose={onClose}
-      sx={{
-        width: 400,
-        '& .MuiDrawer-paper': {
-          width: 400,
-          p: 3,
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+          },
         },
       }}
     >
-      <Stack spacing={3} sx={{ height: '100%' }}>
+      <DialogTitle sx={{ p: 3, pb: 0 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {icon}
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
             {title}
           </Typography>
+          <IconButton onClick={onClose} sx={{ p: 0.5 }}>
+            <CloseRoundedIcon />
+          </IconButton>
         </Stack>
-        <Typography variant="body2" color="text.secondary">{description}</Typography>
-        <Divider />
-        <Stack spacing={2} sx={{ flex: 1, overflowY: 'auto' }}>
+      </DialogTitle>
+      <DialogContent sx={{ p: 3, pt: 1, overflowY: 'auto' }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{description}</Typography>
+        <Divider sx={{ my: 1 }} />
+        <Stack spacing={2}>
           {children}
         </Stack>
-        <Divider />
-        <Stack direction="row" spacing={2}>
-          <Button variant="outlined" onClick={onClose} sx={{ borderRadius: 999, flex: 1 }}>
-            Annuler
-          </Button>
-          <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={onSave} sx={{ borderRadius: 999, flex: 1 }}>
-            Enregistrer
-          </Button>
-        </Stack>
-      </Stack>
-    </Drawer>
+      </DialogContent>
+      <DialogActions sx={{ p: 3, pt: 0 }}>
+        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: 999, flex: 1 }}>
+          Annuler
+        </Button>
+        <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={onSave} sx={{ borderRadius: 999, flex: 1 }}>
+          Enregistrer
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

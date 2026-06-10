@@ -1,17 +1,56 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import { Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
-import { FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
+import { Box, Button, Card, CardContent, Stack, TextField, Typography, Alert, IconButton, Tooltip } from '@mui/material';
+import { FormEvent, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
 import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
 import { BackHomeButton } from '../../components/BackHomeButton';
-import { updateAppState } from '../../storage/localStore';
+import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacie } from '../../storage/schema';
 
 export function PharmacieAddPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ nom: '', adresse: '', codePostal: '', ville: '', rue: '', numero: '', lat: undefined as number | undefined, lng: undefined as number | undefined, telephone: '', email: '', defaultBreakMinutes: '60', notes: '' });
+  const [searchParams] = useSearchParams();
+  const id = searchParams.get('id') || '';
+  const state = useAppState();
+  const existingPharmacie = state.pharmacies.find(p => p.id === id);
+  
+  const [form, setForm] = useState({
+    nom: '', 
+    adresse: '', 
+    codePostal: '', 
+    ville: '', 
+    rue: '', 
+    numero: '', 
+    lat: undefined as number | undefined, 
+    lng: undefined as number | undefined, 
+    telephone: '', 
+    email: '', 
+    defaultBreakMinutes: '60', 
+    notes: ''
+  });
+  
+  // Charger les données existantes si on est en mode édition
+  useEffect(() => {
+    if (existingPharmacie) {
+      setForm({
+        nom: existingPharmacie.nom || '',
+        adresse: existingPharmacie.adresse || '',
+        codePostal: existingPharmacie.codePostal || '',
+        ville: existingPharmacie.ville || '',
+        rue: existingPharmacie.rue || '',
+        numero: existingPharmacie.numero || '',
+        lat: existingPharmacie.lat,
+        lng: existingPharmacie.lng,
+        telephone: existingPharmacie.telephone || '',
+        email: existingPharmacie.email || '',
+        defaultBreakMinutes: String(existingPharmacie.defaultBreakMinutes || '60'),
+        notes: existingPharmacie.notes || ''
+      });
+    }
+  }, [id, existingPharmacie]);
 
   function update(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -30,11 +69,23 @@ export function PharmacieAddPage() {
     }));
   }
 
+  function handleDelete() {
+    if (!existingPharmacie) return;
+    if (window.confirm(`Voulez-vous vraiment supprimer la pharmacie "${existingPharmacie.nom}" ?`)) {
+      updateAppState((state) => ({
+        ...state,
+        pharmacies: state.pharmacies.filter(p => p.id !== existingPharmacie.id)
+      }));
+      navigate('/settings');
+    }
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.nom.trim()) return;
+    
     const pharmacie: Pharmacie = {
-      id: createId('pha'),
+      id: existingPharmacie?.id || createId('pha'),
       nom: form.nom.trim(),
       adresse: form.adresse.trim(),
       rue: form.rue.trim() || undefined,
@@ -48,16 +99,36 @@ export function PharmacieAddPage() {
       defaultBreakMinutes: Math.max(Number(form.defaultBreakMinutes) || 0, 0),
       notes: form.notes.trim(),
     };
-    updateAppState((state) => ({ ...state, pharmacies: [...state.pharmacies, pharmacie] }));
-    navigate('/activity');
+    
+    updateAppState((state) => {
+      const updatedPharmacies = existingPharmacie
+        ? state.pharmacies.map(p => p.id === existingPharmacie.id ? pharmacie : p)
+        : [...state.pharmacies, pharmacie];
+      return { ...state, pharmacies: updatedPharmacies };
+    });
+    navigate('/settings');
   }
 
   return (
     <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
-      <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
-        <BackHomeButton to="/activity" label="Accueil" data-testid="pharmacy-back-button" />
-        <Typography variant="h2">Ajouter une pharmacie</Typography>
+      <Stack direction="row" sx={{ alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
+          <BackHomeButton to="/settings" label="Paramètres" data-testid="pharmacy-back-button" />
+          <Typography variant="h2">{existingPharmacie ? 'Modifier la pharmacie' : 'Ajouter une pharmacie'}</Typography>
+        </Stack>
+        {existingPharmacie && (
+          <Tooltip title="Supprimer cette pharmacie">
+            <IconButton onClick={handleDelete} color="error" data-testid="pharmacy-delete-button">
+              <DeleteRoundedIcon />
+            </IconButton>
+          </Tooltip>
+        )}
       </Stack>
+      {existingPharmacie && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Modification de : {existingPharmacie.nom}
+        </Alert>
+      )}
       <Card sx={{ width: '100%' }}>
         <CardContent sx={{ p: { xs: 3, md: 4 } }}>
           <Stack component="form" onSubmit={submit} spacing={4}>
@@ -75,8 +146,10 @@ export function PharmacieAddPage() {
               <TextField label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} multiline minRows={4} sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }} />
             </Stack>
             <Stack direction="row" sx={{ gap: 2, justifyContent: 'flex-end' }}>
-              <Button variant="outlined" color="inherit" onClick={() => navigate('/activity')} data-testid="pharmacie-cancel-button">Annuler</Button>
-              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} data-testid="pharmacie-save-button">Enregistrer</Button>
+              <Button variant="outlined" color="inherit" onClick={() => navigate('/settings')} data-testid="pharmacie-cancel-button">Annuler</Button>
+              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} data-testid="pharmacie-save-button">
+                {existingPharmacie ? 'Enregistrer les modifications' : 'Enregistrer'}
+              </Button>
             </Stack>
           </Stack>
         </CardContent>
