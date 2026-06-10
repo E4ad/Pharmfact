@@ -11,6 +11,7 @@ import { createServerSeedState } from './seedState.js';
 import { findInvoice, generateInvoicePdf, sanitizeFilename } from './pdfService.js';
 import { deleteReceipt, findReceipt, listReceipts, saveReceipt, streamReceiptFile } from './receiptService.js';
 import { createPharmacieSchema, updatePharmacieSchema, createPharmacienSchema, updatePharmacienSchema, validateRequest } from './schemas/index.js';
+import { monitoringMiddleware, createMetricsRouter, trackPdfGeneration, trackReceiptUpload } from './monitoring.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -126,6 +127,12 @@ export function createApp(options = {}) {
   // Middleware de logging HTTP structuré
   app.use(pinoHttp({ logger }));
 
+  // Middleware de monitoring Prometheus (doit être avant les routes)
+  app.use(monitoringMiddleware);
+
+  // Endpoint pour les métriques Prometheus
+  app.use('/metrics', createMetricsRouter());
+
   app.use(express.json({ limit: '10mb' }));
   app.use(express.static(distPath));
 
@@ -195,16 +202,25 @@ export function createApp(options = {}) {
 
   app.post('/api/mission-expenses/:expenseId/receipts', express.raw({ type: '*/*', limit: '11mb' }), async (req, res) => {
     try {
+      const fileType = req.header('content-type')?.split(';')[0] ?? '';
+      const fileSizeBytes = req.body?.length ?? 0;
+      
       const receipt = await saveReceipt(receiptStorage, {
         expenseId: req.params.expenseId,
         missionId: String(req.header('x-mission-id') ?? 'unassigned'),
         missionDayId: req.header('x-mission-day-id') ?? undefined,
         fileName: req.header('x-file-name') ?? 'receipt',
-        fileType: req.header('content-type')?.split(';')[0] ?? '',
+        fileType: fileType,
         buffer: Buffer.isBuffer(req.body) ? req.body : Buffer.from([]),
       });
+      
+      trackReceiptUpload('success', fileType, fileSizeBytes);
       res.status(201).json(receipt);
     } catch (error) {
+      const fileType = req.header('content-type')?.split(';')[0] ?? '';
+      const fileSizeBytes = req.body?.length ?? 0;
+      trackReceiptUpload('error', fileType, fileSizeBytes);
+      
       res.status(error.status ?? 500).json(error.payload ?? { error: 'RECEIPT_UPLOAD_FAILED', message: 'Le justificatif n’a pas pu être enregistré.' });
     }
   });
@@ -245,10 +261,12 @@ export function createApp(options = {}) {
 
     try {
       const buffer = await pdfGenerator(invoiceId, state);
+      trackPdfGeneration('success');
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(invoice.numero)}.pdf"`);
       res.send(buffer);
     } catch (error) {
+      trackPdfGeneration('error');
       logger.error({ invoiceId, error: error.message }, 'PDF_GENERATION_FAILED');
       sendPdfError(res, error);
     }
@@ -270,10 +288,12 @@ export function createApp(options = {}) {
       logger.debug({ invoiceId }, 'Appel à pdfGenerator');
       const buffer = await pdfGenerator(invoiceId, state);
       logger.info({ invoiceId }, 'PDF généré avec succès');
+      trackPdfGeneration('success');
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(invoice.numero)}.pdf"`);
       res.send(buffer);
     } catch (error) {
+      trackPdfGeneration('error');
       logger.error({ invoiceId, error: error.message }, 'PDF_GENERATION_FAILED');
       sendPdfError(res, error);
     }
