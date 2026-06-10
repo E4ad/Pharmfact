@@ -1,12 +1,31 @@
 import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import pino from 'pino';
+import pinoHttp from 'pino-http';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServerSeedState } from './seedState.js';
 import { findInvoice, generateInvoicePdf, sanitizeFilename } from './pdfService.js';
 import { deleteReceipt, findReceipt, listReceipts, saveReceipt, streamReceiptFile } from './receiptService.js';
+import { createPharmacieSchema, updatePharmacieSchema, createPharmacienSchema, updatePharmacienSchema, validateRequest } from './schemas/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Configuration du logger Pino
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
+      ignore: 'pid,hostname',
+    },
+  },
+});
 
 function normalizeGeocodeResult(item) {
   const address = item?.address ?? {};
@@ -82,6 +101,31 @@ export function createApp(options = {}) {
   const pdfGenerator = options.generateInvoicePdf ?? ((invoiceId, state) => generateInvoicePdf(invoiceId, state, { appBaseUrl, chromium: options.chromium }));
   const receiptStorage = { storageRoot: options.receiptStorageRoot ?? path.resolve(__dirname, '../data/receipts') };
 
+  // Middleware de sécurité : Helmet
+  app.use(helmet());
+
+  // Middleware CORS avec configuration sécurisée
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:5173', `http://localhost:${frontendPort}`];
+  app.use(cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Mission-Id', 'X-Mission-Day-Id', 'X-File-Name', 'Content-Type'],
+  }));
+
+  // Middleware Rate Limiting
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limite à 100 requêtes par fenêtre
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'TOO_MANY_REQUESTS', message: 'Trop de requêtes. Veuillez réessayer dans 15 minutes.' },
+  });
+  app.use(limiter);
+
+  // Middleware de logging HTTP structuré
+  app.use(pinoHttp({ logger }));
+
   app.use(express.json({ limit: '10mb' }));
   app.use(express.static(distPath));
 
@@ -99,21 +143,33 @@ export function createApp(options = {}) {
   });
 
   app.get('/api/pharmaciens', (req, res) => res.json(getState(req).pharmaciens ?? []));
-  app.post('/api/pharmaciens', (req, res) => res.status(201).json(req.body));
+  app.post('/api/pharmaciens', validateRequest(createPharmacienSchema), (req, res) => {
+    logger.info({ pharmacien: req.validatedBody.nom }, 'Création d\'un nouveau pharmacien');
+    res.status(201).json(req.validatedBody);
+  });
   app.get('/api/pharmaciens/:id', (req, res) => {
     const item = getState(req).pharmaciens?.find((pharmacien) => pharmacien.id === req.params.id);
     item ? res.json(item) : res.status(404).json({ error: 'PHARMACIEN_NOT_FOUND' });
   });
-  app.put('/api/pharmaciens/:id', (req, res) => res.json({ ...req.body, id: req.params.id }));
+  app.put('/api/pharmaciens/:id', validateRequest(updatePharmacienSchema), (req, res) => {
+    logger.info({ id: req.params.id }, 'Mise à jour d\'un pharmacien');
+    res.json({ ...req.validatedBody, id: req.params.id });
+  });
   app.delete('/api/pharmaciens/:id', (_req, res) => res.status(204).send());
 
   app.get('/api/pharmacies', (req, res) => res.json(getState(req).pharmacies ?? []));
-  app.post('/api/pharmacies', (req, res) => res.status(201).json(req.body));
+  app.post('/api/pharmacies', validateRequest(createPharmacieSchema), (req, res) => {
+    logger.info({ pharmacie: req.validatedBody.nom }, 'Création d\'une nouvelle pharmacie');
+    res.status(201).json(req.validatedBody);
+  });
   app.get('/api/pharmacies/:id', (req, res) => {
     const item = getState(req).pharmacies?.find((pharmacie) => pharmacie.id === req.params.id);
     item ? res.json(item) : res.status(404).json({ error: 'PHARMACIE_NOT_FOUND' });
   });
-  app.put('/api/pharmacies/:id', (req, res) => res.json({ ...req.body, id: req.params.id }));
+  app.put('/api/pharmacies/:id', validateRequest(updatePharmacieSchema), (req, res) => {
+    logger.info({ id: req.params.id }, 'Mise à jour d\'une pharmacie');
+    res.json({ ...req.validatedBody, id: req.params.id });
+  });
   app.delete('/api/pharmacies/:id', (_req, res) => res.status(204).send());
 
   app.post('/api/active-pharmacien', (req, res) => res.json({ activePharmacienId: req.body?.pharmacienId ?? null }));
@@ -193,32 +249,32 @@ export function createApp(options = {}) {
       res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(invoice.numero)}.pdf"`);
       res.send(buffer);
     } catch (error) {
-      console.error('PDF_GENERATION_FAILED', { invoiceId, error });
+      logger.error({ invoiceId, error: error.message }, 'PDF_GENERATION_FAILED');
       sendPdfError(res, error);
     }
   });
 
   app.post('/api/invoices/:id/pdf', async (req, res) => {
     const invoiceId = req.params.id;
-    console.log(`[DEBUG] Génération de PDF pour la facture : ${invoiceId}`);
+    logger.debug({ invoiceId }, 'Génération de PDF pour la facture');
     const state = req.body?.state;
     const invoice = findInvoice(state, invoiceId);
 
     if (!invoice) {
-      console.log(`[DEBUG] Facture introuvable : ${invoiceId}`);
+      logger.warn({ invoiceId }, 'Facture introuvable');
       res.status(404).json({ error: 'INVOICE_NOT_FOUND', message: 'Facture introuvable.' });
       return;
     }
 
     try {
-      console.log(`[DEBUG] Appel à pdfGenerator pour : ${invoiceId}`);
+      logger.debug({ invoiceId }, 'Appel à pdfGenerator');
       const buffer = await pdfGenerator(invoiceId, state);
-      console.log(`[DEBUG] PDF généré avec succès pour : ${invoiceId}`);
+      logger.info({ invoiceId }, 'PDF généré avec succès');
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(invoice.numero)}.pdf"`);
       res.send(buffer);
     } catch (error) {
-      console.error('[DEBUG] PDF_GENERATION_FAILED', { invoiceId, error });
+      logger.error({ invoiceId, error: error.message }, 'PDF_GENERATION_FAILED');
       sendPdfError(res, error);
     }
   });
@@ -234,7 +290,7 @@ export function createApp(options = {}) {
       const results = await searchAddresses(query, options);
       res.json({ results });
     } catch (error) {
-      console.error('[geocode-error]', { query, timestamp: new Date().toISOString(), error });
+      logger.error({ query, error: error.message }, 'Erreur de géocodage');
       res.status(error.status || 502).json({ message: 'Les suggestions d’adresse sont temporairement indisponibles.', results: [] });
     }
   });

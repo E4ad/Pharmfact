@@ -2,9 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileTypeFromBuffer } from 'file-type';
+import pino from 'pino';
+
+const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
 export const RECEIPT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 export const RECEIPT_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+export const RECEIPT_ALLOWED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'pdf']);
 
 function safeFileName(value) {
   return String(value || 'receipt').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 120) || 'receipt';
@@ -27,9 +32,33 @@ async function writeMetadata(storageRoot, receipts) {
   await writeFile(metadataPath(storageRoot), JSON.stringify(receipts, null, 2));
 }
 
-export function validateReceiptUpload({ fileType, fileSizeBytes }) {
-  if (!RECEIPT_ALLOWED_TYPES.has(fileType)) return { error: 'UNSUPPORTED_RECEIPT_TYPE', message: 'Format refusé. Utilisez JPG, PNG ou PDF.' };
+export async function validateReceiptUpload({ fileType, fileSizeBytes, buffer }) {
+  // Vérification de la taille
   if (fileSizeBytes > RECEIPT_MAX_SIZE_BYTES) return { error: 'RECEIPT_TOO_LARGE', message: 'Fichier trop lourd. Limite: 10 Mo.' };
+
+  // Vérification du type MIME déclaré
+  if (!RECEIPT_ALLOWED_TYPES.has(fileType)) return { error: 'UNSUPPORTED_RECEIPT_TYPE', message: 'Format refusé. Utilisez JPG, PNG ou PDF.' };
+
+  // Vérification des magic bytes pour valider le type réel du fichier
+  if (buffer && Buffer.isBuffer(buffer)) {
+    try {
+      const detectedType = await fileTypeFromBuffer(buffer);
+      if (detectedType) {
+        const detectedMime = detectedType.mime;
+        if (!RECEIPT_ALLOWED_TYPES.has(detectedMime)) {
+          return { error: 'INVALID_FILE_TYPE', message: `Type de fichier détecté non autorisé: ${detectedMime}. Utilisez JPG, PNG ou PDF.` };
+        }
+      } else {
+        // Si le type ne peut pas être détecté, refusons par sécurité
+        return { error: 'UNRECOGNIZED_FILE_TYPE', message: 'Type de fichier non reconnu. Utilisez JPG, PNG ou PDF.' };
+      }
+    } catch (error) {
+      // En cas d'erreur de détection, on se base sur le type déclaré
+      // mais on logge l'erreur pour investigation
+      logger.warn({ error: error.message }, 'Erreur de détection du type de fichier');
+    }
+  }
+
   return null;
 }
 
@@ -43,10 +72,10 @@ export async function saveReceipt(storage, params) {
   const fileName = safeFileName(params.fileName);
   const fileType = String(params.fileType || '');
   const fileSizeBytes = params.buffer?.length ?? 0;
-  const validation = validateReceiptUpload({ fileType, fileSizeBytes });
+  const validation = await validateReceiptUpload({ fileType, fileSizeBytes, buffer: params.buffer });
   if (validation) {
     const error = new Error(validation.message);
-    error.status = validation.error === 'RECEIPT_TOO_LARGE' ? 413 : 415;
+    error.status = validation.error === 'RECEIPT_TOO_LARGE' ? 413 : validation.error === 'INVALID_FILE_TYPE' || validation.error === 'UNRECOGNIZED_FILE_TYPE' ? 415 : 415;
     error.payload = validation;
     throw error;
   }
