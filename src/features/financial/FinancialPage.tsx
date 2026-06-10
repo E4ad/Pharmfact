@@ -101,7 +101,7 @@ export function FinancialDashboardPage() {
   return (
     <Stack spacing={4} sx={{ width: 'min(1180px, 100%)', mx: 'auto' }}>
       <Stack spacing={2}>
-        <PageBackButton to="/activity" label="Accueil" />
+        <PageBackButton to="/activity" label="Accueil" data-testid="financial-back-button" />
         <Stack spacing={1}>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
             État financier

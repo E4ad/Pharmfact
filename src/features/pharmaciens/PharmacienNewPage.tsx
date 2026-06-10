@@ -59,13 +59,13 @@ export function PharmacienNewPage() {
   }
 
   return (
-    <Stack spacing={5}>
+    <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
-        <PageBackButton to="/activity" />
+        <PageBackButton to="/activity" label="Accueil" data-testid="pharmacien-back-button" />
         <Typography variant="h2">Nouveau pharmacien</Typography>
       </Stack>
-      <Card sx={{ maxWidth: 1120, mx: 'auto', width: '100%' }}>
-        <CardContent sx={{ p: { xs: 3, md: 6 } }}>
+      <Card sx={{ width: '100%' }}>
+        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
           <Stack component="form" onSubmit={submit} spacing={4}>
             <Typography variant="h4">Profil professionnel</Typography>
             <Stack sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
@@ -96,9 +96,9 @@ export function PharmacienNewPage() {
                 </Select>
               </FormControl>
             </Stack>
-            <Stack direction="row" sx={{ gap: 2 }}>
-              <Button variant="outlined" color="inherit" onClick={() => navigate('/activity')}>Annuler</Button>
-              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()}>Enregistrer</Button>
+            <Stack direction="row" sx={{ gap: 2, justifyContent: 'flex-end' }}>
+              <Button variant="outlined" color="inherit" onClick={() => navigate('/activity')} data-testid="pharmacien-cancel-button">Annuler</Button>
+              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} data-testid="pharmacien-save-button">Enregistrer</Button>
             </Stack>
           </Stack>
         </CardContent>

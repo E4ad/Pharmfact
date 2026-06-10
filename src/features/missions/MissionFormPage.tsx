@@ -89,10 +89,10 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     navigate(`/missions?selected=${finalMission.id}`);
   }
 
-  if (mode === 'edit' && !existing) return <div className="mission-form-page"><PageBackButton to="/missions" label="Missions" /><p>Mission introuvable.</p></div>;
+  if (mode === 'edit' && !existing) return <div className="mission-form-page"><PageBackButton to="/missions" label="Missions" data-testid="mission-form-back-button" /><p>Mission introuvable.</p></div>;
 
   return <main className="mission-form-page">
-    <div className="mission-form-heading"><PageBackButton to={mode === 'edit' && existing ? `/missions?selected=${existing.id}` : '/activity'} label={mode === 'edit' ? 'Missions' : 'Accueil'} /><h1>{mode === 'edit' ? 'Modifier mission' : 'Nouvelle mission'}</h1><p>Créez une mission de remplacement. La facture sera générée automatiquement à partir des horaires, frais et informations saisies.</p><div className="mission-heading-summary">{[pharmacien?.nom, pharmacie?.nom, values.dateDebut].filter(Boolean).join(' · ')}</div></div>
+    <div className="mission-form-heading"><PageBackButton to={mode === 'edit' && existing ? `/missions?selected=${existing.id}` : '/activity'} label={mode === 'edit' ? 'Missions' : 'Accueil'} data-testid="mission-form-back-button" /><h1>{mode === 'edit' ? 'Modifier mission' : 'Nouvelle mission'}</h1><p>Créez une mission de remplacement. La facture sera générée automatiquement à partir des horaires, frais et informations saisies.</p><div className="mission-heading-summary">{[pharmacien?.nom, pharmacie?.nom, values.dateDebut].filter(Boolean).join(' · ')}</div></div>
     {mode === 'edit' ? <MissionEditWarning invoice={invoice} /> : null}
     <div className="mission-form-grid">
       <div className="mission-pharmacien-strip"><span>Mission pour <strong>{pharmacien?.nom ?? 'Pharmacien'}</strong></span><button className="mission-link-button" type="button" onClick={() => navigate('/')}>Changer</button></div>

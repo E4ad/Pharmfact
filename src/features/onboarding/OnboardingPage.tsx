@@ -14,20 +14,20 @@ export function OnboardingPage() {
   }
 
   return (
-    <Box sx={{ minHeight: '72vh', display: 'grid', placeItems: 'center' }}>
+    <Box sx={{ minHeight: '72vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}>
       <Stack spacing={4} sx={{ width: 'min(980px, 100%)', alignItems: 'center' }}>
         <Typography className="welcome-hello" variant="h1">Bonjour</Typography>
         <Stack className="welcome-picker" spacing={4} sx={{ width: '100%', alignItems: 'center' }}>
           <Stack spacing={1} sx={{ textAlign: 'center' }}>
             <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Sélection du profil</Typography>
             <Typography variant="h2">Qui êtes-vous ?</Typography>
-            <Typography color="text.secondary">Choisissez un profil pour retrouver vos missions, factures et indicateurs financiers.</Typography>
+            <Typography color="text.secondary">Choisissez un profil pour commencer.</Typography>
           </Stack>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2, width: '100%' }}>
             {state.pharmaciens.map((pharmacien) => (
               <Card key={pharmacien.id}>
                 <CardActionArea data-testid="user-card" onClick={() => selectProfile(pharmacien.id)} sx={{ p: 3, minHeight: 160 }}>
-                  <Stack spacing={2}>
+                  <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
                     <PersonRoundedIcon fontSize="large" />
                     <Typography variant="h5">{pharmacien.nom}</Typography>
                     <Typography color="text.secondary">Entrer avec ce profil</Typography>
@@ -37,7 +37,7 @@ export function OnboardingPage() {
             ))}
             <Card>
               <CardActionArea onClick={() => navigate('/pharmacien/new')} sx={{ p: 3, minHeight: 160 }}>
-                <Stack spacing={2}>
+                <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
                   <AddRoundedIcon fontSize="large" />
                   <Typography variant="h5">Nouveau pharmacien</Typography>
                   <Typography color="text.secondary">Créer un profil et commencer</Typography>
@@ -45,7 +45,11 @@ export function OnboardingPage() {
               </CardActionArea>
             </Card>
           </Box>
-          {!state.pharmaciens.length ? <Button variant="contained" onClick={() => navigate('/pharmacien/new')}>Créer mon profil pharmacien</Button> : null}
+          {!state.pharmaciens.length ? (
+            <Button variant="contained" size="large" onClick={() => navigate('/pharmacien/new')} data-testid="create-pharmacien-cta">
+              Créer mon profil pharmacien
+            </Button>
+          ) : null}
         </Stack>
       </Stack>
     </Box>

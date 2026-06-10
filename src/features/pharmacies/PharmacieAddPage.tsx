@@ -53,13 +53,13 @@ export function PharmacieAddPage() {
   }
 
   return (
-    <Stack spacing={5}>
+    <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
-        <PageBackButton to="/activity" />
+        <PageBackButton to="/activity" label="Accueil" data-testid="pharmacy-back-button" />
         <Typography variant="h2">Ajouter une pharmacie</Typography>
       </Stack>
-      <Card sx={{ maxWidth: 1120, mx: 'auto', width: '100%' }}>
-        <CardContent sx={{ p: { xs: 3, md: 6 } }}>
+      <Card sx={{ width: '100%' }}>
+        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
           <Stack component="form" onSubmit={submit} spacing={4}>
             <Typography variant="h4">Informations générales</Typography>
             <Stack sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
@@ -74,9 +74,9 @@ export function PharmacieAddPage() {
               <TextField label="Pause non payée par défaut (minutes)" type="number" value={form.defaultBreakMinutes} onChange={(e) => update('defaultBreakMinutes', e.target.value)} helperText="Cette valeur sera utilisée par défaut lors de la création de missions" />
               <TextField label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} multiline minRows={4} sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }} />
             </Stack>
-            <Stack direction="row" sx={{ gap: 2 }}>
-              <Button variant="outlined" color="inherit" onClick={() => navigate('/activity')}>Annuler</Button>
-              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()}>Enregistrer</Button>
+            <Stack direction="row" sx={{ gap: 2, justifyContent: 'flex-end' }}>
+              <Button variant="outlined" color="inherit" onClick={() => navigate('/activity')} data-testid="pharmacie-cancel-button">Annuler</Button>
+              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} data-testid="pharmacie-save-button">Enregistrer</Button>
             </Stack>
           </Stack>
         </CardContent>

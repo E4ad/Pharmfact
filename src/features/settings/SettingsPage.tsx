@@ -46,11 +46,11 @@ export function SettingsPage() {
   return (
     <Stack spacing={4} sx={{ width: 'min(980px, 100%)', mx: 'auto' }}>
       <Stack spacing={2}>
-        <PageBackButton to="/activity" />
+        <PageBackButton to="/activity" data-testid="settings-back-button" />
         <Stack spacing={1}>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Réglages</Typography>
           <Typography variant="h2">Données locales</Typography>
-          <Typography color="text.secondary">Exportez, restaurez ou réinitialisez l’état local du prototype.</Typography>
+          <Typography color="text.secondary">Exportez, restaurez ou réinitialisez vos données locales.</Typography>
         </Stack>
       </Stack>
 
@@ -113,7 +113,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={resetOpen}
         title="Réinitialiser les données ?"
-        description="Toutes les données locales du prototype seront remplacées par les données de démonstration. Cette action ne touche pas aux fichiers du projet Flask."
+        description="Toutes vos données locales seront remplacées par les données de démonstration."
         confirmLabel="Réinitialiser"
         onClose={() => setResetOpen(false)}
         onConfirm={confirmReset}

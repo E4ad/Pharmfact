@@ -59,7 +59,7 @@ export function InvoicesPage() {
   return (
     <Stack spacing={4}>
       <Stack spacing={2}>
-        <PageBackButton to="/activity" />
+        <PageBackButton to="/activity" data-testid="invoices-back-button" />
         <Stack spacing={1}>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Factures</Typography>
           <Typography variant="h2">Vue d’ensemble</Typography>

@@ -6,14 +6,16 @@ interface FinancialDrawerProps {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  'data-testid'?: string;
 }
 
-export function FinancialDrawer({ title, open, onClose, children }: FinancialDrawerProps) {
+export function FinancialDrawer({ title, open, onClose, children, 'data-testid': testId }: FinancialDrawerProps) {
   return (
     <Drawer
       anchor="right"
       open={open}
       onClose={onClose}
+      data-testid={testId || 'financial-drawer'}
       sx={{
         '& .MuiDrawer-paper': {
           width: { xs: '100%', sm: 480 },

@@ -181,7 +181,7 @@ export function MissionsPage() {
   return (
     <main className={`mission-focus-page ${selected ? 'has-selection' : ''}`}>
       <header className="mission-focus-header">
-        <PageBackButton to="/activity" />
+        <PageBackButton to="/activity" data-testid="missions-back-button" />
         <h1>Pilotage des missions</h1>
       </header>
 

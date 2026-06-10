@@ -94,7 +94,7 @@ export function OptionsPage() {
   return (
     <Stack component="div" spacing={3} sx={{ width: 'min(980px, 100%)', mx: 'auto', py: 4 }}>
       <Stack direction="row" component="div" spacing={2} sx={{ alignItems: 'center', width: '100%' }}>
-        <PageBackButton to="/activity" />
+        <PageBackButton to="/activity" data-testid="options-back-button" />
         <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
           Paramètres
         </Typography>
@@ -235,9 +235,12 @@ export function OptionsPage() {
           <Stack direction="row" component="div" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
             <AddBusinessRoundedIcon />
             <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-              Facturation
+              Facturation & PDF
             </Typography>
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Paramètres de facture, conditions de paiement et génération PDF.
+          </Typography>
           <Stack spacing={2}>
             <TextField
               label="Mode de paiement"
@@ -313,6 +316,9 @@ export function OptionsPage() {
               Financier & fiscalité
             </Typography>
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Réserve fiscale, acomptes provisionnels, seuils et suivi des dépenses déductibles.
+          </Typography>
           <Stack spacing={2}>
             <TextField
               label="Taux de réserve fiscale"
@@ -351,6 +357,100 @@ export function OptionsPage() {
               }
               label="Inclure frais déductibles issus des missions"
             />
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={fiscalSettings.enableInstalmentTracking}
+                  exclusive
+                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, enableInstalmentTracking: value } }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Suivi des acomptes provisionnels"
+            />
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={fiscalSettings.enableExpenseTracking}
+                  exclusive
+                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, enableExpenseTracking: value } }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Suivi des dépenses manuelles"
+            />
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={fiscalSettings.trackExpenseReceipts}
+                  exclusive
+                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, trackExpenseReceipts: value } }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Suivre les justificatifs"
+            />
+            <FormControlLabel
+              control={
+                <ToggleButtonGroup
+                  value={fiscalSettings.warnMissingExpenseReceipts}
+                  exclusive
+                  onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, warnMissingExpenseReceipts: value } }))}
+                >
+                  <ToggleButton value={true}>Activé</ToggleButton>
+                  <ToggleButton value={false}>Désactivé</ToggleButton>
+                </ToggleButtonGroup>
+              }
+              label="Alerter si justificatif manquant"
+            />
+            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>Vues financières</Typography>
+            <Stack direction="row" spacing={2}>
+              <FormControlLabel
+                control={
+                  <ToggleButtonGroup
+                    value={fiscalSettings.showMonthlyView}
+                    exclusive
+                    onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, showMonthlyView: value } }))}
+                  >
+                    <ToggleButton value={true}>Activé</ToggleButton>
+                    <ToggleButton value={false}>Désactivé</ToggleButton>
+                  </ToggleButtonGroup>
+                }
+                label="Mensuelle"
+              />
+              <FormControlLabel
+                control={
+                  <ToggleButtonGroup
+                    value={fiscalSettings.showQuarterlyView}
+                    exclusive
+                    onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, showQuarterlyView: value } }))}
+                  >
+                    <ToggleButton value={true}>Activé</ToggleButton>
+                    <ToggleButton value={false}>Désactivé</ToggleButton>
+                  </ToggleButtonGroup>
+                }
+                label="Trimestrielle"
+              />
+              <FormControlLabel
+                control={
+                  <ToggleButtonGroup
+                    value={fiscalSettings.showAnnualView}
+                    exclusive
+                    onChange={(event, value) => updateAppState(current => ({ ...current, fiscalSettings: { ...current.fiscalSettings, showAnnualView: value } }))}
+                  >
+                    <ToggleButton value={true}>Activé</ToggleButton>
+                    <ToggleButton value={false}>Désactivé</ToggleButton>
+                  </ToggleButtonGroup>
+                }
+                label="Annuelle"
+              />
+            </Stack>
           </Stack>
         </CardContent>
       </Card>
