@@ -66,7 +66,33 @@ export function OptionsPage() {
     setLocalDataSettingsForm(localDataSettings);
   }, [state]);
 
+  const validateForm = (): boolean => {
+    // Validation des champs numériques dans appOptions
+    if (form.missionDefaults.defaultBreakMinutes < 0 || form.missionDefaults.defaultBreakMinutes > 1440) {
+      setToast({ severity: 'error', message: 'La pause doit être entre 0 et 1440 minutes.' });
+      return false;
+    }
+    if (form.missionDefaults.mealThresholdHours < 0 || form.missionDefaults.mealThresholdHours > 24) {
+      setToast({ severity: 'error', message: 'Le seuil de repas doit être entre 0 et 24 heures.' });
+      return false;
+    }
+    if (form.missionDefaults.mealDefaultCents < 0) {
+      setToast({ severity: 'error', message: 'Le montant de repas doit être positif.' });
+      return false;
+    }
+    if (form.missionDefaults.mileageRateCents < 0) {
+      setToast({ severity: 'error', message: 'Le taux de kilométrage doit être positif.' });
+      return false;
+    }
+    if (form.invoiceDefaults.invoiceDueDays < 0 || form.invoiceDefaults.invoiceDueDays > 365) {
+      setToast({ severity: 'error', message: 'Le délai de paiement doit être entre 0 et 365 jours.' });
+      return false;
+    }
+    return true;
+  };
+
   const handleSave = () => {
+    if (!validateForm()) return;
     try {
       updateAppState((current) => ({
         ...current,

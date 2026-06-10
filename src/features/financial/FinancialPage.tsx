@@ -301,14 +301,21 @@ export function MonthlyFinancialView({
         onExport={onExport}
       />
 
-      <FinancialInfoBanner
-        type={snapshot.receivableCents > 0 && snapshot.collectedCents === 0 ? 'info' : 'info'}
-        messages={[
-          snapshot.receivableCents > 0 && snapshot.collectedCents === 0
-            ? `Une facture de ${formatMoney(snapshot.receivableCents)} est à encaisser. Elle sera intégrée à l’encaissé après paiement.`
-            : 'Aucune alerte prioritaire pour cette période.',
-        ]}
-      />
+      {snapshot.warnings.length > 0 ? (
+        <FinancialInfoBanner
+          type="warning"
+          messages={snapshot.warnings.map(w => w.message)}
+        />
+      ) : (
+        <FinancialInfoBanner
+          type="info"
+          messages={[
+            snapshot.receivableCents > 0 && snapshot.collectedCents === 0
+              ? `Une facture de ${formatMoney(snapshot.receivableCents)} est à encaisser. Elle sera intégrée à l’encaissé après paiement.`
+              : 'Aucune alerte prioritaire pour cette période.',
+          ]}
+        />
+      )}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 2 }}>
         <FinancialMetricCard

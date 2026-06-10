@@ -12,7 +12,17 @@ export function PageBackButton({ to, label = 'Accueil', 'data-testid': testId }:
   const navigate = useNavigate();
 
   return (
-    <Button color="inherit" startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(to)} sx={{ alignSelf: 'flex-start' }} data-testid={testId}>
+    <Button
+      color="inherit"
+      startIcon={<ArrowBackRoundedIcon />}
+      onClick={() => navigate(to)}
+      sx={{
+        alignSelf: 'flex-start',
+        textTransform: 'none',
+        fontWeight: 500,
+      }}
+      data-testid={testId}
+    >
       {label}
     </Button>
   );
