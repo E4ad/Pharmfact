@@ -233,9 +233,9 @@ export function buildMonthlyFinancialSnapshots(data: {
 
     const incomeTaxInstalmentsPaidCents = taxPayments.reduce((sum, payment) => sum + payment.amountCents, 0);
 
-    const estimatedNetProfitCents = invoicedCents - deductibleExpensesCents - incomeTaxInstalmentsPaidCents;
+    const estimatedNetProfitCents = Math.max(collectedCents - deductibleExpensesCents, 0);
     const targetReserveCents = Math.round(estimatedNetProfitCents * (data.fiscalSettings.reserveRate / 100));
-    const remainingProvisionCents = targetReserveCents;
+    const remainingProvisionCents = Math.max(targetReserveCents - incomeTaxInstalmentsPaidCents, 0);
 
     const warnings = generateMonthlyWarnings({ invoices, todayIso: data.todayIso, fiscalSettings: data.fiscalSettings, missionExpenses, expenseReceipts: data.expenseReceipts });
 
