@@ -119,6 +119,9 @@ describe('Receipt API', () => {
     const receiptStorageRoot = await tempReceiptStorage();
     const baseUrl = await listen(createApp({ generateInvoicePdf: vi.fn(), receiptStorageRoot }));
 
+    // Créer un buffer JPEG minimal (FF D8 FF = signature JPEG)
+    const jpegBuffer = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01]);
+
     const upload = await fetch(`${baseUrl}/api/mission-expenses/fee_1/receipts`, {
       method: 'POST',
       headers: {
@@ -127,7 +130,7 @@ describe('Receipt API', () => {
         'X-Mission-Id': 'mis_1',
         'X-Mission-Day-Id': 'day_1',
       },
-      body: Buffer.from('fake image'),
+      body: jpegBuffer,
     });
 
     expect(upload.status).toBe(201);
@@ -142,7 +145,7 @@ describe('Receipt API', () => {
     const download = await fetch(`${baseUrl}${receipt.storageUrl}`);
     expect(download.status).toBe(200);
     expect(download.headers.get('content-type')).toContain('image/jpeg');
-    expect(Buffer.from(await download.arrayBuffer()).toString()).toBe('fake image');
+    expect(Buffer.from(await download.arrayBuffer())).toEqual(jpegBuffer);
 
     const deleted = await fetch(`${baseUrl}/api/expense-receipts/${receipt.id}`, { method: 'DELETE' });
     expect(deleted.status).toBe(204);

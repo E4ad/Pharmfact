@@ -256,7 +256,7 @@ export function createDefaultFiscalSettings(year = new Date().getFullYear()): Fi
 export function createDefaultAppOptions(): AppOptions {
   return {
     missionDefaults: {
-      defaultMissionType: 'REMPLACEMENT_OFFOCINE',
+      defaultMissionType: 'REMPLACEMENT_OFFICINE',
       defaultStartTime: '08:00',
       defaultEndTime: '17:00',
       defaultBreakMinutes: 60,

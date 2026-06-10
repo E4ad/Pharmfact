@@ -131,7 +131,6 @@ describe('localStore state operations', () => {
 
   beforeEach(() => {
     store = {};
-    resetAppState();
     Object.defineProperty(globalThis, 'localStorage', {
       value: {
         getItem: (key: string) => store[key] ?? null,
@@ -141,6 +140,7 @@ describe('localStore state operations', () => {
       },
       writable: true,
     });
+    resetAppState();
   });
 
   afterEach(() => {
