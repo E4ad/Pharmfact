@@ -136,9 +136,14 @@ function ReadOnlyField({ label, value, wide }: { label: string; value: string; w
 /** Avertissement de modification de mission */
 function MissionWarning({ invoice }: { invoice?: Invoice }) {
   const impact = getInvoiceEditImpact(invoice);
+  // Map 'danger' to 'error' for MUI Alert
+  const severity: 'error' | 'info' | 'success' | 'warning' = 
+    impact.level === 'danger' ? 'error' : 
+    impact.level === 'warning' ? 'warning' : 
+    'info';
   return (
     <Alert 
-      severity={impact.level === 'warning' ? 'warning' : impact.level === 'error' ? 'error' : 'info'}
+      severity={severity}
       sx={{ borderRadius: 2 }}
     >
       {impact.message}
@@ -304,9 +309,9 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
             label="Pause (minutes)" 
             type="number" 
             value={String(values.defaultUnpaidBreakMinutes)} 
-            onChange={(event) => setValues((current) => regenerateDays({ 
+            onChange={(value) => setValues((current) => regenerateDays({ 
               ...current, 
-              defaultUnpaidBreakMinutes: Number(event.target.value) || 0 
+              defaultUnpaidBreakMinutes: Number(value) || 0 
             }))}
           />
           <Typography variant="body2" color="text.secondary" sx={{ gridColumn: 'span 1', pt: 1 }}>
@@ -315,8 +320,8 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
           <FormField 
             label="Taux horaire" 
             type="number" 
-            value={values.tauxHoraire} 
-            onChange={(event) => setField('tauxHoraire', parseMoney(event.target.value))}
+            value={String(values.tauxHoraire)} 
+            onChange={(value) => setField('tauxHoraire', parseMoney(value))}
           />
           <Typography variant="body2" color="text.secondary" sx={{ gridColumn: 'span 1', pt: 1 }}>
             Prérempli depuis {pharmacien?.nom ?? 'le profil pharmacien'}
@@ -356,6 +361,8 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
       <MissionFormActions mode={mode} invoice={invoice} onSubmit={submit} onCancel={() => navigate(mode === 'edit' && existing ? `/missions?selected=${existing.id}` : '/missions')} />
     </div>
   </main>;
+}
+
 function MissionDaysSection({ values, receipts, openDayId, setOpenDayId, updateDay, addExpense, addTypedExpense, updateExpense, removeExpense, addReceipt, deleteReceipt }: { values: MissionFormValues; receipts: ExpenseReceipt[]; openDayId: string | null; setOpenDayId: (id: string | null) => void; updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void; addExpense: (dayId: string, type: ExpenseType) => void; addTypedExpense: (dayId: string, typeKey: string) => void; updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void; removeExpense: (dayId: string, feeId: string) => void; addReceipt: (dayId: string, expenseId: string, file: File) => string | null; deleteReceipt: (receiptId: string) => void }) {
   return (
     <section className="mission-form-card">
@@ -537,6 +544,7 @@ function MissionFinancialPreview({ preview, rate }: { preview: { hours: number; 
     </section>
   );
 }
+
 function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'create' | 'edit'; invoice?: Invoice; onSubmit: (action: WorkflowAction) => void; onCancel: () => void }) {
   if (mode === 'create') {
     return (
