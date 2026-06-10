@@ -5,11 +5,15 @@ import { createDefaultFiscalSettings, createSeedState } from './seedData';
 import { createDefaultUiSettings } from './settings/uiSettings';
 import { createDefaultLocalDataSettings } from './settings/localDataSettings';
 import { normalizeMissionExpense } from '../services/expenseTypes';
+import { loadFromIndexedDB, saveToIndexedDB, clearIndexedDB, migrateFromLocalStorageToIndexedDB, isIndexedDBSupported } from './indexedDB';
 
 type Listener = () => void;
 
 let cachedState: AppState | null = null;
 const listeners = new Set<Listener>();
+
+// Indique si on utilise IndexedDB (défini après l'initialisation)
+let useIndexedDB = false;
 
 type MigrationCandidate = AppState & { options?: AppOptions };
 
@@ -101,23 +105,57 @@ function migrate(raw: unknown): AppState {
   };
 }
 
-function readStorage(): AppState {
+// Initialisation asynchrone de IndexedDB et migration des données
+async function initStorage(): Promise<void> {
+  useIndexedDB = isIndexedDBSupported();
+  if (useIndexedDB) {
+    try {
+      await migrateFromLocalStorageToIndexedDB();
+    } catch {
+      // Si la migration échoue, on continue avec IndexedDB vide ou localStorage
+    }
+  }
+}
+
+// Appel initial de l'initialisation
+initStorage().catch(() => {});
+
+async function readStorage(): Promise<AppState> {
   if (cachedState) return cachedState;
+  
   try {
-    const raw = localStorage.getItem(APP_STORAGE_KEY);
-    cachedState = raw ? migrate(JSON.parse(raw)) : createSeedState();
+    let raw: unknown | null = null;
+    
+    if (useIndexedDB) {
+      raw = await loadFromIndexedDB();
+    } else {
+      const localData = localStorage.getItem(APP_STORAGE_KEY);
+      raw = localData ? JSON.parse(localData) : null;
+    }
+    
+    cachedState = raw ? migrate(raw) : createSeedState();
   } catch {
     cachedState = createSeedState();
   }
-  persist(cachedState);
+  
+  await persist(cachedState);
   return cachedState;
 }
 
-function persist(state: AppState): void {
+async function persist(state: AppState): Promise<void> {
   try {
-    localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+    if (useIndexedDB) {
+      await saveToIndexedDB(state);
+    } else {
+      localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+    }
   } catch {
     // Browser storage can be blocked or full; keep the in-memory state usable.
+    try {
+      localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Toutes les options de stockage ont échoué
+    }
   }
 }
 
@@ -125,13 +163,41 @@ function emit(): void {
   listeners.forEach((listener) => listener());
 }
 
+// Cache pour la version synchrone (nécessaire pour useSyncExternalStore)
+let syncCachedState: AppState | null = null;
+
+// Initialisation synchrone pour le premier chargement
+function syncReadStorage(): AppState {
+  if (syncCachedState) return syncCachedState;
+  try {
+    const localData = localStorage.getItem(APP_STORAGE_KEY);
+    syncCachedState = localData ? migrate(JSON.parse(localData)) : createSeedState();
+  } catch {
+    syncCachedState = createSeedState();
+  }
+  return syncCachedState;
+}
+
+function syncPersist(state: AppState): void {
+  try {
+    localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Browser storage can be blocked or full; keep the in-memory state usable.
+  }
+}
+
 export function getAppState(): AppState {
-  return readStorage();
+  return syncReadStorage();
 }
 
 export function setAppState(nextState: AppState): void {
-  cachedState = { ...nextState, ui: { ...nextState.ui, lastVisitedAt: new Date().toISOString() } };
-  persist(cachedState);
+  const stateWithTimestamp = { ...nextState, ui: { ...nextState.ui, lastVisitedAt: new Date().toISOString() } };
+  cachedState = stateWithTimestamp;
+  syncCachedState = stateWithTimestamp;
+  
+  // Persistance asynchrone
+  persist(stateWithTimestamp).catch(() => {});
+  
   emit();
 }
 
@@ -140,7 +206,15 @@ export function updateAppState(updater: (state: AppState) => AppState): void {
 }
 
 export function resetAppState(): void {
-  setAppState(createSeedState());
+  const seedState = createSeedState();
+  cachedState = seedState;
+  syncCachedState = seedState;
+  
+  // Suppression asynchrone
+  clearIndexedDB().catch(() => {});
+  localStorage.removeItem(APP_STORAGE_KEY);
+  
+  emit();
 }
 
 export function importAppState(json: string): void {
