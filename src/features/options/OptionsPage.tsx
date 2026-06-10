@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Box, Button, Stack, Typography, Snackbar, Alert, Divider, Drawer, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Drawer, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
 import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
+import LocalPharmacyRoundedIcon from '@mui/icons-material/LocalPharmacyRounded';
 import { useNavigate } from 'react-router-dom';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { OptionActionCard } from '../../components/OptionActionCard';
 import { useAppState, updateAppState } from '../../storage/localStore';
 import { activePharmacien, selectAppOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions } from '../../storage/selectors';
-import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings } from '../../storage/schema';
+import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings, Pharmacie, Pharmacien } from '../../storage/schema';
 
 const missionTypes = [
   ['REMPLACEMENT_OFFICINE', 'Remplacement officine'],
@@ -17,7 +18,7 @@ const missionTypes = [
   ['CLINIQUE', 'Clinique'],
 ];
 
-type SettingsCategory = 'general' | 'missions' | 'invoicing' | 'financial' | 'appearance' | 'data';
+type SettingsCategory = 'general' | 'missions' | 'invoicing' | 'financial' | 'appearance' | 'data' | 'references';
 
 export function OptionsPage() {
   const navigate = useNavigate();
@@ -161,6 +162,14 @@ export function OptionsPage() {
             iconTone="blue"
             onClick={() => setActiveCategory('data')}
             data-testid="options-card-data"
+          />
+          <OptionActionCard
+            title="Pharmaciens & Pharmacies"
+            description="Gérer les profils et les lieux de mission."
+            icon={<LocalPharmacyRoundedIcon />}
+            iconTone="purple"
+            onClick={() => setActiveCategory('references')}
+            data-testid="options-card-references"
           />
         </Box>
       </Stack>
@@ -554,6 +563,117 @@ export function OptionsPage() {
         </Stack>
       </SettingsDrawer>
 
+      {/* References Settings Drawer */}
+      <Drawer
+        anchor="right"
+        open={activeCategory === 'references'}
+        onClose={() => setActiveCategory(null)}
+        sx={{
+          width: 400,
+          '& .MuiDrawer-paper': {
+            width: 400,
+            p: 3,
+          },
+        }}
+      >
+        <Stack spacing={3} sx={{ height: '100%' }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <LocalPharmacyRoundedIcon color="primary" />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Pharmaciens & Pharmacies
+            </Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary">Gérez vos profils et lieux de mission.</Typography>
+          <Divider />
+          
+          <Stack spacing={2} sx={{ flex: 1, overflowY: 'auto' }}>
+            {/* Pharmacies Section */}
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              Pharmacies ({state.pharmacies.length})
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<AddBusinessRoundedIcon />}
+              onClick={() => navigate('/pharmacy/add')}
+              sx={{ alignSelf: 'flex-start', borderRadius: 2 }}
+            >
+              Ajouter une pharmacie
+            </Button>
+            {state.pharmacies.length > 0 ? (
+              <Stack spacing={1}>
+                {state.pharmacies.map((pharmacie) => (
+                  <Card key={pharmacie.id} variant="outlined">
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="body1">{pharmacie.nom}</Typography>
+                        <Button
+                          variant="text"
+                          size="small"
+                          onClick={() => navigate('/pharmacy/add')}
+                          startIcon={<AddBusinessRoundedIcon />}
+                        >
+                          Voir
+                        </Button>
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        {pharmacie.adresse}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Aucune pharmacie enregistrée
+              </Typography>
+            )}
+            
+            <Divider sx={{ my: 2 }} />
+            
+            {/* Pharmaciens Section */}
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              Pharmaciens ({state.pharmaciens.length})
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<PersonAddAltRoundedIcon />}
+              onClick={() => navigate('/pharmacien/new')}
+              sx={{ alignSelf: 'flex-start', borderRadius: 2 }}
+            >
+              Ajouter un pharmacien
+            </Button>
+            {state.pharmaciens.length > 0 ? (
+              <Stack spacing={1}>
+                {state.pharmaciens.map((pharmacien) => (
+                  <Card key={pharmacien.id} variant="outlined">
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="body1">{pharmacien.nom}</Typography>
+                        <Button
+                          variant="text"
+                          size="small"
+                          onClick={() => navigate('/pharmacien/new')}
+                          startIcon={<PersonAddAltRoundedIcon />}
+                        >
+                          Voir
+                        </Button>
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        {pharmacien.adresse}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Aucun pharmacien enregistré
+              </Typography>
+            )}
+          </Stack>
+        </Stack>
+      </Drawer>
+
       <Snackbar
         open={Boolean(toast)}
         autoHideDuration={3200}
@@ -622,3 +742,4 @@ function SettingsDrawer({
     </Drawer>
   );
 }
+
