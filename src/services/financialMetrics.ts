@@ -190,8 +190,8 @@ export function collectMissionDeductibleExpenseRows(
           typeLabel: expense.typeKey,
           deductibleAmountCents: expense.amountCents * (expense.deductibleRate / 100),
           hasReceipt: !!expense.receiptIds?.length,
-          receiptRecommended: expense.receiptIds != null && expense.receiptIds.length > 0,
-          receiptRequired: false,
+          receiptRecommended: fiscalSettings.trackExpenseReceipts && !expense.receiptIds?.length,
+          receiptRequired: fiscalSettings.warnMissingExpenseReceipts && !expense.receiptIds?.length,
         })) || [],
     ),
   );
