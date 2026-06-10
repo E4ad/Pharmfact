@@ -567,7 +567,13 @@ export function InstalmentSummaryCard({
             variant="contained"
             startIcon={<AddRoundedIcon />}
             onClick={onAddTaxPayment}
-            sx={{ borderRadius: 999, alignSelf: 'flex-start' }}
+            sx={{
+              borderRadius: 999, 
+              alignSelf: 'flex-start',
+              mt: 1,
+              boxShadow: 2,
+              '&:hover': { boxShadow: 4 }
+            }}
           >
             Ajouter un acompte
           </Button>
@@ -611,7 +617,13 @@ export function DeductibleExpensesSummaryCard({
             variant="contained"
             startIcon={<AddRoundedIcon />}
             onClick={onAddDeductibleExpense}
-            sx={{ borderRadius: 999, alignSelf: 'flex-start' }}
+            sx={{
+              borderRadius: 999, 
+              alignSelf: 'flex-start',
+              mt: 1,
+              boxShadow: 2,
+              '&:hover': { boxShadow: 4 }
+            }}
           >
             Ajouter une dépense
           </Button>
