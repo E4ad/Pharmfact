@@ -1,7 +1,23 @@
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import { Alert, Button, Snackbar } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Divider,
+  IconButton,
+  MenuItem,
+  Select,
+  Snackbar,
+  Stack,
+  Typography,
+  FormControl,
+  InputLabel,
+} from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BackHomeButton } from '../../components/BackHomeButton';
@@ -14,7 +30,6 @@ import { missionStatusLabels } from '../../services/missionStatus';
 import { exportAppState, updateAppState, useAppState } from '../../storage/localStore';
 import type { Invoice, InvoiceStatus, Mission, MissionStatus, Pharmacien, Pharmacie } from '../../storage/schema';
 import { findInvoice, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
-import './MissionsPage.css';
 
 const missionStatusOptions: MissionStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'ARCHIVED'];
 const missionFilterOptions: Array<{ value: MissionStatus | 'ALL'; label: string }> = [
@@ -27,20 +42,20 @@ const missionFilterOptions: Array<{ value: MissionStatus | 'ALL'; label: string 
   { value: 'CANCELLED', label: 'Annulée' },
 ];
 
-type MissionFilter = MissionStatus | 'ALL';
-function missionStatusClass(status: MissionStatus): string {
-  if (status === 'IN_PROGRESS') return 'is-warning';
-  if (status === 'COMPLETED') return 'is-success';
-  if (status === 'ARCHIVED' || status === 'CANCELLED') return 'is-muted';
-  return 'is-blue';
-}
+// Mapping des statuts pour les couleurs
+const getMissionStatusColor = (status: MissionStatus): 'default' | 'primary' | 'success' | 'warning' | 'error' => {
+  if (status === 'IN_PROGRESS') return 'warning';
+  if (status === 'COMPLETED') return 'success';
+  if (status === 'ARCHIVED' || status === 'CANCELLED') return 'default';
+  return 'primary';
+};
 
-function invoiceStatusClass(status?: InvoiceStatus): string {
-  if (!status) return 'is-muted';
-  if (status === 'PAID') return 'is-success';
-  if (status === 'ARCHIVED' || status === 'VOIDED') return 'is-muted';
-  return 'is-blue';
-}
+const getInvoiceStatusColor = (status?: InvoiceStatus): 'default' | 'success' | 'warning' | 'error' => {
+  if (!status) return 'default';
+  if (status === 'PAID') return 'success';
+  if (status === 'ARCHIVED' || status === 'VOIDED') return 'default';
+  return 'warning';
+};
 
 function periodLabel(mission: Mission): string {
   return mission.dateDebut === mission.dateFin ? mission.dateDebut : `${mission.dateDebut} - ${mission.dateFin}`;
@@ -53,13 +68,23 @@ function formatEventDate(value: string): string {
   }).format(new Date(value));
 }
 
+// Style pour les statuts
+const statusPillSx = {
+  height: '30px',
+  px: 1.5,
+  borderRadius: '999px',
+  fontSize: '0.8rem',
+  fontWeight: 700,
+  whiteSpace: 'nowrap',
+};
+
 export function MissionsPage() {
   const state = useAppState();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get('selected'));
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<MissionFilter>('ALL');
+  const [statusFilter, setStatusFilter] = useState<MissionStatus | 'ALL'>('ALL');
   const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
 
@@ -69,6 +94,7 @@ export function MissionsPage() {
       .sort((a, b) => `${b.dateDebut}${b.createdAt}`.localeCompare(`${a.dateDebut}${a.createdAt}`)),
     [state.missions, statusFilter],
   );
+
   const selected = state.missions.find((mission) => mission.id === selectedId);
   const selectedInvoice = selected ? findInvoice(state, selected.invoiceId) ?? missionInvoice(state, selected) : undefined;
 
@@ -105,12 +131,24 @@ export function MissionsPage() {
   function transitionMission(mission: Mission, status: MissionStatus) {
     updateAppState((current) => ({
       ...current,
-      missions: current.missions.map((item) => item.id === mission.id ? {
-        ...item,
-        status,
-        updatedAt: new Date().toISOString(),
-        events: [...item.events, { id: createId('evt'), eventType: 'STATUS_CHANGED', label: `Mission marquée ${missionStatusLabels[status].toLowerCase()}`, eventDate: new Date().toISOString() }],
-      } : item),
+      missions: current.missions.map((item) =>
+        item.id === mission.id
+          ? {
+              ...item,
+              status,
+              updatedAt: new Date().toISOString(),
+              events: [
+                ...item.events,
+                {
+                  id: createId('evt'),
+                  eventType: 'STATUS_CHANGED',
+                  label: `Mission marquée ${missionStatusLabels[status].toLowerCase()}`,
+                  eventDate: new Date().toISOString(),
+                },
+              ],
+            }
+          : item,
+      ),
     }));
     setToast({ severity: 'success', message: `Mission marquée ${missionStatusLabels[status].toLowerCase()}` });
   }
@@ -123,11 +161,18 @@ export function MissionsPage() {
       return {
         ...current,
         invoices: [...current.invoices, invoice],
-        missions: current.missions.map((item) => item.id === mission.id ? {
-          ...item,
-          invoiceId: invoice.id,
-          events: [...item.events, { id: createId('evt'), eventType: 'INVOICE_CREATED', label: `Facture ${invoice.numero} générée`, eventDate: new Date().toISOString() }],
-        } : item),
+        missions: current.missions.map((item) =>
+          item.id === mission.id
+            ? {
+                ...item,
+                invoiceId: invoice.id,
+                events: [
+                  ...item.events,
+                  { id: createId('evt'), eventType: 'INVOICE_CREATED', label: `Facture ${invoice.numero} générée`, eventDate: new Date().toISOString() },
+                ],
+              }
+            : item,
+        ),
       };
     });
     setToast({ severity: 'success', message: 'Facture générée' });
@@ -136,7 +181,7 @@ export function MissionsPage() {
   function updateInvoiceStatus(invoiceId: string, status: InvoiceStatus) {
     updateAppState((current) => ({
       ...current,
-      invoices: current.invoices.map((invoice) => invoice.id === invoiceId ? transitionInvoice(invoice, status) : invoice),
+      invoices: current.invoices.map((invoice) => (invoice.id === invoiceId ? transitionInvoice(invoice, status) : invoice)),
     }));
     setToast({ severity: 'success', message: `Facture ${invoiceStatusLabels[status].toLowerCase()}` });
   }
@@ -179,41 +224,77 @@ export function MissionsPage() {
   }
 
   return (
-    <main className={`mission-focus-page ${selected ? 'has-selection' : ''}`}>
-      <header className="mission-focus-header">
-        <BackHomeButton to="/activity" data-testid="missions-back-button" />
-        <h1>Pilotage des missions</h1>
-      </header>
+    <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto', px: { xs: 2, md: 4 }, py: 4 }}>
+      <Stack spacing={2}>
+        <BackHomeButton to="/activity" label="Accueil" data-testid="missions-back-button" />
+        <Stack spacing={1}>
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+            Missions
+          </Typography>
+          <Typography variant="h2">Pilotage des missions</Typography>
+        </Stack>
+      </Stack>
 
-      <div className="mission-filter-bar" aria-label="Filtres par statut mission">
+      {/* Filtres */}
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
         {missionFilterOptions.map((option) => (
-          <button key={option.value} className={statusFilter === option.value ? 'is-active' : ''} type="button" onClick={() => setStatusFilter(option.value)}>
+          <Button
+            key={option.value}
+            variant={statusFilter === option.value ? 'contained' : 'outlined'}
+            onClick={() => setStatusFilter(option.value)}
+            sx={{
+              borderRadius: '999px',
+              minHeight: '36px',
+              padding: '8px 14px',
+              fontWeight: 700,
+            }}
+          >
             {option.label}
-          </button>
+          </Button>
         ))}
-      </div>
+      </Stack>
 
-      <section className="mission-list" aria-label="Liste des missions">
-        {missions.length ? missions.map((mission) => (
-          <MissionListItem
-            key={mission.id}
-            mission={mission}
-            invoice={missionInvoice(state, mission)}
-            pharmacie={findPharmacie(state, mission.pharmacieId)}
-            selected={selectedId === mission.id}
-            onClick={() => openMission(mission.id)}
-          />
-        )) : (
-          <div className="mission-empty-state">
-            <p>Aucune mission à piloter.</p>
-            <button type="button" onClick={() => navigate('/mission/new')}>Créer une mission</button>
-          </div>
-        )}
-      </section>
+      {/* Liste des missions */}
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
+        <CardContent sx={{ p: 0 }}>
+          {missions.length ? (
+            <Stack spacing={0}>
+              {missions.map((mission) => (
+                <MissionListItem
+                  key={mission.id}
+                  mission={mission}
+                  invoice={missionInvoice(state, mission)}
+                  pharmacie={findPharmacie(state, mission.pharmacieId)}
+                  selected={selectedId === mission.id}
+                  onClick={() => openMission(mission.id)}
+                />
+              ))}
+            </Stack>
+          ) : (
+            <Stack spacing={3} sx={{ alignItems: 'center', py: 8 }}>
+              <Typography color="text.secondary">Aucune mission à piloter.</Typography>
+              <Button variant="contained" onClick={() => navigate('/mission/new')}>
+                Créer une mission
+              </Button>
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
 
+      {/* Drawer de détail mission */}
       {selected ? (
         <>
-          <button className="mission-drawer-backdrop" type="button" aria-label="Fermer le détail mission" onClick={closeDrawer} />
+          <Box
+            sx={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.48)',
+              zIndex: (theme) => theme.zIndex.drawer - 1,
+              cursor: 'pointer',
+            }}
+            onClick={closeDrawer}
+            aria-label="Fermer le détail mission"
+          />
           <MissionDrawer
             mission={selected}
             invoice={selectedInvoice}
@@ -233,10 +314,20 @@ export function MissionsPage() {
         </>
       ) : null}
 
-      <Snackbar open={Boolean(toast)} autoHideDuration={2600} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        {toast ? <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>{toast.message}</Alert> : undefined}
+      {/* Notifications */}
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={2600}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {toast ? (
+          <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>
+            {toast.message}
+          </Alert>
+        ) : undefined}
       </Snackbar>
-    </main>
+    </Stack>
   );
 }
 
@@ -248,12 +339,51 @@ function MissionListItem({ mission, invoice, pharmacie, selected, onClick }: {
   onClick: () => void;
 }) {
   return (
-    <button data-testid="mission-row" className={`mission-list-item ${selected ? 'is-selected' : ''}`} type="button" onClick={onClick}>
-      <span className="mission-list-primary">{pharmacie?.nom ?? 'Remplacement officine'}</span>
-      <span className="mission-list-period">{periodLabel(mission)}</span>
-      <StatusPill label={missionStatusLabels[mission.status]} tone={missionStatusClass(mission.status)} />
-      <StatusPill label={invoice ? invoiceStatusLabels[invoice.status] : 'Non générée'} tone={invoiceStatusClass(invoice?.status)} />
-    </button>
+    <Button
+      data-testid="mission-row"
+      onClick={onClick}
+      fullWidth
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: 'minmax(180px, 1.5fr) minmax(180px, 1fr) auto auto' },
+        alignItems: 'center',
+        gap: 2,
+        padding: 2,
+        border: '0',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        backgroundColor: selected ? 'action.selected' : 'transparent',
+        color: 'inherit',
+        textAlign: 'left',
+        cursor: 'pointer',
+        transition: 'all 180ms ease',
+        borderRadius: 0,
+        '&:hover, &:focus-visible': {
+          backgroundColor: (theme) => theme.palette.action.hover,
+          paddingLeft: 3,
+          paddingRight: 3,
+        },
+      }}
+    >
+      <Typography variant="body1" sx={{ fontWeight: 600, textAlign: 'left' }}>
+        {pharmacie?.nom ?? 'Remplacement officine'}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+        {periodLabel(mission)}
+      </Typography>
+      <Chip
+        label={missionStatusLabels[mission.status]}
+        color={getMissionStatusColor(mission.status)}
+        size="small"
+        sx={statusPillSx}
+      />
+      <Chip
+        label={invoice ? invoiceStatusLabels[invoice.status] : 'Non générée'}
+        color={getInvoiceStatusColor(invoice?.status)}
+        size="small"
+        sx={statusPillSx}
+      />
+    </Button>
   );
 }
 
@@ -274,67 +404,132 @@ function MissionDrawer({ mission, invoice, pharmacien, pharmacie, historyOpen, d
   onOpenPdf: (invoiceId: string) => void;
 }) {
   return (
-    <aside data-testid="mission-drawer" className="mission-drawer" aria-label={`Détail ${mission.missionCode}`}>
-      <button className="mission-drawer-close" type="button" onClick={onClose} aria-label="Fermer"><CloseRoundedIcon fontSize="small" /></button>
+    <Card
+      elevation={16}
+      sx={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        width: { xs: '100%', md: 'min(560px, 100%)' },
+        height: '100vh',
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        padding: { xs: 2, md: 4 },
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <IconButton
+        onClick={onClose}
+        aria-label="Fermer"
+        sx={{
+          position: 'absolute',
+          top: 22,
+          right: 22,
+          width: 36,
+          height: 36,
+          borderRadius: '999px',
+          backgroundColor: 'action.hover',
+          color: 'text.primary',
+        }}
+      >
+        <CloseRoundedIcon fontSize="small" />
+      </IconButton>
+
       <MissionDrawerHeader mission={mission} pharmacien={pharmacien} pharmacie={pharmacie} />
-      <section className="mission-drawer-section">
-        <h3>Actions mission</h3>
-        <DrawerActionButton label="Modifier la mission" onClick={() => onEditMission(mission.id)} />
-      </section>
-      <button className="mission-calendar-action" type="button" onClick={() => onCalendar(mission)}>
-        <CalendarMonthRoundedIcon fontSize="small" />
-        Télécharger invitation calendrier (.ics)
-      </button>
+      <Section title="Actions mission">
+        <Button fullWidth variant="outlined" startIcon={<CalendarMonthRoundedIcon />} onClick={() => onCalendar(mission)}>
+          Télécharger invitation calendrier
+        </Button>
+        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+          <Button fullWidth variant="contained" onClick={() => onEditMission(mission.id)}>
+            Modifier
+          </Button>
+        </Stack>
+      </Section>
+
       <MissionStatusControls mission={mission} onTransition={onTransitionMission} />
-      <MissionBillingSection invoice={invoice} mission={mission} downloadingInvoiceId={downloadingInvoiceId} onGenerateInvoice={onGenerateInvoice} onInvoiceStatus={onInvoiceStatus} onOpenPdf={onOpenPdf} />
+      <MissionBillingSection
+        invoice={invoice}
+        mission={mission}
+        downloadingInvoiceId={downloadingInvoiceId}
+        onGenerateInvoice={onGenerateInvoice}
+        onInvoiceStatus={onInvoiceStatus}
+        onOpenPdf={onOpenPdf}
+      />
       <MissionHistorySection mission={mission} open={historyOpen} onToggle={onToggleHistory} />
-    </aside>
+    </Card>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Box sx={{ mt: 3, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Typography variant="subtitle2" component="h3" sx={{ fontSize: '1rem', fontWeight: 750, mb: 2 }}>
+        {title}
+      </Typography>
+      {children}
+    </Box>
   );
 }
 
 function MissionDrawerHeader({ mission, pharmacien, pharmacie }: { mission: Mission; pharmacien?: Pharmacien; pharmacie?: Pharmacie }) {
   return (
-    <section className="mission-drawer-header">
-      <div className="mission-kicker">Type de mission</div>
-      <h2>Remplacement officine</h2>
-      <dl className="mission-detail-grid">
-        <div>
-          <dt>Mission</dt>
-          <dd>{mission.missionCode}</dd>
-        </div>
-        <div>
-          <dt>Pharmacie</dt>
-          <dd>{pharmacie?.nom ?? 'Pharmacie non définie'}</dd>
-        </div>
-        <div>
-          <dt>Pharmacien</dt>
-          <dd>{pharmacien?.nom ?? 'Pharmacien non défini'}</dd>
-        </div>
-        <div>
-          <dt>Période</dt>
-          <dd>{periodLabel(mission)}</dd>
-        </div>
-        <div>
-          <dt>Résumé</dt>
-          <dd>{mission.totalHours.toFixed(2)} h · {formatMoney(mission.totalCents)}</dd>
-        </div>
-      </dl>
-    </section>
+    <Box sx={{ pr: 5, mb: 3 }}>
+      <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        Type de mission
+      </Typography>
+      <Typography variant="h4" sx={{ fontWeight: 560, letterSpacing: '-0.05em', mt: 0.5, mb: 3 }}>
+        Remplacement officine
+      </Typography>
+      <Box sx={{ display: 'grid', gap: 2, margin: 0 }}>
+        {[
+          { label: 'Mission', value: mission.missionCode },
+          { label: 'Pharmacie', value: pharmacie?.nom ?? 'Pharmacie non définie' },
+          { label: 'Pharmacien', value: pharmacien?.nom ?? 'Pharmacien non défini' },
+          { label: 'Période', value: periodLabel(mission) },
+          { label: 'Résumé', value: `${mission.totalHours.toFixed(2)} h · ${formatMoney(mission.totalCents)}` },
+        ].map(({ label, value }) => (
+          <Box key={label} sx={{ display: 'grid', gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {label}
+            </Typography>
+            <Typography variant="body1" sx={{ fontWeight: 560 }}>
+              {value}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </Box>
   );
 }
 
 function MissionStatusControls({ mission, onTransition }: { mission: Mission; onTransition: (mission: Mission, status: MissionStatus) => void }) {
   return (
-    <section className="mission-drawer-section">
-      <h3>Statut mission</h3>
-      <div className="mission-segmented-controls">
+    <Section title="Statut mission">
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
         {missionStatusOptions.map((status) => (
-          <button key={status} className={mission.status === status ? 'is-active' : ''} type="button" onClick={() => onTransition(mission, status)}>
+          <Button
+            key={status}
+            variant={mission.status === status ? 'contained' : 'outlined'}
+            onClick={() => onTransition(mission, status)}
+            sx={{
+              borderRadius: '14px',
+              minHeight: '44px',
+              padding: '10px 14px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 160ms ease',
+              '&:hover': {
+                transform: 'translateY(-1px)',
+              },
+            }}
+          >
             {missionStatusLabels[status]}
-          </button>
+          </Button>
         ))}
-      </div>
-    </section>
+      </Stack>
+    </Section>
   );
 }
 
@@ -347,53 +542,89 @@ function MissionBillingSection({ invoice, mission, downloadingInvoiceId, onGener
   onOpenPdf: (invoiceId: string) => void;
 }) {
   return (
-    <section className="mission-drawer-section">
-      <h3>Facturation</h3>
-      <div className="mission-billing-card">
-        <div className="mission-billing-status-row">
-          <span>Statut facture</span>
-          <StatusPill label={invoice ? invoiceStatusLabels[invoice.status] : 'Non générée'} tone={invoiceStatusClass(invoice?.status)} />
-        </div>
-        <div className="mission-billing-actions">
-          {!invoice ? <DrawerActionButton label="Générer facture" onClick={() => onGenerateInvoice(mission)} /> : null}
-          {invoice ? <DrawerActionButton label={downloadingInvoiceId === invoice.id ? 'Génération PDF...' : 'Télécharger PDF'} icon={<DownloadRoundedIcon fontSize="small" />} disabled={downloadingInvoiceId === invoice.id} onClick={() => onOpenPdf(invoice.id)} /> : null}
-          {invoice?.status === 'GENERATED' ? <DrawerActionButton label="Envoyer au paiement" onClick={() => onInvoiceStatus(invoice.id, 'SENT')} /> : null}
-          {invoice?.status === 'SENT' ? <DrawerActionButton label="Marquer payée" onClick={() => onInvoiceStatus(invoice.id, 'PAID')} /> : null}
-          {invoice?.status === 'PAID' ? <DrawerActionButton label="Archiver" onClick={() => onInvoiceStatus(invoice.id, 'ARCHIVED')} secondary /> : null}
-          {invoice?.status === 'ARCHIVED' ? <DrawerActionButton label="Restaurer" onClick={() => onInvoiceStatus(invoice.id, 'GENERATED')} secondary /> : null}
-        </div>
-      </div>
-    </section>
+    <Section title="Facturation">
+      <Card variant="outlined" sx={{ p: 2, backgroundColor: 'background.paper' }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="body2" color="text.secondary">
+            Statut facture
+          </Typography>
+          <Chip
+            label={invoice ? invoiceStatusLabels[invoice.status] : 'Non générée'}
+            color={getInvoiceStatusColor(invoice?.status)}
+            size="small"
+            sx={statusPillSx}
+          />
+        </Stack>
+        <Stack spacing={1} sx={{ mt: 2 }}>
+          {!invoice ? (
+            <Button fullWidth variant="contained" onClick={() => onGenerateInvoice(mission)}>
+              Générer facture
+            </Button>
+          ) : null}
+          {invoice ? (
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<DownloadRoundedIcon fontSize="small" />}
+              disabled={downloadingInvoiceId === invoice.id}
+              onClick={() => onOpenPdf(invoice.id)}
+            >
+              {downloadingInvoiceId === invoice.id ? 'Génération PDF...' : 'Télécharger PDF'}
+            </Button>
+          ) : null}
+          {invoice?.status === 'GENERATED' ? (
+            <Button fullWidth variant="contained" onClick={() => onInvoiceStatus(invoice.id, 'SENT')}>
+              Envoyer au paiement
+            </Button>
+          ) : null}
+          {invoice?.status === 'SENT' ? (
+            <Button fullWidth variant="contained" onClick={() => onInvoiceStatus(invoice.id, 'PAID')}>
+              Marquer payée
+            </Button>
+          ) : null}
+          {invoice?.status === 'PAID' ? (
+            <Button fullWidth variant="outlined" onClick={() => onInvoiceStatus(invoice.id, 'ARCHIVED')}>
+              Archiver
+            </Button>
+          ) : null}
+          {invoice?.status === 'ARCHIVED' ? (
+            <Button fullWidth variant="outlined" onClick={() => onInvoiceStatus(invoice.id, 'GENERATED')}>
+              Restaurer
+            </Button>
+          ) : null}
+        </Stack>
+      </Card>
+    </Section>
   );
 }
 
 function MissionHistorySection({ mission, open, onToggle }: { mission: Mission; open: boolean; onToggle: () => void }) {
   return (
-    <section className="mission-drawer-section">
-      <button className="mission-history-toggle" type="button" onClick={onToggle} aria-expanded={open}>
-        <span>Historique</span>
-        <span>{open ? '▴' : '▾'}</span>
-      </button>
+    <Section title="">
+      <Button
+        fullWidth
+        variant="text"
+        onClick={onToggle}
+        sx={{
+          justifyContent: 'space-between',
+          fontSize: '1rem',
+          fontWeight: 750,
+          p: 0,
+          minHeight: 'auto',
+        }}
+        endIcon={open ? '▴' : '▾'}
+      >
+        Historique
+      </Button>
       {open ? (
-        <div className="mission-history-list">
+        <Box sx={{ mt: 2 }}>
           {mission.events.slice().reverse().map((event) => (
-            <p key={event.id}>{formatEventDate(event.eventDate)} · {event.label}</p>
+            <Typography key={event.id} variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+              {formatEventDate(event.eventDate)} · {event.label}
+            </Typography>
           ))}
-        </div>
+        </Box>
       ) : null}
-    </section>
-  );
-}
-
-function StatusPill({ label, tone }: { label: string; tone: string }) {
-  return <span className={`mission-status-pill ${tone}`}>{label}</span>;
-}
-
-function DrawerActionButton({ label, icon, secondary, disabled, onClick }: { label: string; icon?: React.ReactNode; secondary?: boolean; disabled?: boolean; onClick: () => void }) {
-  return (
-    <button className={`drawer-action-button ${secondary ? 'is-secondary' : ''}`} type="button" disabled={disabled} onClick={onClick}>
-      {icon}
-      {label}
-    </button>
+    </Section>
   );
 }

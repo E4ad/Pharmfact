@@ -1,20 +1,10 @@
 import { useEffect, useMemo, useState, FormEvent } from 'react';
 import { Box, Button, Card, CardContent, Stack, Typography, Alert, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
 import { BackHomeButton } from '../../components/BackHomeButton';
-import { OptionsDrawer } from '../../components/OptionsDrawer';
 import { MoneyValue } from '../../components/MoneyValue';
 import { useFinancialSettings } from '../../hooks/useFinancialSettings';
 import { selectFinancialOptions } from '../../storage/selectors';
-import { 
-  buildFinancialMetrics, 
-  collectMissionDeductibleExpenseRows, 
-  buildAnnualExpenseRows,
-  type AnnualFinancialSnapshot, 
-  type FinancialWarning, 
-  type MissionDeductibleExpenseRow, 
-  type MonthlyFinancialSnapshot, 
-  type QuarterlyFinancialSnapshot 
-} from '../../services/financialMetrics';
+import { buildFinancialMetrics, collectMissionDeductibleExpenseRows, type AnnualFinancialSnapshot, type FinancialWarning, type MissionDeductibleExpenseRow, type MonthlyFinancialSnapshot, type QuarterlyFinancialSnapshot } from '../../services/financialMetrics';
 import { createId, todayIso } from '../../services/ids';
 import { formatMoney } from '../../services/money';
 import { updateAppState, useAppState } from '../../storage/localStore';
@@ -23,11 +13,8 @@ import { FinancialPeriodCard } from './components/FinancialPeriodCard';
 import { FinancialMetricCard } from './components/FinancialMetricCard';
 import { FinancialInfoBanner } from './components/FinancialInfoBanner';
 import { FinancialActionCard } from './components/FinancialActionCard';
-import { FinancialSection } from './components/FinancialSection';
-import { AnnualExpensesTable } from './components/AnnualExpensesTable';
 import { TaxPaymentFormDrawer } from './components/TaxPaymentFormDrawer';
 import { DeductibleExpenseFormDrawer } from './components/DeductibleExpenseFormDrawer';
-import { DeductibleExpensesDrawer } from './components/DeductibleExpensesDrawer';
 import { MissionGeneratedExpensesDrawer } from './components/MissionGeneratedExpensesDrawer';
 import { ReceivablesDrawer } from './components/ReceivablesDrawer';
 import { TpsTvqDrawer } from './components/TpsTvqDrawer';
@@ -63,16 +50,6 @@ export function FinancialDashboardPage() {
 
   const missionExpenseRows = useMemo(() => collectMissionDeductibleExpenseRows(state.missions, financialSettings), [state.missions, financialSettings]);
 
-  // Tableau annuel des dépenses
-  const annualExpenseRows = useMemo(() => {
-    return buildAnnualExpenseRows({
-      annual,
-      missionExpenseRows,
-      today,
-      year: annual.year,
-    });
-  }, [annual, missionExpenseRows, today]);
-
   const [view, setView] = useState<ViewMode>(availableViews[0]);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => annual.months?.find((month: MonthlyFinancialSnapshot) => month.month === today.slice(0, 7))?.month ?? annual.months?.[0]?.month ?? today.slice(0, 7));
   const selectedMonthly = annual.months?.find((month: MonthlyFinancialSnapshot) => month.month === selectedMonth) ?? annual.months?.[0];
@@ -83,11 +60,9 @@ export function FinancialDashboardPage() {
   // Drawers state
   const [taxPaymentDrawerOpen, setTaxPaymentDrawerOpen] = useState(false);
   const [deductibleExpenseDrawerOpen, setDeductibleExpenseDrawerOpen] = useState(false);
-  const [deductibleExpensesListDrawerOpen, setDeductibleExpensesListDrawerOpen] = useState(false);
   const [missionExpensesDrawerOpen, setMissionExpensesDrawerOpen] = useState(false);
   const [receivablesDrawerOpen, setReceivablesDrawerOpen] = useState(false);
   const [tpsTvqDrawerOpen, setTpsTvqDrawerOpen] = useState(false);
-  const [annualExpensesDrawerOpen, setAnnualExpensesDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!availableViews.includes(view)) setView(availableViews[0]);
@@ -170,68 +145,31 @@ export function FinancialDashboardPage() {
         />
       ) : null}
 
-      {/* ============================================================================
-       NOUVELLE STRUCTURE PAR SECTIONS
-       ============================================================================ */}
-
-      {/* Section: Pilotage fiscal */}
-      {financialSettings.enableInstalmentTracking && (
-        <FinancialSection title="Pilotage fiscal">
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(3, 1fr)' }, gap: 2 }}>
-            <InstalmentSummaryCard 
-              annual={annual} 
-              onAddTaxPayment={() => setTaxPaymentDrawerOpen(true)}
-              onViewDetail={() => setTaxPaymentDrawerOpen(true)}
-            />
-            <TpsTvqSummaryCard 
-              annual={annual}
-              selectedMonthly={selectedMonthly}
-              onViewDetail={() => setTpsTvqDrawerOpen(true)}
-            />
-            <SmallSupplierThresholdCard 
-              annual={annual}
-              financialSettings={financialSettings}
-            />
-          </Box>
-        </FinancialSection>
-      )}
-
-      {/* Section: Dépenses */}
-      {financialSettings.enableExpenseTracking && (
-        <FinancialSection title="Dépenses">
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 2 }}>
-            <DeductibleExpensesSummaryCard
-              annual={annual}
-              onAddDeductibleExpense={() => setDeductibleExpenseDrawerOpen(true)}
-              onViewList={() => setDeductibleExpensesListDrawerOpen(true)}
-            />
-            {financialSettings.includeMissionDeductibleExpenses && (
-              <MissionGeneratedExpensesSummaryCard
-                rows={missionExpenseRows}
-                onViewDetail={() => setMissionExpensesDrawerOpen(true)}
-              />
-            )}
-          </Box>
-
-          {/* Tableau annuel des dépenses */}
-          <Box sx={{ mt: 2 }}>
-            <AnnualExpensesTable
-              rows={annualExpenseRows}
-              onViewDetail={() => setAnnualExpensesDrawerOpen(true)}
-            />
-          </Box>
-        </FinancialSection>
-      )}
-
-      {/* Section: Encaissement */}
-      {financialSettings.enableExpenseTracking && (
-        <FinancialSection title="Encaissement">
-          <ReceivablesSummaryCard
-            receivableCents={selectedMonthly?.receivableCents ?? 0}
-            onViewDetail={() => setReceivablesDrawerOpen(true)}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2 }}>
+        {financialSettings.enableInstalmentTracking ? (
+          <InstalmentSummaryCard annual={annual} onAddTaxPayment={() => setTaxPaymentDrawerOpen(true)} />
+        ) : null}
+        {financialSettings.enableExpenseTracking ? (
+          <DeductibleExpensesSummaryCard
+            annual={annual}
+            onAddDeductibleExpense={() => setDeductibleExpenseDrawerOpen(true)}
           />
-        </FinancialSection>
-      )}
+        ) : null}
+      </Box>
+
+      {financialSettings.enableExpenseTracking && financialSettings.includeMissionDeductibleExpenses ? (
+        <MissionGeneratedExpensesSummaryCard
+          rows={missionExpenseRows}
+          onViewDetail={() => setMissionExpensesDrawerOpen(true)}
+        />
+      ) : null}
+
+      {financialSettings.enableExpenseTracking ? (
+        <ReceivablesSummaryCard
+          receivableCents={selectedMonthly?.receivableCents ?? 0}
+          onViewDetail={() => setReceivablesDrawerOpen(true)}
+        />
+      ) : null}
 
       {/* Drawers */}
       <TaxPaymentFormDrawer
@@ -266,30 +204,6 @@ export function FinancialDashboardPage() {
         gstQstCollectedCents={selectedMonthly?.gstQstCollectedCents ?? 0}
         gstQstRemittedCents={selectedMonthly?.gstQstRemittedCents ?? 0}
       />
-
-      {/* Nouveau drawer: Liste des dépenses déductibles */}
-      <DeductibleExpensesDrawer
-        open={deductibleExpensesListDrawerOpen}
-        onClose={() => setDeductibleExpensesListDrawerOpen(false)}
-        expenses={state.deductibleExpenses}
-        onAdd={() => {
-          setDeductibleExpensesListDrawerOpen(false);
-          setDeductibleExpenseDrawerOpen(true);
-        }}
-      />
-
-      {/* Nouveau drawer: Tableau annuel des dépenses */}
-      <OptionsDrawer
-        open={annualExpensesDrawerOpen}
-        onClose={() => setAnnualExpensesDrawerOpen(false)}
-        title="Tableau annuel des dépenses"
-        data-testid="annual-expenses-drawer"
-      >
-        <Box sx={{ p: 2 }}>
-          <AnnualExpensesTable rows={annualExpenseRows} showActions={false} />
-        </Box>
-      </OptionsDrawer>
-
       <Snackbar
         open={Boolean(toast)}
         autoHideDuration={3200}
@@ -623,11 +537,9 @@ export function AnnualFinancialView({
 export function InstalmentSummaryCard({
   annual,
   onAddTaxPayment,
-  onViewDetail,
 }: {
   annual: AnnualFinancialSnapshot;
   onAddTaxPayment: () => void;
-  onViewDetail: () => void;
 }) {
   const nextQuarter = annual.quarters.find((quarter) => quarter.nextInstalmentDate) ?? annual.quarters[0];
 
@@ -635,36 +547,44 @@ export function InstalmentSummaryCard({
     <Card>
       <CardContent sx={{ p: 3 }}>
         <Stack spacing={2}>
-          <Typography variant="h5">Acomptes provisionnels</Typography>
-          <Typography>
-            Prochain acompte : {nextQuarter.nextInstalmentDate ?? 'À déterminer'}
-          </Typography>
-          <Typography>
-            Montant suggéré : {formatMoney(nextQuarter.suggestedInstalmentCents ?? 0)}
-          </Typography>
-          <Typography>
-            Déjà versé : {formatMoney(nextQuarter.incomeTaxInstalmentsPaidCents ?? 0)}
-          </Typography>
-          <Typography>
-            Écart estimé : {formatMoney(nextQuarter.instalmentGapCents ?? 0)}
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<AddRoundedIcon />}
-              onClick={onAddTaxPayment}
-              size="small"
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                backgroundColor: '#BBDEFB',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              Ajouter
-            </Button>
-            <Button
-              variant="text"
-              onClick={onViewDetail}
-              size="small"
-            >
-              Voir détail
-            </Button>
+              <AccountBalanceWalletRoundedIcon color="primary" fontSize="small" />
+            </Box>
+            <Typography variant="h5">Acomptes provisionnels</Typography>
           </Stack>
+          <Typography variant="h4" color="primary.main" sx={{ fontWeight: 600 }}>
+            {formatMoney(nextQuarter.suggestedInstalmentCents ?? 0)}
+          </Typography>
+          <Stack spacing={1}>
+            <Typography variant="body2" color="text.secondary">
+              Prochain : {nextQuarter.nextInstalmentDate ?? 'À déterminer'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Déjà versé : {formatMoney(nextQuarter.incomeTaxInstalmentsPaidCents ?? 0)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Écart : {formatMoney(nextQuarter.instalmentGapCents ?? 0)}
+            </Typography>
+          </Stack>
+          <Button
+            variant="contained"
+            startIcon={<AddRoundedIcon />}
+            onClick={onAddTaxPayment}
+            sx={{ borderRadius: 999, alignSelf: 'flex-start' }}
+          >
+            Ajouter un acompte
+          </Button>
         </Stack>
       </CardContent>
     </Card>
@@ -674,37 +594,41 @@ export function InstalmentSummaryCard({
 export function DeductibleExpensesSummaryCard({
   annual,
   onAddDeductibleExpense,
-  onViewList,
 }: {
   annual: AnnualFinancialSnapshot;
   onAddDeductibleExpense: () => void;
-  onViewList: () => void;
 }) {
   return (
     <Card>
       <CardContent sx={{ p: 3 }}>
         <Stack spacing={2}>
-          <Typography variant="h5">Dépenses déductibles</Typography>
-          <Typography variant="h4">
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                backgroundColor: '#FFE0B2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ReceiptRoundedIcon color="warning" fontSize="small" />
+            </Box>
+            <Typography variant="h5">Dépenses déductibles</Typography>
+          </Stack>
+          <Typography variant="h4" color="success.main" sx={{ fontWeight: 600 }}>
             <MoneyValue cents={annual.deductibleExpensesCents} />
           </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<AddRoundedIcon />}
-              onClick={onAddDeductibleExpense}
-              size="small"
-            >
-              Ajouter
-            </Button>
-            <Button
-              variant="text"
-              onClick={onViewList}
-              size="small"
-            >
-              Voir la liste
-            </Button>
-          </Stack>
+          <Button
+            variant="contained"
+            startIcon={<AddRoundedIcon />}
+            onClick={onAddDeductibleExpense}
+            sx={{ borderRadius: 999, alignSelf: 'flex-start' }}
+          >
+            Ajouter une dépense
+          </Button>
         </Stack>
       </CardContent>
     </Card>
@@ -761,7 +685,6 @@ export function ReceivablesSummaryCard({
           <Button
             variant="outlined"
             onClick={onViewDetail}
-            size="small"
           >
             Voir les factures
           </Button>
@@ -770,10 +693,3 @@ export function ReceivablesSummaryCard({
     </Card>
   );
 }
-
-// ============================================================================
-// NOUVEAUX DRAWERS ENRICHIS
-// ============================================================================
-
-// Ces drawers ont été déplacés dans des fichiers séparés pour une meilleure organisation
-// mais sont gardés ici pour l'instant pour la compatibilité

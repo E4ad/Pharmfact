@@ -43,6 +43,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Mode effectif (résout 'system' vers light/dark)
   const effectiveMode = mode === 'system' ? systemMode : mode;
   
+  // Mettre à jour l'attribut data-theme quand effectiveMode change
+  useEffect(() => {
+    const html = document.documentElement;
+    html.setAttribute('data-theme', effectiveMode);
+    return () => {
+      html.removeAttribute('data-theme');
+    };
+  }, [effectiveMode]);
+  
   // Mémoïser les booléens
   const isDark = effectiveMode === 'dark';
   const isLight = effectiveMode === 'light';
