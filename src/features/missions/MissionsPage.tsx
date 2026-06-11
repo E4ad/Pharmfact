@@ -207,8 +207,10 @@ export function MissionsPage() {
       console.log('[PDF] Début téléchargement facture depuis mission:', invoice.numero);
       const blob = await platform.pdf.generateInvoicePdf(invoice, state);
       console.log('[PDF] Blob reçu, taille:', blob.size);
-      await platform.pdf.downloadPdf(blob, invoice.numero);
-      setToast({ severity: 'success', message: 'PDF téléchargé' });
+      const saved = await platform.pdf.downloadPdf(blob, invoice.numero);
+      if (saved) {
+        setToast({ severity: 'success', message: 'PDF téléchargé' });
+      }
     } catch (error) {
       console.error('[PDF Download] Erreur complète:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);

@@ -34,16 +34,17 @@ interface TauriApis {
 
 let tauriApis: TauriApis | null = null;
 
+function ensurePdfFilename(filename: string): string {
+  return filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+}
+
 async function initTauriApis(): Promise<void> {
   if (tauriApis) return;
   
-  // Tauri v2 : utilisation des plugins séparés
-  // @tauri-apps/api/tauri est renommé en @tauri-apps/api/core
-  // @tauri-apps/api/dialog et @tauri-apps/api/fs sont maintenant des plugins
-  const [coreModule, dialogModule, pathModule, fsModule] = await Promise.all([
+  const [coreModule, pathModule, dialogModule, fsModule] = await Promise.all([
     import('@tauri-apps/api/core'),
-    import('@tauri-apps/plugin-dialog'),
     import('@tauri-apps/api/path'),
+    import('@tauri-apps/plugin-dialog'),
     import('@tauri-apps/plugin-fs'),
   ]);
   
@@ -151,14 +152,16 @@ const tauriStorageAdapter: AppStorageAdapter = {
 // ============================================================================
 
 const tauriFileAdapter: AppFileAdapter = {
-  async download(params: { data: Blob | string; filename: string; mimeType: string }): Promise<void> {
+  async download(params: { data: Blob | string | Uint8Array; filename: string; mimeType: string }): Promise<void> {
     await initTauriApis();
     const { data, filename, mimeType } = params;
     
     // Convertir les données en Uint8Array
-    const dataBytes = data instanceof Blob 
+    const dataBytes = data instanceof Blob
       ? new Uint8Array(await data.arrayBuffer())
-      : new TextEncoder().encode(data as string);
+      : data instanceof Uint8Array
+        ? data
+        : new TextEncoder().encode(data);
     
     // Sauvegarder avec dialogue natif
     const filePath = await tauriApis!.save({
@@ -222,8 +225,8 @@ const tauriPdfAdapter: AppPdfAdapter = {
     
     // Vérifier que Tauri APIs sont bien initialisées
     if (!tauriApis) {
-      console.error('[PDF] Erreur: Tauri APIs non initialisées');
-      throw new Error('Tauri non disponible');
+      console.error('[PDF] Erreur: APIs desktop non initialisées');
+      throw new Error('Environnement desktop non disponible');
     }
     
     // Utiliser le backend intégré pour générer le PDF
@@ -234,14 +237,26 @@ const tauriPdfAdapter: AppPdfAdapter = {
       console.log('[PDF] Appel invoke de generate_invoice_pdf');
       
       const startTime = Date.now();
-      const pdfBase64: string = await tauriApis!.invoke('generate_invoice_pdf', {
-        invoice,
-        stateJson: JSON.stringify(state),
-      });
-      console.log('[PDF] invoke terminé en', Date.now() - startTime, 'ms');
+      let pdfBase64: string;
+      try {
+        pdfBase64 = await tauriApis!.invoke('generate_invoice_pdf', {
+          invoice,
+          stateJson: JSON.stringify(state),
+        });
+        console.log('[PDF] invoke terminé en', Date.now() - startTime, 'ms');
+      } catch (invokeError) {
+        console.error('[PDF] Erreur lors de l\'invoke:', invokeError);
+        throw new Error('Erreur lors de l\'appel de la commande Rust: ' + String(invokeError));
+      }
       
-      // Vérifier que la base64 n'est pas vide
-      console.log('[PDF] Base64 reçu, longueur:', pdfBase64?.length);
+      // Vérifier que la base64 n'est pas vide ou undefined
+      if (pdfBase64 === undefined || pdfBase64 === null) {
+        console.error('[PDF] Erreur: invoke a retourné undefined/null');
+        throw new Error('La commande Rust n\'a pas retourné de résultat');
+      }
+      
+      console.log('[PDF] Base64 reçu, longueur:', pdfBase64.length);
+      console.log('[PDF] Base64 premier 50 chars:', pdfBase64.substring(0, 50));
       if (!pdfBase64 || pdfBase64.length < 100) {
         console.error('[PDF] Erreur: PDF base64 trop court (', pdfBase64?.length, 'bytes)');
         throw new Error('La génération du PDF a produit un résultat vide');
@@ -281,11 +296,17 @@ const tauriPdfAdapter: AppPdfAdapter = {
     }
   },
 
-  async downloadPdf(blob: Blob, filename: string): Promise<void> {
+  async downloadPdf(blob: Blob, filename: string): Promise<boolean> {
     await initTauriApis();
     
+    // Vérifier que Tauri APIs sont bien initialisées
+    if (!tauriApis) {
+      console.error('[PDF] Erreur: APIs desktop non initialisées dans downloadPdf');
+      throw new Error('Environnement desktop non disponible');
+    }
+    
     try {
-      console.log('[PDF] Début téléchargement:', filename);
+      console.log('[PDF] Début téléchargement:', filename, 'Blob taille:', blob.size);
       
       const dataBytes = new Uint8Array(await blob.arrayBuffer());
       
@@ -303,18 +324,21 @@ const tauriPdfAdapter: AppPdfAdapter = {
       }
       
       // Sauvegarder avec dialogue natif
+      const pdfFilename = ensurePdfFilename(filename);
       const filePath = await tauriApis!.save({
-        title: `Enregistrer ${filename}.pdf`,
+        title: `Enregistrer ${pdfFilename}`,
+        defaultPath: pdfFilename,
         filters: [{ name: 'PDF', extensions: ['pdf'] }],
       });
       
       if (!filePath) {
-        console.log('[PDF] Téléchargement annulé par l\'utilisateur');
-        return; // Utilisateur a annulé
+        console.info('[PDF] Enregistrement annulé par l\'utilisateur');
+        return false;
       }
       
       await tauriApis!.writeFile(filePath, dataBytes);
       console.log('[PDF] Téléchargement terminé:', filePath);
+      return true;
       
     } catch (error) {
       console.error('[PDF] Erreur téléchargement:', error);

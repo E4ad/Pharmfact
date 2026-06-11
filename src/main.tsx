@@ -22,7 +22,11 @@ async function initApp() {
   }
   
   // Démarrer React
-  ReactDOM.createRoot(document.getElementById('root')!).render(
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Élement root introuvable dans le DOM');
+  }
+  ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <App />
     </React.StrictMode>,
@@ -39,7 +43,6 @@ initApp().catch((error) => {
       <div style="padding: 2rem; color: #d32f2f; font-family: system-ui, sans-serif;">
         <h1>Erreur de chargement</h1>
         <p>Une erreur est survenue lors du chargement de l'application.</p>
-        <p>Détails: ${error instanceof Error ? error.message : String(error)}</p>
       </div>
     `;
   }

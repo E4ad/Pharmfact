@@ -17,5 +17,8 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src"]
+  "include": ["src", "src/tauri.d.ts"],
+  "exclude": [
+    "node_modules/@tauri-apps/**"
+  ]
 }

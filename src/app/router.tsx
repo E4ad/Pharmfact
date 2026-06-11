@@ -48,6 +48,7 @@ export const router = createBrowserRouter([
   lazyRoute('/missions', <MissionsPage />),
   lazyRoute('/invoices', shell(<InvoicesPage />)),
   route('/invoices/:invoiceId/print', <InvoicePrintPage />),
+  route('/invoices/:invoiceId/preview', <InvoicePrintPage />),
   route('/financial', shell(<FinancialPage />)),
   route('/options', shell(<OptionsPage />)),
   route('/settings', shell(<SettingsPage />)),
