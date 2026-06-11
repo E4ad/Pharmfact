@@ -8,6 +8,10 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Divider,
   IconButton,
   MenuItem,
@@ -122,7 +126,7 @@ export function MissionsPage() {
     setHistoryOpen(false);
   }
 
-  function closeDrawer() {
+  function closeMission() {
     setSelectedId(null);
     setSearchParams({});
     setHistoryOpen(false);
@@ -281,37 +285,24 @@ export function MissionsPage() {
         </CardContent>
       </Card>
 
-      {/* Drawer de détail mission */}
+      {/* Modal de détail mission */}
       {selected ? (
-        <>
-          <Box
-            sx={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.48)',
-              zIndex: (theme) => theme.zIndex.drawer - 1,
-              cursor: 'pointer',
-            }}
-            onClick={closeDrawer}
-            aria-label="Fermer le détail mission"
-          />
-          <MissionDrawer
-            mission={selected}
-            invoice={selectedInvoice}
-            pharmacien={findPharmacien(state, selected.pharmacienId)}
-            pharmacie={findPharmacie(state, selected.pharmacieId)}
-            historyOpen={historyOpen}
-            onClose={closeDrawer}
-            onToggleHistory={() => setHistoryOpen((open) => !open)}
-            onCalendar={downloadCalendar}
-            onTransitionMission={transitionMission}
-            onEditMission={(missionId) => navigate(`/missions/${missionId}/edit`)}
-            onGenerateInvoice={generateInvoice}
-            onInvoiceStatus={updateInvoiceStatus}
-            onOpenPdf={downloadPdf}
-            downloadingInvoiceId={downloadingInvoiceId}
-          />
-        </>
+        <MissionModal
+          mission={selected}
+          invoice={selectedInvoice}
+          pharmacien={findPharmacien(state, selected.pharmacienId)}
+          pharmacie={findPharmacie(state, selected.pharmacieId)}
+          historyOpen={historyOpen}
+          onClose={closeMission}
+          onToggleHistory={() => setHistoryOpen((open) => !open)}
+          onCalendar={downloadCalendar}
+          onTransitionMission={transitionMission}
+          onEditMission={(missionId) => navigate(`/missions/${missionId}/edit`)}
+          onGenerateInvoice={generateInvoice}
+          onInvoiceStatus={updateInvoiceStatus}
+          onOpenPdf={downloadPdf}
+          downloadingInvoiceId={downloadingInvoiceId}
+        />
       ) : null}
 
       {/* Notifications */}
@@ -387,7 +378,7 @@ function MissionListItem({ mission, invoice, pharmacie, selected, onClick }: {
   );
 }
 
-function MissionDrawer({ mission, invoice, pharmacien, pharmacie, historyOpen, downloadingInvoiceId, onClose, onToggleHistory, onCalendar, onTransitionMission, onEditMission, onGenerateInvoice, onInvoiceStatus, onOpenPdf }: {
+function MissionModal({ mission, invoice, pharmacien, pharmacie, historyOpen, downloadingInvoiceId, onClose, onToggleHistory, onCalendar, onTransitionMission, onEditMission, onGenerateInvoice, onInvoiceStatus, onOpenPdf }: {
   mission: Mission;
   invoice?: Invoice;
   pharmacien?: Pharmacien;
@@ -404,39 +395,40 @@ function MissionDrawer({ mission, invoice, pharmacien, pharmacie, historyOpen, d
   onOpenPdf: (invoiceId: string) => void;
 }) {
   return (
-    <Card
-      elevation={16}
-      sx={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        width: { xs: '100%', md: 'min(560px, 100%)' },
-        height: '100vh',
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        padding: { xs: 2, md: 4 },
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
+    <Dialog
+      open={!!mission}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            maxHeight: '90vh',
+            width: { xs: '100%', md: 'min(560px, 100%)' },
+          },
+        },
       }}
     >
-      <IconButton
-        onClick={onClose}
-        aria-label="Fermer"
-        sx={{
-          position: 'absolute',
-          top: 22,
-          right: 22,
-          width: 36,
-          height: 36,
-          borderRadius: '999px',
-          backgroundColor: 'action.hover',
-          color: 'text.primary',
-        }}
-      >
-        <CloseRoundedIcon fontSize="small" />
-      </IconButton>
-
-      <MissionDrawerHeader mission={mission} pharmacien={pharmacien} pharmacie={pharmacie} />
+      <DialogTitle sx={{ p: 3, pb: 0, position: 'relative' }}>
+        <IconButton
+          onClick={onClose}
+          aria-label="Fermer"
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            width: 36,
+            height: 36,
+            borderRadius: '999px',
+            backgroundColor: 'action.hover',
+            color: 'text.primary',
+          }}
+        >
+          <CloseRoundedIcon fontSize="small" />
+        </IconButton>
+        <MissionDrawerHeader mission={mission} pharmacien={pharmacien} pharmacie={pharmacie} />
+      </DialogTitle>
+      <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
       <Section title="Actions mission">
         <Button fullWidth variant="outlined" startIcon={<CalendarMonthRoundedIcon />} onClick={() => onCalendar(mission)}>
           Télécharger invitation calendrier
@@ -458,7 +450,8 @@ function MissionDrawer({ mission, invoice, pharmacien, pharmacie, historyOpen, d
         onOpenPdf={onOpenPdf}
       />
       <MissionHistorySection mission={mission} open={historyOpen} onToggle={onToggleHistory} />
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
 

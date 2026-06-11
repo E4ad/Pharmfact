@@ -1,7 +1,7 @@
-import { Drawer, Box, IconButton, Typography } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, IconButton, Typography } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 
-interface FinancialDrawerProps {
+interface FinancialModalProps {
   title: string;
   open: boolean;
   onClose: () => void;
@@ -9,27 +9,38 @@ interface FinancialDrawerProps {
   'data-testid'?: string;
 }
 
-export function FinancialDrawer({ title, open, onClose, children, 'data-testid': testId }: FinancialDrawerProps) {
+export function FinancialModal({ title, open, onClose, children, 'data-testid': testId }: FinancialModalProps) {
   return (
-    <Drawer
-      anchor="right"
+    <Dialog
       open={open}
       onClose={onClose}
-      data-testid={testId || 'financial-drawer'}
-      sx={{
-        '& .MuiDrawer-paper': {
-          width: { xs: '100%', sm: 480 },
-          p: 3,
+      maxWidth="sm"
+      fullWidth
+      data-testid={testId || 'financial-modal'}
+      slotProps={{
+        paper: {
+          sx: {
+            maxHeight: '90vh',
+            width: { xs: '100%', sm: 480 },
+          },
         },
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <DialogTitle sx={{ p: 3, pb: 0, position: 'relative' }}>
         <Typography variant="h6">{title}</Typography>
-        <IconButton onClick={onClose}>
+        <IconButton
+          onClick={onClose}
+          sx={{ position: 'absolute', top: 8, right: 8 }}
+        >
           <CloseRoundedIcon />
         </IconButton>
-      </Box>
-      {children}
-    </Drawer>
+      </DialogTitle>
+      <DialogContent sx={{ p: 3 }}>
+        {children}
+      </DialogContent>
+    </Dialog>
   );
 }
+
+// Alias pour la rétrocompatibilité
+export const FinancialDrawer = FinancialModal;
