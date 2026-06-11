@@ -25,7 +25,6 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BackHomeButton } from '../../components/BackHomeButton';
-import { apiUrl, assertBackendAvailable, downloadInvoicePdf } from '../../services/api';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
 import { createId } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
@@ -33,6 +32,7 @@ import { formatMoney } from '../../services/money';
 import { missionStatusLabels } from '../../services/missionStatus';
 import { exportAppState, updateAppState, useAppState } from '../../storage/localStore';
 import type { Invoice, InvoiceStatus, Mission, MissionStatus, Pharmacien, Pharmacie } from '../../storage/schema';
+import { getPlatformAsync } from '../../services/platformService';
 import { findInvoice, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
 
 const missionStatusOptions: MissionStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'ARCHIVED'];
@@ -202,26 +202,18 @@ export function MissionsPage() {
     if (!invoice) return;
     setDownloadingInvoiceId(invoiceId);
     try {
-      await assertBackendAvailable();
-      const response = await fetch(apiUrl(`/invoices/${invoiceId}/pdf`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: JSON.parse(exportAppState()) }),
-      });
-      if (!response.ok) {
-        console.error('[qa-pdf-download-failed]', { invoiceId, status: response.status, body: await response.text() });
-        throw new Error('pdf failed');
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${invoice.numero}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
+      // Utiliser getPlatformAsync pour garantir que tauriPlatform est chargé en mode Tauri
+      const platform = await getPlatformAsync();
+      console.log('[PDF] Début téléchargement facture depuis mission:', invoice.numero);
+      const blob = await platform.pdf.generateInvoicePdf(invoice, state);
+      console.log('[PDF] Blob reçu, taille:', blob.size);
+      await platform.pdf.downloadPdf(blob, invoice.numero);
       setToast({ severity: 'success', message: 'PDF téléchargé' });
     } catch (error) {
-      setToast({ severity: 'error', message: error instanceof Error && error.name === 'BACKEND_UNAVAILABLE' ? 'Serveur API inaccessible' : 'Le PDF n’a pas pu être généré. Vérifiez que le serveur est démarré puis réessayez.' });
+      console.error('[PDF Download] Erreur complète:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[PDF Download] Message d\'erreur:', errorMessage);
+      setToast({ severity: 'error', message: 'Impossible de générer le PDF. Vérifiez les données de la facture et réessayez.' });
     } finally {
       setDownloadingInvoiceId(null);
     }
@@ -405,6 +397,7 @@ function MissionModal({ mission, invoice, pharmacien, pharmacie, historyOpen, do
           sx: {
             maxHeight: '90vh',
             width: { xs: '100%', md: 'min(560px, 100%)' },
+            zIndex: 1400,
           },
         },
       }}

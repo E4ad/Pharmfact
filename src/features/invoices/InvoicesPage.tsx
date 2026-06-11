@@ -9,11 +9,11 @@ import { EmptyState } from '../../components/EmptyState';
 import { MoneyValue } from '../../components/MoneyValue';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { StatusChip } from '../../components/StatusChip';
-import { apiUrl, assertBackendAvailable } from '../../services/api';
 import { invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
 import { exportAppState, updateAppState, useAppState } from '../../storage/localStore';
 import type { Invoice, InvoiceStatus } from '../../storage/schema';
 import { findPharmacie } from '../../storage/selectors';
+import { getPlatformAsync } from '../../services/platformService';
 
 export function InvoicesPage() {
   const state = useAppState();
@@ -31,26 +31,19 @@ export function InvoicesPage() {
   async function downloadPdf(invoice: Invoice) {
     setDownloadingId(invoice.id);
     try {
-      await assertBackendAvailable();
-      const response = await fetch(apiUrl(`/invoices/${invoice.id}/pdf`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: JSON.parse(exportAppState()) }),
-      });
-      if (!response.ok) {
-        console.error('[qa-pdf-download-failed]', { invoiceId: invoice.id, status: response.status, body: await response.text() });
-        throw new Error('pdf failed');
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${invoice.numero}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
+      // Utiliser getPlatformAsync pour garantir que tauriPlatform est chargé en mode Tauri
+      const platform = await getPlatformAsync();
+      console.log('[PDF] Début téléchargement facture:', invoice.numero);
+      const blob = await platform.pdf.generateInvoicePdf(invoice, state);
+      console.log('[PDF] Blob reçu, taille:', blob.size);
+      await platform.pdf.downloadPdf(blob, invoice.numero);
       setToast({ severity: 'success', message: 'PDF téléchargé.' });
     } catch (error) {
-      setToast({ severity: 'error', message: error instanceof Error && error.name === 'BACKEND_UNAVAILABLE' ? 'Serveur API inaccessible' : 'Le PDF n’a pas pu être généré. Vérifiez que le serveur est démarré puis réessayez.' });
+      console.error('[PDF Download] Erreur complète:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[PDF Download] Message d\'erreur:', errorMessage);
+      // Message utilisateur générique mais utile
+      setToast({ severity: 'error', message: 'Impossible de générer le PDF. Vérifiez les données de la facture et réessayez.' });
     } finally {
       setDownloadingId(null);
     }
@@ -111,7 +104,13 @@ export function InvoicesPage() {
           </CardContent>
         </Card>
       )}
-      <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} maxWidth="sm" fullWidth>
+      <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} maxWidth="sm" fullWidth
+        slotProps={{
+          paper: {
+            sx: { zIndex: 1400 },
+          },
+        }}
+      >
         <DialogTitle>{selected?.numero}</DialogTitle>
         <DialogContent>
           {selected ? (
