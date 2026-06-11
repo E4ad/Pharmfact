@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Drawer, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton } from '@mui/material';
+import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton } from '@mui/material';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
 import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
@@ -89,10 +89,6 @@ export function OptionsPage() {
     }
   };
 
-  const handleCloseDrawer = () => {
-    setActiveCategory(null);
-  };
-
   return (
     <>
       {/* Main Page with Tiles */}
@@ -179,7 +175,7 @@ export function OptionsPage() {
       <SettingsModal
         
         open={activeCategory === 'general'}
-        onClose={handleCloseDrawer}
+        onClose={() => setActiveCategory(null)}
         onSave={handleSave}
         title="Informations générales"
         description="Profil actif et statut fiscal par défaut."
@@ -209,7 +205,7 @@ export function OptionsPage() {
       <SettingsModal
         
         open={activeCategory === 'missions'}
-        onClose={handleCloseDrawer}
+        onClose={() => setActiveCategory(null)}
         onSave={handleSave}
         title="Missions"
         description="Paramètres par défaut pour la création de missions."
@@ -305,7 +301,7 @@ export function OptionsPage() {
       <SettingsModal
         
         open={activeCategory === 'invoicing'}
-        onClose={handleCloseDrawer}
+        onClose={() => setActiveCategory(null)}
         onSave={handleSave}
         title="Facturation & PDF"
         description="Paramètres de facture, conditions de paiement et génération PDF."
@@ -381,7 +377,7 @@ export function OptionsPage() {
       <SettingsModal
         
         open={activeCategory === 'financial'}
-        onClose={handleCloseDrawer}
+        onClose={() => setActiveCategory(null)}
         onSave={handleSave}
         title="Financier & fiscalité"
         description="Réserve fiscale, acomptes provisionnels, seuils et suivi des dépenses."
@@ -513,7 +509,7 @@ export function OptionsPage() {
       <SettingsModal
         
         open={activeCategory === 'appearance'}
-        onClose={handleCloseDrawer}
+        onClose={() => setActiveCategory(null)}
         onSave={handleSave}
         title="Apparence"
         description="Thème et couleurs de l'application."
@@ -540,7 +536,7 @@ export function OptionsPage() {
       <SettingsModal
         
         open={activeCategory === 'data'}
-        onClose={handleCloseDrawer}
+        onClose={() => setActiveCategory(null)}
         onSave={handleSave}
         title="Données locales"
         description="Sauvegarde automatique et gestion des données."
