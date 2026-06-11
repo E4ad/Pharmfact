@@ -11,7 +11,13 @@ type Props = {
 
 export function ConfirmDialog({ open, title, description, confirmLabel, onClose, onConfirm }: Props) {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth
+      slotProps={{
+        paper: {
+          sx: { zIndex: 1400 },
+        },
+      }}
+    >
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <DialogContentText>{description}</DialogContentText>

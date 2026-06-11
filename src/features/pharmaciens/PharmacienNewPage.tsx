@@ -1,7 +1,7 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import { Box, Button, Card, CardContent, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography, Alert, IconButton, Tooltip } from '@mui/material';
-import { FormEvent, useState, useEffect } from 'react';
+import { FormEvent, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
@@ -10,12 +10,14 @@ import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
 import { eurosToCents } from '../../services/money';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacien, TaxStatus } from '../../storage/schema';
+import { getPlatform } from '../../services/platformService';
 
 export function PharmacienNewPage() {
   const state = useAppState();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const id = searchParams.get('id') || '';
+  const fromOnboarding = searchParams.get('from') === 'onboarding';
   const existingPharmacien = state.pharmaciens.find(p => p.id === id);
   
   const [form, setForm] = useState({ nom: '', adresse: '', ville: '', codePostal: '', rue: '', numero: '', lat: undefined as number | undefined, lng: undefined as number | undefined, telephone: '', email: '', hourlyRate: '80', distanceKmDomicile: '0', taxStatus: 'SMALL_SUPPLIER' as TaxStatus, gstNumber: '', qstNumber: '', favoritePharmacieId: '' });
@@ -61,9 +63,10 @@ export function PharmacienNewPage() {
     }));
   }
 
-  function handleDelete() {
+  const handleDelete = useCallback(async () => {
     if (!existingPharmacien) return;
-    if (window.confirm(`Voulez-vous vraiment supprimer le pharmacien "${existingPharmacien.nom}" ?`)) {
+    const confirmed = await getPlatform().system.showConfirm(`Voulez-vous vraiment supprimer le pharmacien "${existingPharmacien.nom}" ?`);
+    if (confirmed) {
       updateAppState((state) => ({
         ...state,
         pharmaciens: state.pharmaciens.filter(p => p.id !== existingPharmacien.id),
@@ -71,7 +74,7 @@ export function PharmacienNewPage() {
       }));
       navigate('/settings');
     }
-  }
+  }, [existingPharmacien, navigate]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -105,7 +108,13 @@ export function PharmacienNewPage() {
         activePharmacienId: existingPharmacien ? state.activePharmacienId : pharmacien.id
       };
     });
-    navigate('/settings');
+    
+    // Si on vient de l'onboarding, retourner vers l'onboarding
+    if (fromOnboarding) {
+      navigate('/welcome');
+    } else {
+      navigate('/settings');
+    }
   }
 
   return (
@@ -117,7 +126,7 @@ export function PharmacienNewPage() {
         </Stack>
         {existingPharmacien && (
           <Tooltip title="Supprimer ce pharmacien">
-            <IconButton onClick={handleDelete} color="error" data-testid="pharmacien-delete-button">
+            <IconButton onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacien-delete-button">
               <DeleteRoundedIcon />
             </IconButton>
           </Tooltip>

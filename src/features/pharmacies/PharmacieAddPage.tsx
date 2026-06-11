@@ -1,7 +1,7 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import { Box, Button, Card, CardContent, Stack, TextField, Typography, Alert, IconButton, Tooltip } from '@mui/material';
-import { FormEvent, useState, useEffect } from 'react';
+import { FormEvent, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
@@ -9,11 +9,13 @@ import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacie } from '../../storage/schema';
+import { getPlatform } from '../../services/platformService';
 
 export function PharmacieAddPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const id = searchParams.get('id') || '';
+  const fromOnboarding = searchParams.get('from') === 'onboarding';
   const state = useAppState();
   const existingPharmacie = state.pharmacies.find(p => p.id === id);
   
@@ -69,16 +71,17 @@ export function PharmacieAddPage() {
     }));
   }
 
-  function handleDelete() {
+  const handleDelete = useCallback(async () => {
     if (!existingPharmacie) return;
-    if (window.confirm(`Voulez-vous vraiment supprimer la pharmacie "${existingPharmacie.nom}" ?`)) {
+    const confirmed = await getPlatform().system.showConfirm(`Voulez-vous vraiment supprimer la pharmacie "${existingPharmacie.nom}" ?`);
+    if (confirmed) {
       updateAppState((state) => ({
         ...state,
         pharmacies: state.pharmacies.filter(p => p.id !== existingPharmacie.id)
       }));
-      navigate('/settings');
+      navigate('/activity');
     }
-  }
+  }, [existingPharmacie, navigate]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -106,19 +109,25 @@ export function PharmacieAddPage() {
         : [...state.pharmacies, pharmacie];
       return { ...state, pharmacies: updatedPharmacies };
     });
-    navigate('/settings');
+    
+    // Si on vient de l'onboarding, retourner vers l'onboarding
+    if (fromOnboarding) {
+      navigate('/welcome');
+    } else {
+      navigate('/activity');
+    }
   }
 
   return (
     <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
         <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
-          <BackHomeButton to="/settings" label="Paramètres" data-testid="pharmacy-back-button" />
+          <BackHomeButton to="/activity" label="Accueil" data-testid="pharmacy-back-button" />
           <Typography variant="h2">{existingPharmacie ? 'Modifier la pharmacie' : 'Ajouter une pharmacie'}</Typography>
         </Stack>
         {existingPharmacie && (
           <Tooltip title="Supprimer cette pharmacie">
-            <IconButton onClick={handleDelete} color="error" data-testid="pharmacy-delete-button">
+            <IconButton onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacy-delete-button">
               <DeleteRoundedIcon />
             </IconButton>
           </Tooltip>
@@ -146,7 +155,7 @@ export function PharmacieAddPage() {
               <TextField label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} multiline minRows={4} sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }} />
             </Stack>
             <Stack direction="row" sx={{ gap: 2, justifyContent: 'flex-end' }}>
-              <Button variant="outlined" color="inherit" onClick={() => navigate('/settings')} data-testid="pharmacie-cancel-button">Annuler</Button>
+              <Button variant="outlined" color="inherit" onClick={() => navigate('/activity')} data-testid="pharmacie-cancel-button">Annuler</Button>
               <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} data-testid="pharmacie-save-button">
                 {existingPharmacie ? 'Enregistrer les modifications' : 'Enregistrer'}
               </Button>

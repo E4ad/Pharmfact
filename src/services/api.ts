@@ -1,12 +1,22 @@
-import type { AppState } from '../storage/schema';
+import type { AppState, Invoice } from '../storage/schema';
 import { getAppState } from '../storage/localStore';
+import { getPlatform } from './platformService';
 
+/**
+ * Base URL de l'API - Utilisée UNIQUEMENT en mode browser
+ */
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
+/**
+ * Construit une URL d'API - Utilisée UNIQUEMENT en mode browser
+ */
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+/**
+ * Vérifie la disponibilité du backend - Utilisée UNIQUEMENT en mode browser
+ */
 export async function assertBackendAvailable(): Promise<void> {
   try {
     const response = await fetch(apiUrl('/health'));
@@ -19,21 +29,20 @@ export async function assertBackendAvailable(): Promise<void> {
   }
 }
 
+/**
+ * Télécharge un PDF de facture
+ * En mode Tauri : utilise l'adapter de plateforme
+ * En mode Browser : utilise l'API backend
+ */
 export async function downloadInvoicePdf(invoiceId: string, state?: AppState): Promise<Blob> {
-  await assertBackendAvailable();
-  const resolvedState = state ?? getAppState();
-  const stateJson = JSON.parse(JSON.stringify(resolvedState));
-  const response = await fetch(apiUrl(`/invoices/${invoiceId}/pdf`), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ state: stateJson }),
-  });
-  if (!response.ok) {
-    const bodyText = await response.text();
-    console.error('[qa-pdf-download-failed]', { invoiceId, status: response.status, body: bodyText });
-    const error = new Error(`Le PDF n’a pas pu être généré (${response.status}). Vérifiez que le serveur est démarré puis réessayez.`);
-    (error as Error & { name?: string }).name = response.status === 503 ? 'BACKEND_UNAVAILABLE' : 'PDF_GENERATION_FAILED';
-    throw error;
+  // En mode Tauri, utiliser l'adapter de plateforme
+  const platform = getPlatform();
+  const invoice = (state ?? getAppState()).invoices.find(i => i.id === invoiceId);
+  
+  if (!invoice) {
+    throw new Error(`Facture ${invoiceId} introuvable`);
   }
-  return response.blob();
+  
+  // Utiliser l'adapter PDF qui gère les deux modes
+  return platform.pdf.generateInvoicePdf(invoice, state ?? getAppState());
 }

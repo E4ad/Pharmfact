@@ -282,6 +282,33 @@ export function createDefaultAppOptions(): AppOptions {
 export function createSeedState(): AppState {
   return {
     version: 2,
+    activePharmacienId: '',
+    pharmaciens: [],
+    pharmacies: [],
+    missions: [],
+    invoices: [],
+    taxPayments: [],
+    deductibleExpenses: [],
+    expenseReceipts: [],
+    fiscalSettings: createDefaultFiscalSettings(),
+    distanceReferences: [],
+    appOptions: createDefaultAppOptions(),
+    uiSettings: createDefaultUiSettings(),
+    localDataSettings: createDefaultLocalDataSettings(),
+    ui: {
+      missionFilters: {},
+      lastVisitedAt: new Date().toISOString(),
+    },
+  };
+}
+
+// ============================================================================
+// Fonction pour créer un état avec données d'exemple (pour dev/démo)
+// ============================================================================
+
+export function createDemoState(): AppState {
+  return {
+    version: 2,
     activePharmacienId: 'ph_amelie',
     pharmaciens,
     pharmacies,

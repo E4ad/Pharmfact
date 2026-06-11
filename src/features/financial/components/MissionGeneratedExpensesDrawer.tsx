@@ -1,5 +1,5 @@
 import { Stack, Typography, Table, TableBody, TableCell, TableHead, TableRow, Button } from '@mui/material';
-import { FinancialDrawer } from './FinancialDrawer';
+import { FinancialModal } from './FinancialDrawer';
 import { MoneyValue } from '../../../components/MoneyValue';
 import type { MissionDeductibleExpenseRow } from '../../../services/financialMetrics';
 
@@ -11,7 +11,7 @@ interface MissionGeneratedExpensesDrawerProps {
 
 export function MissionGeneratedExpensesDrawer({ open, onClose, rows }: MissionGeneratedExpensesDrawerProps) {
   return (
-    <FinancialDrawer title="Dépenses issues des missions" open={open} onClose={onClose}>
+    <FinancialModal title="Dépenses issues des missions" open={open} onClose={onClose}>
       <Stack spacing={2} sx={{ maxHeight: '80vh', overflowY: 'auto' }}>
         {rows.length === 0 ? (
           <Typography>Aucun frais de mission déductible à afficher.</Typography>
@@ -52,6 +52,6 @@ export function MissionGeneratedExpensesDrawer({ open, onClose, rows }: MissionG
           Fermer
         </Button>
       </Stack>
-    </FinancialDrawer>
+    </FinancialModal>
   );
 }

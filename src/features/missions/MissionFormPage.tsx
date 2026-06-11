@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -51,6 +51,9 @@ import { updateAppState, useAppState } from '../../storage/localStore';
 import type { ExpenseReceipt, Invoice, Mission, MissionDay, MissionExpense, MissionStatus } from '../../storage/schema';
 import { findInvoice, findMission, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
 import './MissionFormPage.css';
+import { getPlatform } from '../../services/platformService';
+import { PharmacieFormModal } from '../pharmacies/PharmacieFormModal';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 
 type MissionExpenseFormValue = MissionExpense;
 type WorkflowAction = 'save_draft' | 'confirm' | 'confirm_generate' | MissionEditAction;
@@ -155,6 +158,8 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { missionId } = useParams();
   const navigate = useNavigate();
   const state = useAppState();
+  const [searchParams] = useSearchParams();
+  const fromOnboarding = searchParams.get('from') === 'onboarding';
   
   // Utilisation du hook useMissionForm pour toute la logique de formulaire
   const {
@@ -184,6 +189,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const invoice = existing ? findInvoice(state, existing.invoiceId) ?? missionInvoice(state, existing) : undefined;
   const [openDayId, setOpenDayId] = useState<string | null>(null);
   const [showNotes, setShowNotes] = useState(false);
+  const [pharmacieModalOpen, setPharmacieModalOpen] = useState(false);
   const preview = useMissionFinancialPreview(values);
 
   // Effet pour régénérer les jours au montage
@@ -208,7 +214,13 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
       const receiptsToStore = pendingReceipts.map((receipt) => ({ ...receipt, missionId: missionToStore.id, storageUrl: receipt.storageUrl.replace('receipts/draft/', `receipts/${missionToStore.id}/`) }));
       return { ...current, missions: mode === 'edit' ? current.missions.map((item) => item.id === existing?.id ? missionToStore : item) : [...current.missions, missionToStore], invoices, expenseReceipts: [...current.expenseReceipts.filter((receipt) => !receiptsToStore.some((item) => item.id === receipt.id)), ...receiptsToStore] };
     });
-    navigate(`/missions?selected=${finalMission.id}`);
+    
+    // Si on vient de l'onboarding, retourner vers l'onboarding
+    if (fromOnboarding) {
+      navigate('/welcome');
+    } else {
+      navigate(`/missions?selected=${finalMission.id}`);
+    }
   }
 
   if (mode === 'edit' && !existing) return <div className="mission-form-page"><BackHomeButton to="/missions" label="Missions" data-testid="mission-form-back-button" /><p>Mission introuvable.</p></div>;
@@ -221,12 +233,34 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
       <section className="mission-form-card">
         <h2>1. Lieu de mission</h2>
         <div className="mission-form-fields">
-          <FormSelectField 
-            label="Pharmacie" 
-            value={values.pharmacieId} 
-            onChange={changePharmacie} 
-            options={state.pharmacies.map((item) => ({ value: item.id, label: item.nom }))} 
-          />
+          <FormControl fullWidth size="small" sx={{ borderRadius: 2 }}>
+            <InputLabel>Pharmacie</InputLabel>
+            <Select
+              value={values.pharmacieId}
+              onChange={(event) => {
+                const selectedValue = event.target.value;
+                if (selectedValue === 'NEW_PHARMACIE') {
+                  setPharmacieModalOpen(true);
+                } else {
+                  changePharmacie(selectedValue);
+                }
+              }}
+              label="Pharmacie"
+              variant="outlined"
+              sx={{ borderRadius: 2 }}
+            >
+              {state.pharmacies.map((item) => (
+                <MenuItem key={item.id} value={item.id}>
+                  {item.nom}
+                </MenuItem>
+              ))}
+              <Divider sx={{ my: 0.5 }} />
+              <MenuItem value="NEW_PHARMACIE" sx={{ color: 'primary.main' }}>
+                <AddRoundedIcon sx={{ mr: 1, fontSize: 20 }} />
+                Ajouter une nouvelle pharmacie
+              </MenuItem>
+            </Select>
+          </FormControl>
           <ReadOnlyField label="Adresse" value={addressOf(pharmacie) || 'Non renseignée'} wide />
           <div className="mission-form-field is-half">
             <span>Trajet domicile → pharmacie</span>
@@ -360,6 +394,17 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
       <MissionFinancialPreview preview={preview} rate={values.tauxHoraire} />
       <MissionFormActions mode={mode} invoice={invoice} onSubmit={submit} onCancel={() => navigate(mode === 'edit' && existing ? `/missions?selected=${existing.id}` : '/missions')} />
     </div>
+    
+    {/* Modal pour ajouter une nouvelle pharmacie */}
+    <PharmacieFormModal
+      open={pharmacieModalOpen}
+      onClose={() => {
+        setPharmacieModalOpen(false);
+        // Rafraîchir la liste des pharmacies si une nouvelle a été ajoutée
+        // La state sera automatiquement mis à jour via useAppState
+      }}
+      pharmacieId={undefined}
+    />
   </main>;
 }
 
@@ -450,7 +495,15 @@ function MissionExpenseRow({ expense, receipts, onUpdate, onDelete, onAddReceipt
   const [editing, setEditing] = useState(false);
   const config = expenseTypeConfig(expense.typeKey);
   useEffect(() => { function onKey(event: KeyboardEvent) { if (event.key === 'Escape') setEditing(false); } if (editing) window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [editing]);
-  if (editing) return <MissionExpenseEditor expense={expense} receipts={receipts} onSave={(next) => { onUpdate(next); setEditing(false); }} onCancel={() => setEditing(false)} onDelete={() => { if (window.confirm('Supprimer ce frais ?')) onDelete(expense.id); }} onAddReceipt={onAddReceipt} onDeleteReceipt={onDeleteReceipt} />;
+  
+  const handleExpenseDelete = useCallback(async () => {
+    const confirmed = await getPlatform().system.showConfirm('Supprimer ce frais ?');
+    if (confirmed) {
+      onDelete(expense.id);
+    }
+  }, [expense.id, onDelete]);
+  
+  if (editing) return <MissionExpenseEditor expense={expense} receipts={receipts} onSave={(next) => { onUpdate(next); setEditing(false); }} onCancel={() => setEditing(false)} onDelete={() => { handleExpenseDelete().catch(() => {}); }} onAddReceipt={onAddReceipt} onDeleteReceipt={onDeleteReceipt} />;
   return <div className="mission-expense-row"><button className="mission-expense-main" type="button" onClick={() => setEditing(true)}><span className="mission-expense-icon">{config.icon}</span><span>{expense.label}</span>{receipts.length ? <span title="Justificatif attaché">📎</span> : null}</button><button className="mission-expense-amount" type="button" onClick={() => setEditing(true)}>{expense.typeKey === 'MILEAGE' && expense.distanceKm ? String(expense.distanceKm) + ' km · ' + formatMoney(expense.amountCents) : formatMoney(expense.amountCents)}</button><button className="mission-link-button" type="button" aria-label={'Modifier ' + expense.label} onClick={() => setEditing(true)}>✎</button></div>;
 }
 

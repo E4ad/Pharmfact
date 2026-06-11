@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton } from '@mui/material';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
@@ -6,12 +6,18 @@ import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import LocalPharmacyRoundedIcon from '@mui/icons-material/LocalPharmacyRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import { useNavigate } from 'react-router-dom';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
+import UploadRoundedIcon from '@mui/icons-material/UploadRounded';
+import { useSearchParams } from 'react-router-dom';
 import { BackHomeButton } from '../../components/BackHomeButton';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { OptionActionCard } from '../../components/OptionActionCard';
-import { useAppState, updateAppState } from '../../storage/localStore';
+import { exportAppState, importAppState, resetAppState, useAppState, updateAppState } from '../../storage/localStore';
 import { activePharmacien, selectAppOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions } from '../../storage/selectors';
 import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings, Pharmacie, Pharmacien } from '../../storage/schema';
+import { PharmacieFormModal } from '../pharmacies/PharmacieFormModal';
+import { PharmacienFormModal } from '../pharmaciens/PharmacienFormModal';
 
 const missionTypes = [
   ['REMPLACEMENT_OFFICINE', 'Remplacement officine'],
@@ -22,8 +28,9 @@ const missionTypes = [
 type SettingsCategory = 'general' | 'missions' | 'invoicing' | 'financial' | 'appearance' | 'data' | 'references';
 
 export function OptionsPage() {
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const state = useAppState();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const currentActive = activePharmacien(state);
 
   const appOptions = selectAppOptions(state);
@@ -37,6 +44,13 @@ export function OptionsPage() {
   const [uiSettingsForm, setUiSettingsForm] = useState<UiSettings>(() => uiSettings);
   const [localDataSettingsForm, setLocalDataSettingsForm] = useState<LocalDataSettings>(() => localDataSettings);
   const [activeCategory, setActiveCategory] = useState<SettingsCategory | null>(null);
+  
+  // States pour les modals de pharmacie et pharmacien
+  const [pharmacieModalOpen, setPharmacieModalOpen] = useState(false);
+  const [pharmacieModalId, setPharmacieModalId] = useState<string | undefined>();
+  const [pharmacienModalOpen, setPharmacienModalOpen] = useState(false);
+  const [pharmacienModalId, setPharmacienModalId] = useState<string | undefined>();
+  const [resetOpen, setResetOpen] = useState(false);
 
   useEffect(() => {
     setForm(appOptions);
@@ -44,6 +58,12 @@ export function OptionsPage() {
     setUiSettingsForm(uiSettings);
     setLocalDataSettingsForm(localDataSettings);
   }, [state]);
+
+  useEffect(() => {
+    if (searchParams.get('panel') === 'data') {
+      setActiveCategory('data');
+    }
+  }, [searchParams]);
 
   const validateForm = (): boolean => {
     if (form.missionDefaults.defaultBreakMinutes < 0 || form.missionDefaults.defaultBreakMinutes > 1440) {
@@ -89,10 +109,42 @@ export function OptionsPage() {
     }
   };
 
+  function downloadExport() {
+    const blob = new Blob([exportAppState()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pharmfact-export-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setToast({ severity: 'success', message: 'Export JSON téléchargé.' });
+  }
+
+  async function importFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      importAppState(await file.text());
+      setToast({ severity: 'success', message: 'Données importées avec succès.' });
+      setActiveCategory(null);
+    } catch {
+      setToast({ severity: 'error', message: 'Import impossible. Vérifiez que le fichier JSON provient de cette application.' });
+    }
+  }
+
+  function confirmReset() {
+    resetAppState();
+    setResetOpen(false);
+    setActiveCategory(null);
+    setToast({ severity: 'success', message: 'Données réinitialisées avec les données de démonstration.' });
+  }
+
   return (
     <>
       {/* Main Page with Tiles */}
-      <Stack spacing={3} sx={{ width: 'min(980px, 100%)', mx: 'auto', py: 4 }}>
+      <Stack spacing={3} sx={{ width: 'min(1120px, 100%)', mx: 'auto', py: 4 }}>
         <Stack spacing={2}>
           <BackHomeButton to="/activity" data-testid="options-back-button" />
           <Stack spacing={1}>
@@ -106,7 +158,7 @@ export function OptionsPage() {
           </Stack>
         </Stack>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5 }}>
           <OptionActionCard
             title="Informations générales"
             description="Profil actif et statut fiscal."
@@ -556,13 +608,42 @@ export function OptionsPage() {
             }
             label="Sauvegarde automatique"
           />
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/settings')}
-            sx={{ alignSelf: 'flex-start' }}
-          >
-            Gestion avancée
-          </Button>
+          <Divider />
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
+            <DataAction
+              title="Exporter"
+              description="Télécharger une sauvegarde JSON complète."
+              action={<Button variant="contained" startIcon={<DownloadRoundedIcon />} onClick={downloadExport}>Exporter</Button>}
+            />
+            <DataAction
+              title="Importer"
+              description="Restaurer un export JSON compatible."
+              action={
+                <>
+                  <input ref={fileInputRef} type="file" accept="application/json,.json" hidden onChange={importFile} />
+                  <Button variant="outlined" color="inherit" startIcon={<UploadRoundedIcon />} onClick={() => fileInputRef.current?.click()}>
+                    Importer
+                  </Button>
+                </>
+              }
+            />
+            <DataAction
+              title="Réinitialiser"
+              description="Recharger les données de démonstration."
+              action={<Button variant="outlined" color="error" startIcon={<RestartAltRoundedIcon />} onClick={() => setResetOpen(true)}>Réinitialiser</Button>}
+            />
+          </Box>
+          <Card variant="outlined">
+            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(5, 1fr)' }, gap: 2 }}>
+                <DataCount label="Pharmaciens" value={state.pharmaciens.length} />
+                <DataCount label="Pharmacies" value={state.pharmacies.length} />
+                <DataCount label="Missions" value={state.missions.length} />
+                <DataCount label="Factures" value={state.invoices.length} />
+                <DataCount label="Acomptes" value={state.taxPayments.length} />
+              </Box>
+            </CardContent>
+          </Card>
         </Stack>
       </SettingsModal>
 
@@ -604,8 +685,12 @@ export function OptionsPage() {
             <Button
               variant="outlined"
               startIcon={<AddBusinessRoundedIcon />}
-              onClick={() => navigate('/pharmacy/add')}
+              onClick={() => {
+                setPharmacieModalId(undefined);
+                setPharmacieModalOpen(true);
+              }}
               sx={{ alignSelf: 'flex-start', borderRadius: 2 }}
+              data-testid="options-add-pharmacy-button"
             >
               Ajouter une pharmacie
             </Button>
@@ -619,8 +704,12 @@ export function OptionsPage() {
                         <Button
                           variant="text"
                           size="small"
-                          onClick={() => navigate(`/pharmacy/add?id=${pharmacie.id}`)}
+                          onClick={() => {
+                            setPharmacieModalId(pharmacie.id);
+                            setPharmacieModalOpen(true);
+                          }}
                           startIcon={<LocalPharmacyRoundedIcon />}
+                          data-testid={`options-edit-pharmacy-${pharmacie.id}`}
                         >
                           Modifier
                         </Button>
@@ -647,8 +736,12 @@ export function OptionsPage() {
             <Button
               variant="outlined"
               startIcon={<PersonAddAltRoundedIcon />}
-              onClick={() => navigate('/pharmacien/new')}
+              onClick={() => {
+                setPharmacienModalId(undefined);
+                setPharmacienModalOpen(true);
+              }}
               sx={{ alignSelf: 'flex-start', borderRadius: 2 }}
+              data-testid="options-add-pharmacien-button"
             >
               Ajouter un pharmacien
             </Button>
@@ -662,8 +755,12 @@ export function OptionsPage() {
                         <Button
                           variant="text"
                           size="small"
-                          onClick={() => navigate(`/pharmacien/new?id=${pharmacien.id}`)}
+                          onClick={() => {
+                            setPharmacienModalId(pharmacien.id);
+                            setPharmacienModalOpen(true);
+                          }}
                           startIcon={<PersonAddAltRoundedIcon />}
+                          data-testid={`options-edit-pharmacien-${pharmacien.id}`}
                         >
                           Modifier
                         </Button>
@@ -683,6 +780,29 @@ export function OptionsPage() {
           </Stack>
         </DialogContent>
       </Dialog>
+
+      {/* Pharmacie Form Modal */}
+      <PharmacieFormModal
+        open={pharmacieModalOpen}
+        onClose={() => setPharmacieModalOpen(false)}
+        pharmacieId={pharmacieModalId}
+      />
+
+      {/* Pharmacien Form Modal */}
+      <PharmacienFormModal
+        open={pharmacienModalOpen}
+        onClose={() => setPharmacienModalOpen(false)}
+        pharmacienId={pharmacienModalId}
+      />
+
+      <ConfirmDialog
+        open={resetOpen}
+        title="Réinitialiser les données ?"
+        description="Toutes vos données locales seront remplacées par les données de démonstration."
+        confirmLabel="Réinitialiser"
+        onClose={() => setResetOpen(false)}
+        onConfirm={confirmReset}
+      />
 
       <Snackbar
         open={Boolean(toast)}
@@ -711,8 +831,8 @@ function SettingsModal({
   onSave: () => void;
   title: string;
   description: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
+  icon: ReactNode;
+  children: ReactNode;
 }) {
   return (
     <Dialog
@@ -760,3 +880,27 @@ function SettingsModal({
   );
 }
 
+function DataAction({ title, description, action }: { title: string; description: string; action: ReactNode }) {
+  return (
+    <Card variant="outlined">
+      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+        <Stack spacing={2} sx={{ height: '100%', justifyContent: 'space-between' }}>
+          <Stack spacing={0.75}>
+            <Typography variant="h6">{title}</Typography>
+            <Typography color="text.secondary">{description}</Typography>
+          </Stack>
+          {action}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DataCount({ label, value }: { label: string; value: number }) {
+  return (
+    <Stack spacing={0.5}>
+      <Typography color="text.secondary">{label}</Typography>
+      <Typography variant="h5">{value}</Typography>
+    </Stack>
+  );
+}

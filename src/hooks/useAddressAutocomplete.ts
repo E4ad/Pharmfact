@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getPlatform } from '../services/platformService';
 
 export type GeocodeSuggestion = {
   displayName: string;
@@ -46,11 +47,12 @@ export function useAddressAutocomplete(query: string) {
     const timeout = window.setTimeout(() => {
       setLoading(true);
       setError(null);
-      fetch(`/api/geocode?q=${encodeURIComponent(normalizedQuery)}`, { signal: controller.signal })
-        .then((response) => response.ok ? response.json() : Promise.reject(new Error('geocode unavailable')))
-        .then((payload) => {
-          const rawItems = Array.isArray(payload) ? payload : Array.isArray(payload?.results) ? payload.results : [];
-          setSuggestions(rawItems.map(normalizeSuggestion).filter(Boolean).slice(0, 6) as GeocodeSuggestion[]);
+      
+      // Utiliser l'adapter de plateforme pour le géocodage
+      getPlatform().api.geocode(normalizedQuery)
+        .then((suggestions) => {
+          // Les suggestions sont déjà normalisées par l'adapter
+          setSuggestions(suggestions.slice(0, 6));
         })
         .catch((fetchError) => {
           if (fetchError.name !== 'AbortError') {

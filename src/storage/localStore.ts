@@ -6,6 +6,7 @@ import { createDefaultUiSettings } from './settings/uiSettings';
 import { createDefaultLocalDataSettings } from './settings/localDataSettings';
 import { normalizeMissionExpense } from '../services/expenseTypes';
 import { loadFromIndexedDB, saveToIndexedDB, clearIndexedDB, migrateFromLocalStorageToIndexedDB, isIndexedDBSupported } from './indexedDB';
+import { getPlatform } from '../services/platformService';
 
 type Listener = () => void;
 
@@ -14,6 +15,9 @@ const listeners = new Set<Listener>();
 
 // Indique si on utilise IndexedDB (défini après l'initialisation)
 let useIndexedDB = false;
+
+// Indique si on utilise la plateforme Tauri (déterminé à l'initialisation)
+let useTauriPlatform = false;
 
 type MigrationCandidate = AppState & { options?: AppOptions };
 
@@ -172,7 +176,14 @@ function migrate(raw: unknown): AppState {
 
 // Initialisation asynchrone de IndexedDB et migration des données
 async function initStorage(): Promise<void> {
-  useIndexedDB = isIndexedDBSupported();
+  // Détecter si on est sur Tauri
+  try {
+    useTauriPlatform = getPlatform().system.getPlatformName() === 'tauri';
+  } catch {
+    useTauriPlatform = false;
+  }
+  
+  useIndexedDB = !useTauriPlatform && isIndexedDBSupported();
   if (useIndexedDB) {
     try {
       await migrateFromLocalStorageToIndexedDB();
@@ -191,7 +202,10 @@ async function readStorage(): Promise<AppState> {
   try {
     let raw: unknown | null = null;
     
-    if (useIndexedDB) {
+    if (useTauriPlatform) {
+      // Utiliser l'adapter Tauri
+      raw = await getPlatform().storage.loadState();
+    } else if (useIndexedDB) {
       raw = await loadFromIndexedDB();
     } else {
       const localData = localStorage.getItem(APP_STORAGE_KEY);
@@ -209,7 +223,10 @@ async function readStorage(): Promise<AppState> {
 
 async function persist(state: AppState): Promise<void> {
   try {
-    if (useIndexedDB) {
+    if (useTauriPlatform) {
+      // Utiliser l'adapter Tauri
+      await getPlatform().storage.saveState(state);
+    } else if (useIndexedDB) {
       await saveToIndexedDB(state);
     } else {
       localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
@@ -217,7 +234,9 @@ async function persist(state: AppState): Promise<void> {
   } catch {
     // Browser storage can be blocked or full; keep the in-memory state usable.
     try {
-      localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+      if (!useTauriPlatform) {
+        localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+      }
     } catch {
       // Toutes les options de stockage ont échoué
     }
@@ -235,6 +254,16 @@ let syncCachedState: AppState | null = null;
 function syncReadStorage(): AppState {
   if (syncCachedState) return syncCachedState;
   try {
+    // En Tauri, on ne peut pas faire d'appel synchrone, donc on utilise le cache asynchrone si disponible
+    if (useTauriPlatform) {
+      // En Tauri, on retourne le cache asynchrone s'il est déjà chargé
+      if (cachedState) {
+        syncCachedState = cachedState;
+        return syncCachedState;
+      }
+      // Sinon, on retourne l'état par défaut
+      return createSeedState();
+    }
     const localData = localStorage.getItem(APP_STORAGE_KEY);
     syncCachedState = localData ? migrate(JSON.parse(localData)) : createSeedState();
   } catch {
@@ -245,7 +274,11 @@ function syncReadStorage(): AppState {
 
 function syncPersist(state: AppState): void {
   try {
-    localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+    // En Tauri, on ne peut pas faire de persistance synchrone
+    if (!useTauriPlatform) {
+      localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+    }
+    // Pour Tauri, la persistance se fait via les fonctions asynchrones
   } catch {
     // Browser storage can be blocked or full; keep the in-memory state usable.
   }
@@ -277,7 +310,13 @@ export function resetAppState(): void {
   
   // Suppression asynchrone
   clearIndexedDB().catch(() => {});
-  localStorage.removeItem(APP_STORAGE_KEY);
+  
+  if (!useTauriPlatform) {
+    localStorage.removeItem(APP_STORAGE_KEY);
+  } else {
+    // En Tauri, utiliser l'adapter de stockage
+    getPlatform().storage.clear().catch(() => {});
+  }
   
   emit();
 }
@@ -288,6 +327,23 @@ export function importAppState(json: string): void {
 
 export function exportAppState(): string {
   return JSON.stringify(getAppState(), null, 2);
+}
+
+// Fonctions asynchrones pour Tauri
+export async function exportAppStateAsync(): Promise<string> {
+  if (useTauriPlatform) {
+    return await getPlatform().storage.exportState();
+  }
+  return exportAppState();
+}
+
+export async function importAppStateAsync(json: string): Promise<void> {
+  if (useTauriPlatform) {
+    const state = await getPlatform().storage.importState(json);
+    setAppState(state);
+  } else {
+    importAppState(json);
+  }
 }
 
 export function useAppState(): AppState {

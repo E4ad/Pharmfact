@@ -22,6 +22,7 @@ export function FinancialModal({ title, open, onClose, children, 'data-testid': 
           sx: {
             maxHeight: '90vh',
             width: { xs: '100%', sm: 480 },
+            zIndex: 1400,
           },
         },
       }}
@@ -44,3 +45,6 @@ export function FinancialModal({ title, open, onClose, children, 'data-testid': 
 
 // Alias pour la rétrocompatibilité
 export const FinancialDrawer = FinancialModal;
+
+// Export principal
+export default FinancialModal;

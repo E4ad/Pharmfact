@@ -1,6 +1,6 @@
 import type { ExpenseReceipt } from '../storage/schema';
-import { apiUrl } from './api';
 import { createId } from './ids';
+import { getPlatform } from './platformService';
 
 export const RECEIPT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 export const RECEIPT_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'] as const;
@@ -47,31 +47,22 @@ export function removeReceiptFromState<T extends { expenseReceipts: ExpenseRecei
 export async function uploadExpenseReceipt(params: { file: File; expenseId: string; missionId: string; missionDayId?: string }): Promise<ExpenseReceipt> {
   const error = validateReceiptFile(params.file);
   if (error) throw new Error(error);
-  const response = await fetch(apiUrl(`/mission-expenses/${params.expenseId}/receipts`), {
-    method: 'POST',
-    headers: {
-      'Content-Type': params.file.type,
-      'X-File-Name': params.file.name,
-      'X-Mission-Id': params.missionId,
-      ...(params.missionDayId ? { 'X-Mission-Day-Id': params.missionDayId } : {}),
-    },
-    body: params.file,
-  });
-  if (!response.ok) throw new Error((await response.json().catch(() => null))?.message ?? 'Le justificatif n’a pas pu être enregistré.');
-  return response.json();
+  
+  // Utiliser l'adapter de plateforme
+  return getPlatform().api.uploadExpenseReceipt(params.expenseId, params.file);
 }
 
 export async function listExpenseReceipts(expenseId: string): Promise<ExpenseReceipt[]> {
-  const response = await fetch(apiUrl(`/mission-expenses/${expenseId}/receipts`));
-  if (!response.ok) throw new Error('Les justificatifs sont indisponibles.');
-  return ((await response.json()) as { receipts?: ExpenseReceipt[] }).receipts ?? [];
+  // Utiliser l'adapter de plateforme
+  return getPlatform().api.getExpenseReceipts(expenseId);
 }
 
 export async function deleteExpenseReceipt(receiptId: string): Promise<void> {
-  const response = await fetch(apiUrl(`/expense-receipts/${receiptId}`), { method: 'DELETE' });
-  if (!response.ok && response.status !== 404) throw new Error('Le justificatif n’a pas pu être supprimé.');
+  // Utiliser l'adapter de plateforme
+  return getPlatform().api.deleteExpenseReceipt(receiptId);
 }
 
 export function expenseReceiptDownloadUrl(receiptId: string): string {
-  return apiUrl(`/expense-receipts/${receiptId}/download`);
+  // Utiliser l'adapter de plateforme
+  return getPlatform().api.getReceiptDownloadUrl(receiptId);
 }

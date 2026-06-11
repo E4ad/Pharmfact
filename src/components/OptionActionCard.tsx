@@ -30,27 +30,30 @@ export function OptionActionCard({
   'data-testid': testId,
 }: OptionActionCardProps) {
   return (
-    <Card data-testid={testId}>
-      <CardActionArea onClick={onClick} sx={{ height: '100%', p: { xs: 3, md: 4 } }}>
-        <Stack spacing={3} sx={{ minHeight: 180, justifyContent: 'space-between' }}>
-          <Stack spacing={2}>
+    <Card data-testid={testId} variant="outlined">
+      <CardActionArea onClick={onClick} sx={{ height: '100%', p: 2 }}>
+        <Stack direction="row" spacing={1.75} sx={{ alignItems: 'flex-start', minHeight: 88 }}>
+          <Box sx={{ pt: 0.25 }}>
             <Box
               sx={{
-                width: 54,
-                height: 54,
-                borderRadius: 4,
+                width: 36,
+                height: 36,
+                borderRadius: 2,
                 backgroundColor: toneColors[iconTone],
                 color: 'text.primary',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                '& svg': { fontSize: 20 },
               }}
             >
               {icon}
             </Box>
-            <Typography variant="h5">{title}</Typography>
+          </Box>
+          <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25 }}>{title}</Typography>
+            <Typography variant="body2" color="text.secondary">{description}</Typography>
           </Stack>
-          <Typography color="text.secondary">{description}</Typography>
         </Stack>
       </CardActionArea>
     </Card>

@@ -56,18 +56,40 @@ describe('calendarIcs', () => {
 
     expect(ics).toContain('BEGIN:VCALENDAR');
     expect(ics).toContain('END:VCALENDAR');
-    expect(ics).toContain('UID:mis1@mission-app');
+    expect(ics).toContain('UID:mis1-day1@mission-app');
     expect(ics).toContain('Pharmacie Verte');
     expect(ics).toContain('Amélie Tremblay');
     expect(ics).not.toContain('Louis Gagnon');
+  });
+
+  it('creates one calendar event per mission day', () => {
+    const mission = {
+      ...baseMission,
+      days: [
+        { ...baseMission.days[0], dateService: '2026-06-10', startTime: '09:00', endTime: '18:00', hours: 8 },
+        { ...baseMission.days[1], dateService: '2026-06-11', startTime: '09:00', endTime: '18:00', hours: 8 },
+      ],
+    };
+    const ics = buildMissionIcs(mission, basePharmacien, basePharmacie);
+
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(2);
+    expect(ics.match(/END:VEVENT/g)).toHaveLength(2);
+    expect(ics).toContain('UID:mis1-day1@mission-app');
+    expect(ics).toContain('UID:mis1-day2@mission-app');
+    expect(ics).toContain('DTSTART:20260610T090000');
+    expect(ics).toContain('DTEND:20260610T180000');
+    expect(ics).toContain('DTSTART:20260611T090000');
+    expect(ics).toContain('DTEND:20260611T180000');
   });
 
   it('falls back when no days are provided', () => {
     const mission = { ...baseMission, days: [] };
     const ics = buildMissionIcs(mission, basePharmacien, basePharmacie);
 
-    expect(ics).toContain('BEGIN:VEVENT');
-    expect(ics).toContain('END:VEVENT');
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+    expect(ics.match(/END:VEVENT/g)).toHaveLength(1);
+    expect(ics).toContain('DTSTART:20260610T090000');
+    expect(ics).toContain('DTEND:20260610T170000');
   });
 
   it('escapes special ICS characters', () => {

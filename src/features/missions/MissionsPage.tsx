@@ -1,6 +1,7 @@
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
+import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import {
   Alert,
   Box,
@@ -11,18 +12,14 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   Divider,
   IconButton,
-  MenuItem,
-  Select,
   Snackbar,
   Stack,
+  Tooltip,
   Typography,
-  FormControl,
-  InputLabel,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
@@ -30,8 +27,8 @@ import { createId } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
 import { formatMoney } from '../../services/money';
 import { missionStatusLabels } from '../../services/missionStatus';
-import { exportAppState, updateAppState, useAppState } from '../../storage/localStore';
-import type { Invoice, InvoiceStatus, Mission, MissionStatus, Pharmacien, Pharmacie } from '../../storage/schema';
+import { updateAppState, useAppState } from '../../storage/localStore';
+import type { Invoice, InvoiceStatus, Mission, MissionStatus, Pharmacie } from '../../storage/schema';
 import { getPlatformAsync } from '../../services/platformService';
 import { findInvoice, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
 
@@ -63,6 +60,34 @@ const getInvoiceStatusColor = (status?: InvoiceStatus): 'default' | 'success' | 
 
 function periodLabel(mission: Mission): string {
   return mission.dateDebut === mission.dateFin ? mission.dateDebut : `${mission.dateDebut} - ${mission.dateFin}`;
+}
+
+function formatShortDate(date: string): string {
+  return new Intl.DateTimeFormat('fr-CA', {
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(`${date}T00:00:00`));
+}
+
+function minimalPeriodLabel(mission: Mission): string {
+  if (mission.dateDebut === mission.dateFin) return formatShortDate(mission.dateDebut);
+  return `${formatShortDate(mission.dateDebut)} → ${formatShortDate(mission.dateFin)}`;
+}
+
+function firstShiftLabel(mission: Mission): string {
+  const firstDay = [...mission.days].sort((a, b) => `${a.dateService}${a.startTime}`.localeCompare(`${b.dateService}${b.startTime}`))[0];
+  if (!firstDay) return `${formatShortDate(mission.dateDebut)} · heure à préciser`;
+  return `${formatShortDate(firstDay.dateService)} · ${firstDay.startTime}–${firstDay.endTime}`;
+}
+
+function hoursLabel(hours: number): string {
+  return `${hours.toFixed(2).replace('.', ',')} h`;
+}
+
+function addressLabel(pharmacie?: Pharmacie): string {
+  if (!pharmacie) return 'Adresse non renseignée';
+  const city = pharmacie.ville ? `${pharmacie.ville}${pharmacie.codePostal ? `, QC ${pharmacie.codePostal}` : ''}` : '';
+  return [pharmacie.adresse, city].filter(Boolean).join(' · ') || 'Adresse non renseignée';
 }
 
 function formatEventDate(value: string): string {
@@ -98,6 +123,16 @@ export function MissionsPage() {
       .sort((a, b) => `${b.dateDebut}${b.createdAt}`.localeCompare(`${a.dateDebut}${a.createdAt}`)),
     [state.missions, statusFilter],
   );
+  const firstMissionIdsByPharmacy = useMemo(() => {
+    const firstByPharmacy = new Map<string, Mission>();
+    state.missions.forEach((mission) => {
+      const current = firstByPharmacy.get(mission.pharmacieId);
+      if (!current || `${mission.dateDebut}${mission.createdAt}`.localeCompare(`${current.dateDebut}${current.createdAt}`) < 0) {
+        firstByPharmacy.set(mission.pharmacieId, mission);
+      }
+    });
+    return new Set([...firstByPharmacy.values()].map((mission) => mission.id));
+  }, [state.missions]);
 
   const selected = state.missions.find((mission) => mission.id === selectedId);
   const selectedInvoice = selected ? findInvoice(state, selected.invoiceId) ?? missionInvoice(state, selected) : undefined;
@@ -263,8 +298,12 @@ export function MissionsPage() {
                   mission={mission}
                   invoice={missionInvoice(state, mission)}
                   pharmacie={findPharmacie(state, mission.pharmacieId)}
+                  isFirstMissionAtPharmacy={firstMissionIdsByPharmacy.has(mission.id)}
                   selected={selectedId === mission.id}
                   onClick={() => openMission(mission.id)}
+                  onCalendar={downloadCalendar}
+                  onOpenPdf={downloadPdf}
+                  downloadingInvoiceId={downloadingInvoiceId}
                 />
               ))}
             </Stack>
@@ -284,8 +323,8 @@ export function MissionsPage() {
         <MissionModal
           mission={selected}
           invoice={selectedInvoice}
-          pharmacien={findPharmacien(state, selected.pharmacienId)}
           pharmacie={findPharmacie(state, selected.pharmacieId)}
+          isFirstMissionAtPharmacy={firstMissionIdsByPharmacy.has(selected.id)}
           historyOpen={historyOpen}
           onClose={closeMission}
           onToggleHistory={() => setHistoryOpen((open) => !open)}
@@ -316,25 +355,40 @@ export function MissionsPage() {
   );
 }
 
-function MissionListItem({ mission, invoice, pharmacie, selected, onClick }: {
+function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, selected, onClick, onCalendar, onOpenPdf, downloadingInvoiceId }: {
   mission: Mission;
   invoice?: Invoice;
   pharmacie?: Pharmacie;
+  isFirstMissionAtPharmacy: boolean;
   selected: boolean;
   onClick: () => void;
+  onCalendar: (mission: Mission) => void;
+  onOpenPdf: (invoiceId: string) => void;
+  downloadingInvoiceId: string | null;
 }) {
+  const canDownloadPdf = Boolean(invoice);
+  const pdfBusy = invoice ? downloadingInvoiceId === invoice.id : false;
+  const stopAction = (event: MouseEvent) => {
+    event.stopPropagation();
+  };
+
   return (
-    <Button
+    <Box
       data-testid="mission-row"
       onClick={onClick}
-      fullWidth
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(180px, 1.5fr) minmax(180px, 1fr) auto auto' },
-        alignItems: 'center',
-        gap: 2,
-        padding: 2,
-        border: '0',
+        gridTemplateColumns: { xs: '1fr', md: 'minmax(260px, 1.4fr) minmax(240px, 1fr) auto' },
+        gap: { xs: 2, md: 3 },
+        p: { xs: 2, md: 2.5 },
         borderBottom: '1px solid',
         borderColor: 'divider',
         backgroundColor: selected ? 'action.selected' : 'transparent',
@@ -343,40 +397,113 @@ function MissionListItem({ mission, invoice, pharmacie, selected, onClick }: {
         cursor: 'pointer',
         transition: 'all 180ms ease',
         borderRadius: 0,
+        outline: 'none',
         '&:hover, &:focus-visible': {
           backgroundColor: (theme) => theme.palette.action.hover,
-          paddingLeft: 3,
-          paddingRight: 3,
+          boxShadow: 'inset 3px 0 0 currentColor',
         },
       }}
     >
-      <Typography variant="body1" sx={{ fontWeight: 600, textAlign: 'left' }}>
-        {pharmacie?.nom ?? 'Remplacement officine'}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-        {periodLabel(mission)}
-      </Typography>
-      <Chip
-        label={missionStatusLabels[mission.status]}
-        color={getMissionStatusColor(mission.status)}
-        size="small"
-        sx={statusPillSx}
-      />
-      <Chip
-        label={invoice ? invoiceStatusLabels[invoice.status] : 'Non générée'}
-        color={getInvoiceStatusColor(invoice?.status)}
-        size="small"
-        sx={statusPillSx}
-      />
-    </Button>
+      <Stack spacing={1}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+            {pharmacie?.nom ?? 'Remplacement officine'}
+          </Typography>
+          <Chip
+            label={missionStatusLabels[mission.status]}
+            color={getMissionStatusColor(mission.status)}
+            size="small"
+            sx={statusPillSx}
+          />
+          {isFirstMissionAtPharmacy ? (
+            <Tooltip title="Première mission dans cette pharmacie">
+              <Box
+                component="span"
+                aria-label="Première mission dans cette pharmacie"
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '999px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'warning.light',
+                  color: 'warning.contrastText',
+                }}
+              >
+                <StarRoundedIcon sx={{ fontSize: 18 }} />
+              </Box>
+            </Tooltip>
+          ) : null}
+        </Stack>
+        <Typography variant="body2" color="text.secondary">
+          {addressLabel(pharmacie)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          {mission.missionCode}
+        </Typography>
+      </Stack>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1 }}>
+        <MissionMiniStat label="Mission" value={minimalPeriodLabel(mission)} />
+        <MissionMiniStat label="Début" value={firstShiftLabel(mission)} />
+        <MissionMiniStat label="Heures" value={hoursLabel(mission.totalHours)} />
+        <MissionMiniStat label="Financier" value={formatMoney(mission.totalCents)} strong />
+      </Box>
+
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+        <Tooltip title={canDownloadPdf ? 'Télécharger le PDF' : 'Générer une facture pour activer le PDF'}>
+          <span>
+            <IconButton
+              aria-label="Télécharger le PDF"
+              color="primary"
+              disabled={!invoice || pdfBusy}
+              onClick={(event) => {
+                stopAction(event);
+                if (invoice) onOpenPdf(invoice.id);
+              }}
+              sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
+            >
+              <PictureAsPdfRoundedIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Télécharger le calendrier">
+          <IconButton
+            aria-label="Télécharger le calendrier"
+            color="primary"
+            onClick={(event) => {
+              stopAction(event);
+              onCalendar(mission);
+            }}
+            sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
+          >
+            <CalendarMonthRoundedIcon />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    </Box>
   );
 }
 
-function MissionModal({ mission, invoice, pharmacien, pharmacie, historyOpen, downloadingInvoiceId, onClose, onToggleHistory, onCalendar, onTransitionMission, onEditMission, onGenerateInvoice, onInvoiceStatus, onOpenPdf }: {
+function MissionMiniStat({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ fontWeight: strong ? 800 : 650, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, historyOpen, downloadingInvoiceId, onClose, onToggleHistory, onCalendar, onTransitionMission, onEditMission, onGenerateInvoice, onInvoiceStatus, onOpenPdf }: {
   mission: Mission;
   invoice?: Invoice;
-  pharmacien?: Pharmacien;
   pharmacie?: Pharmacie;
+  isFirstMissionAtPharmacy: boolean;
   historyOpen: boolean;
   downloadingInvoiceId: string | null;
   onClose: () => void;
@@ -398,7 +525,7 @@ function MissionModal({ mission, invoice, pharmacien, pharmacie, historyOpen, do
         paper: {
           sx: {
             maxHeight: '90vh',
-            width: { xs: '100%', md: 'min(560px, 100%)' },
+            width: { xs: '100%', md: 'min(680px, 100%)' },
             zIndex: 1400,
           },
         },
@@ -421,139 +548,260 @@ function MissionModal({ mission, invoice, pharmacien, pharmacie, historyOpen, do
         >
           <CloseRoundedIcon fontSize="small" />
         </IconButton>
-        <MissionDrawerHeader mission={mission} pharmacien={pharmacien} pharmacie={pharmacie} />
+        <MissionSummarySection
+          mission={mission}
+          pharmacie={pharmacie}
+          isFirstMissionAtPharmacy={isFirstMissionAtPharmacy}
+        />
       </DialogTitle>
       <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
-      <Section title="Actions mission">
-        <Button fullWidth variant="outlined" startIcon={<CalendarMonthRoundedIcon />} onClick={() => onCalendar(mission)}>
-          Télécharger invitation calendrier
-        </Button>
-        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-          <Button fullWidth variant="contained" onClick={() => onEditMission(mission.id)}>
-            Modifier
-          </Button>
-        </Stack>
-      </Section>
-
-      <MissionStatusControls mission={mission} onTransition={onTransitionMission} />
-      <MissionBillingSection
-        invoice={invoice}
-        mission={mission}
-        downloadingInvoiceId={downloadingInvoiceId}
-        onGenerateInvoice={onGenerateInvoice}
-        onInvoiceStatus={onInvoiceStatus}
-        onOpenPdf={onOpenPdf}
-      />
-      <MissionHistorySection mission={mission} open={historyOpen} onToggle={onToggleHistory} />
+        <MissionLocationSection mission={mission} pharmacie={pharmacie} />
+        <MissionPharmacySection pharmacie={pharmacie} />
+        <MissionScheduleSection mission={mission} />
+        <MissionFinancialSection mission={mission} invoice={invoice} />
+        <MissionActionsSection
+          mission={mission}
+          invoice={invoice}
+          downloadingInvoiceId={downloadingInvoiceId}
+          onCalendar={onCalendar}
+          onEditMission={onEditMission}
+          onGenerateInvoice={onGenerateInvoice}
+          onInvoiceStatus={onInvoiceStatus}
+          onOpenPdf={onOpenPdf}
+          onTransitionMission={onTransitionMission}
+        />
+        <MissionHistorySection mission={mission} open={historyOpen} onToggle={onToggleHistory} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, compact = false }: { title: string; children: React.ReactNode; compact?: boolean }) {
   return (
-    <Box sx={{ mt: 3, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-      <Typography variant="subtitle2" component="h3" sx={{ fontSize: '1rem', fontWeight: 750, mb: 2 }}>
-        {title}
-      </Typography>
+    <Box sx={{ mt: compact ? 2 : 3, pt: compact ? 2 : 3, borderTop: '1px solid', borderColor: 'divider' }}>
+      {title ? (
+        <Typography variant="subtitle2" component="h3" sx={{ fontSize: '1rem', fontWeight: 750, mb: 2 }}>
+          {title}
+        </Typography>
+      ) : null}
       {children}
     </Box>
   );
 }
 
-function MissionDrawerHeader({ mission, pharmacien, pharmacie }: { mission: Mission; pharmacien?: Pharmacien; pharmacie?: Pharmacie }) {
+function MissionSummarySection({ mission, pharmacie, isFirstMissionAtPharmacy }: { mission: Mission; pharmacie?: Pharmacie; isFirstMissionAtPharmacy: boolean }) {
+  const summaryItems = [
+    { label: 'Mission', value: mission.missionCode },
+    { label: 'Date', value: minimalPeriodLabel(mission) },
+    { label: 'Premier shift', value: firstShiftLabel(mission) },
+    { label: 'Heures', value: hoursLabel(mission.totalHours) },
+    { label: 'Total', value: formatMoney(mission.totalCents), strong: true },
+  ];
+
   return (
-    <Box sx={{ pr: 5, mb: 3 }}>
-      <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-        Type de mission
-      </Typography>
-      <Typography variant="h4" sx={{ fontWeight: 560, letterSpacing: '-0.05em', mt: 0.5, mb: 3 }}>
-        Remplacement officine
-      </Typography>
-      <Box sx={{ display: 'grid', gap: 2, margin: 0 }}>
-        {[
-          { label: 'Mission', value: mission.missionCode },
-          { label: 'Pharmacie', value: pharmacie?.nom ?? 'Pharmacie non définie' },
-          { label: 'Pharmacien', value: pharmacien?.nom ?? 'Pharmacien non défini' },
-          { label: 'Période', value: periodLabel(mission) },
-          { label: 'Résumé', value: `${mission.totalHours.toFixed(2)} h · ${formatMoney(mission.totalCents)}` },
-        ].map(({ label, value }) => (
-          <Box key={label} sx={{ display: 'grid', gap: 0.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              {label}
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 560 }}>
-              {value}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
+    <Box sx={{ pr: 5, mb: 2 }}>
+      <Stack spacing={1.5}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Typography variant="h5" sx={{ fontWeight: 850, lineHeight: 1.15 }}>
+            {pharmacie?.nom ?? 'Mission pharmacie'}
+          </Typography>
+          <Chip
+            label={missionStatusLabels[mission.status]}
+            color={getMissionStatusColor(mission.status)}
+            size="small"
+            sx={statusPillSx}
+          />
+          {isFirstMissionAtPharmacy ? (
+            <Tooltip title="Première mission dans cette pharmacie">
+              <Box
+                component="span"
+                aria-label="Première mission dans cette pharmacie"
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '999px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'warning.light',
+                  color: 'warning.contrastText',
+                }}
+              >
+                <StarRoundedIcon sx={{ fontSize: 18 }} />
+              </Box>
+            </Tooltip>
+          ) : null}
+        </Stack>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(5, minmax(0, 1fr))' }, gap: 1.5 }}>
+          {summaryItems.map((item) => (
+            <InfoItem key={item.label} label={item.label} value={item.value} strong={item.strong} />
+          ))}
+        </Box>
+      </Stack>
     </Box>
   );
 }
 
-function MissionStatusControls({ mission, onTransition }: { mission: Mission; onTransition: (mission: Mission, status: MissionStatus) => void }) {
+function InfoItem({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <Section title="Statut mission">
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        {missionStatusOptions.map((status) => (
-          <Button
-            key={status}
-            variant={mission.status === status ? 'contained' : 'outlined'}
-            onClick={() => onTransition(mission, status)}
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.2 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ fontWeight: strong ? 850 : 650, overflowWrap: 'anywhere', lineHeight: 1.3 }}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+function MissionLocationSection({ mission, pharmacie }: { mission: Mission; pharmacie?: Pharmacie }) {
+  const mileageLabel = mission.mileageKm > 0
+    ? mission.mileageTotalCents > 0
+      ? `${mission.mileageKm.toFixed(1).replace('.', ',')} km · facturé ${formatMoney(mission.mileageTotalCents)}`
+      : `${mission.mileageKm.toFixed(1).replace('.', ',')} km · non facturé`
+    : 'Distance non renseignée';
+
+  return (
+    <Section title="Lieu" compact>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.5fr 1fr' }, gap: 2 }}>
+        <InfoItem label="Adresse" value={addressLabel(pharmacie)} />
+        <InfoItem label="Distance" value={mileageLabel} />
+      </Box>
+    </Section>
+  );
+}
+
+function MissionPharmacySection({ pharmacie }: { pharmacie?: Pharmacie }) {
+  const details = [
+    { label: 'Nom', value: pharmacie?.nom ?? 'Pharmacie non définie' },
+    { label: 'Téléphone', value: pharmacie?.telephone || 'Non renseigné' },
+    { label: 'Courriel', value: pharmacie?.email || 'Non renseigné' },
+    { label: 'Notes', value: pharmacie?.notes || 'Aucune note' },
+  ];
+
+  return (
+    <Section title="Pharmacie" compact>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+        {details.map((item) => (
+          <InfoItem key={item.label} label={item.label} value={item.value} />
+        ))}
+      </Box>
+    </Section>
+  );
+}
+
+function MissionScheduleSection({ mission }: { mission: Mission }) {
+  const days = [...mission.days].sort((a, b) => `${a.dateService}${a.startTime}`.localeCompare(`${b.dateService}${b.startTime}`));
+
+  return (
+    <Section title="Horaires">
+      <Stack spacing={1}>
+        {days.length ? days.map((day) => (
+          <Box
+            key={day.id}
             sx={{
-              borderRadius: '14px',
-              minHeight: '44px',
-              padding: '10px 14px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 160ms ease',
-              '&:hover': {
-                transform: 'translateY(-1px)',
-              },
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '120px 1fr auto' },
+              gap: 1.5,
+              alignItems: 'center',
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: 'action.hover',
             }}
           >
-            {missionStatusLabels[status]}
-          </Button>
-        ))}
+            <Typography variant="body2" sx={{ fontWeight: 750 }}>
+              {formatShortDate(day.dateService)}
+            </Typography>
+            <Typography variant="body2">
+              {day.startTime}–{day.endTime}
+              {day.unpaidBreakMinutes > 0 ? ` · pause ${day.unpaidBreakMinutes} min` : ''}
+              {day.description ? ` · ${day.description}` : ''}
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 800, textAlign: { xs: 'left', sm: 'right' } }}>
+              {hoursLabel(day.hours)}
+            </Typography>
+          </Box>
+        )) : (
+          <Typography variant="body2" color="text.secondary">
+            Aucun horaire détaillé.
+          </Typography>
+        )}
       </Stack>
     </Section>
   );
 }
 
-function MissionBillingSection({ invoice, mission, downloadingInvoiceId, onGenerateInvoice, onInvoiceStatus, onOpenPdf }: {
+function MissionFinancialSection({ mission, invoice }: { mission: Mission; invoice?: Invoice }) {
+  const rows = [
+    { label: 'Taux horaire', value: formatMoney(mission.hourlyRateCents) },
+    { label: 'Honoraires', value: formatMoney(mission.subtotalCents) },
+    { label: 'Frais repas', value: formatMoney(mission.mealTotalCents) },
+    { label: 'Frais kilométrage', value: formatMoney(mission.mileageTotalCents) },
+  ];
+
+  return (
+    <Section title="Financier">
+      <Card variant="outlined" sx={{ p: 2, bgcolor: 'background.paper' }}>
+        <Stack spacing={1.25}>
+          {rows.map((row) => (
+            <Stack key={row.label} direction="row" spacing={2} sx={{ justifyContent: 'space-between' }}>
+              <Typography variant="body2" color="text.secondary">{row.label}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 750 }}>{row.value}</Typography>
+            </Stack>
+          ))}
+          <Divider />
+          <Stack direction="row" spacing={2} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 850 }}>Total mission</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>{formatMoney(mission.totalCents)}</Typography>
+          </Stack>
+          <Stack direction="row" spacing={2} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary">Facture</Typography>
+            <Chip
+              label={invoice ? invoiceStatusLabels[invoice.status] : 'Non générée'}
+              color={getInvoiceStatusColor(invoice?.status)}
+              size="small"
+              sx={statusPillSx}
+            />
+          </Stack>
+        </Stack>
+      </Card>
+    </Section>
+  );
+}
+
+function MissionActionsSection({ invoice, mission, downloadingInvoiceId, onCalendar, onEditMission, onGenerateInvoice, onInvoiceStatus, onOpenPdf, onTransitionMission }: {
   invoice?: Invoice;
   mission: Mission;
   downloadingInvoiceId: string | null;
+  onCalendar: (mission: Mission) => void;
+  onEditMission: (missionId: string) => void;
   onGenerateInvoice: (mission: Mission) => void;
   onInvoiceStatus: (invoiceId: string, status: InvoiceStatus) => void;
   onOpenPdf: (invoiceId: string) => void;
+  onTransitionMission: (mission: Mission, status: MissionStatus) => void;
 }) {
   return (
-    <Section title="Facturation">
-      <Card variant="outlined" sx={{ p: 2, backgroundColor: 'background.paper' }}>
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="body2" color="text.secondary">
-            Statut facture
-          </Typography>
-          <Chip
-            label={invoice ? invoiceStatusLabels[invoice.status] : 'Non générée'}
-            color={getInvoiceStatusColor(invoice?.status)}
-            size="small"
-            sx={statusPillSx}
-          />
-        </Stack>
-        <Stack spacing={1} sx={{ mt: 2 }}>
+    <Section title="Actions">
+      <Stack spacing={1.5}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
+          <Button variant="contained" onClick={() => onEditMission(mission.id)}>
+            Modifier la mission
+          </Button>
+          <Button variant="outlined" startIcon={<CalendarMonthRoundedIcon />} onClick={() => onCalendar(mission)}>
+            Télécharger calendrier
+          </Button>
+        </Box>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
           {!invoice ? (
-            <Button fullWidth variant="contained" onClick={() => onGenerateInvoice(mission)}>
+            <Button variant="outlined" onClick={() => onGenerateInvoice(mission)}>
               Générer facture
             </Button>
           ) : null}
           {invoice ? (
             <Button
-              fullWidth
               variant="outlined"
-              startIcon={<DownloadRoundedIcon fontSize="small" />}
+              startIcon={<PictureAsPdfRoundedIcon fontSize="small" />}
               disabled={downloadingInvoiceId === invoice.id}
               onClick={() => onOpenPdf(invoice.id)}
             >
@@ -561,27 +809,40 @@ function MissionBillingSection({ invoice, mission, downloadingInvoiceId, onGener
             </Button>
           ) : null}
           {invoice?.status === 'GENERATED' ? (
-            <Button fullWidth variant="contained" onClick={() => onInvoiceStatus(invoice.id, 'SENT')}>
+            <Button variant="contained" onClick={() => onInvoiceStatus(invoice.id, 'SENT')}>
               Envoyer au paiement
             </Button>
           ) : null}
           {invoice?.status === 'SENT' ? (
-            <Button fullWidth variant="contained" onClick={() => onInvoiceStatus(invoice.id, 'PAID')}>
+            <Button variant="contained" onClick={() => onInvoiceStatus(invoice.id, 'PAID')}>
               Marquer payée
             </Button>
           ) : null}
           {invoice?.status === 'PAID' ? (
-            <Button fullWidth variant="outlined" onClick={() => onInvoiceStatus(invoice.id, 'ARCHIVED')}>
+            <Button variant="outlined" onClick={() => onInvoiceStatus(invoice.id, 'ARCHIVED')}>
               Archiver
             </Button>
           ) : null}
           {invoice?.status === 'ARCHIVED' ? (
-            <Button fullWidth variant="outlined" onClick={() => onInvoiceStatus(invoice.id, 'GENERATED')}>
+            <Button variant="outlined" onClick={() => onInvoiceStatus(invoice.id, 'GENERATED')}>
               Restaurer
             </Button>
           ) : null}
+        </Box>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+          {missionStatusOptions.map((status) => (
+            <Button
+              key={status}
+              size="small"
+              variant={mission.status === status ? 'contained' : 'outlined'}
+              onClick={() => onTransitionMission(mission, status)}
+              sx={{ borderRadius: '999px', fontWeight: 750 }}
+            >
+              {missionStatusLabels[status]}
+            </Button>
+          ))}
         </Stack>
-      </Card>
+      </Stack>
     </Section>
   );
 }

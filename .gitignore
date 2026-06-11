@@ -8,3 +8,11 @@ screenshots/
 .DS_Store
 playwright-report/
 .vitest/
+
+# Tauri
+src-tauri/target/
+*.app
+*.dmg
+*.pkg
+*.exe
+*.msi
