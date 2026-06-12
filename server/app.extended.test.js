@@ -162,7 +162,7 @@ describe('Backend API extended', () => {
         toLng: -73.57,
       });
 
-      expect(result).toEqual({ distanceAllerKm: 12.3, distanceKm: 24.6, source: 'route' });
+      expect(result).toEqual({ distanceAllerKm: 12, distanceKm: 24, source: 'route' });
     });
   });
 

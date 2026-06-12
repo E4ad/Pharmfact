@@ -22,8 +22,9 @@
     "test:coverage": "vitest run --coverage",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "tauri:build:mac": "tauri build --target universal-apple-darwin",
+    "package:dmg": "node scripts/package-macos-dmg.mjs",
+    "tauri:build": "CI=true tauri build --bundles app && npm run package:dmg",
+    "tauri:build:mac": "CI=true tauri build --target universal-apple-darwin --bundles app && DMG_ARCH=universal npm run package:dmg",
     "test:pdf": "node scripts/test-pdf-generation.mjs"
   },
   "dependencies": {

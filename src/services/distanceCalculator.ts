@@ -26,14 +26,14 @@ function haversineKm(input: Required<Pick<DistanceInput, 'homeLat' | 'homeLng' |
 function fallbackAddressDistance(homeAddress?: string, workAddress?: string): number {
   if (!homeAddress || !workAddress) return 0;
   const seed = Math.abs([...`${homeAddress}${workAddress}`].reduce((sum, char) => sum + char.charCodeAt(0), 0));
-  return Math.round(((seed % 42) + 8.5) * 10) / 10;
+  return Math.max(1, Math.round((seed % 42) + 8.5));
 }
 
 export function calculateLocalDistance(input: DistanceInput): DistanceResult {
   if ([input.homeLat, input.homeLng, input.workLat, input.workLng].every((value) => Number.isFinite(value))) {
     const aller = haversineKm(input as Required<Pick<DistanceInput, 'homeLat' | 'homeLng' | 'workLat' | 'workLng'>>);
-    const roundedAller = Math.round(aller * 10) / 10;
-    return { distanceKm: Math.round(roundedAller * 2 * 10) / 10, distanceAllerKm: roundedAller, distanceRetourKm: roundedAller, source: 'geocoded' };
+    const roundedAller = Math.max(1, Math.round(aller));
+    return { distanceKm: roundedAller * 2, distanceAllerKm: roundedAller, distanceRetourKm: roundedAller, source: 'geocoded' };
   }
   return { distanceKm: fallbackAddressDistance(input.homeAddress, input.workAddress), source: 'manual' };
 }

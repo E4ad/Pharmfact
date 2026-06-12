@@ -3,6 +3,10 @@
 
 use std::fs;
 use std::io::{BufWriter, Cursor};
+use std::time::Duration;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::{path::BaseDirectory, Manager};
 
 // ============================================================================
@@ -11,6 +15,219 @@ use tauri::{path::BaseDirectory, Manager};
 
 const APP_DATA_DIR: &str = "Pharmfact";
 const STATE_FILE: &str = "app-state.json";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GeocodeSuggestion {
+    display_name: String,
+    address_line: String,
+    city: String,
+    province: String,
+    postcode: String,
+    country_code: String,
+    road: String,
+    house_number: String,
+    lat: Option<f64>,
+    lng: Option<f64>,
+    source: String,
+}
+
+fn normalize_geocode_text(value: &str) -> String {
+    value.trim().to_lowercase()
+}
+
+fn is_quebec_geocode_suggestion(suggestion: &GeocodeSuggestion) -> bool {
+    let province = normalize_geocode_text(&suggestion.province);
+    let country_code = normalize_geocode_text(&suggestion.country_code);
+    let display_name = normalize_geocode_text(&suggestion.display_name);
+    let city = normalize_geocode_text(&suggestion.city);
+    (country_code.is_empty() || country_code == "ca")
+        && (
+            province.contains("québec")
+                || province.contains("quebec")
+                || display_name.contains("québec")
+                || display_name.contains("quebec")
+                || city.contains("québec")
+                || city.contains("quebec")
+        )
+        && suggestion.lat.is_some()
+        && suggestion.lng.is_some()
+}
+
+fn geocode_suggestion_from_value(item: &Value, source: &str) -> Option<GeocodeSuggestion> {
+    let address = item.get("address").and_then(|value| value.as_object());
+    let lat = item
+        .get("lat")
+        .and_then(|value| value.as_f64())
+        .or_else(|| item.get("latitude").and_then(|value| value.as_f64()));
+    let lng = item
+        .get("lon")
+        .and_then(|value| value.as_f64())
+        .or_else(|| item.get("lng").and_then(|value| value.as_f64()))
+        .or_else(|| item.get("longitude").and_then(|value| value.as_f64()));
+
+    let road = item
+        .get("street")
+        .and_then(|value| value.as_str())
+        .or_else(|| item.get("road").and_then(|value| value.as_str()))
+        .or_else(|| address.and_then(|value| value.get("road").and_then(|value| value.as_str())))
+        .or_else(|| address.and_then(|value| value.get("pedestrian").and_then(|value| value.as_str())))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let house_number = item
+        .get("housenumber")
+        .and_then(|value| value.as_str())
+        .or_else(|| item.get("house_number").and_then(|value| value.as_str()))
+        .or_else(|| address.and_then(|value| value.get("house_number").and_then(|value| value.as_str())))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let display_name = item
+        .get("formatted")
+        .and_then(|value| value.as_str())
+        .or_else(|| item.get("display_name").and_then(|value| value.as_str()))
+        .or_else(|| item.get("label").and_then(|value| value.as_str()))
+        .or_else(|| item.get("address_line1").and_then(|value| value.as_str()))
+        .map(|value| value.trim().to_string())
+        .unwrap_or_default();
+    let address_line = item
+        .get("address_line1")
+        .and_then(|value| value.as_str())
+        .or_else(|| item.get("addressLine").and_then(|value| value.as_str()))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| {
+            let parts = [house_number.as_str(), road.as_str()]
+                .into_iter()
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>();
+            if parts.is_empty() {
+                display_name.clone()
+            } else {
+                parts.join(" ")
+            }
+        });
+    let city = item
+        .get("city")
+        .and_then(|value| value.as_str())
+        .or_else(|| address.and_then(|value| value.get("city").and_then(|value| value.as_str())))
+        .or_else(|| address.and_then(|value| value.get("town").and_then(|value| value.as_str())))
+        .or_else(|| address.and_then(|value| value.get("village").and_then(|value| value.as_str())))
+        .or_else(|| address.and_then(|value| value.get("municipality").and_then(|value| value.as_str())))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let province = item
+        .get("state")
+        .and_then(|value| value.as_str())
+        .or_else(|| item.get("province").and_then(|value| value.as_str()))
+        .or_else(|| address.and_then(|value| value.get("state").and_then(|value| value.as_str())))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let postcode = item
+        .get("postcode")
+        .and_then(|value| value.as_str())
+        .or_else(|| address.and_then(|value| value.get("postcode").and_then(|value| value.as_str())))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let country_code = item
+        .get("country_code")
+        .and_then(|value| value.as_str())
+        .or_else(|| item.get("countryCode").and_then(|value| value.as_str()))
+        .or_else(|| address.and_then(|value| value.get("country_code").and_then(|value| value.as_str())))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+
+    let suggestion = GeocodeSuggestion {
+        display_name: if display_name.is_empty() {
+            address_line.clone()
+        } else {
+            display_name
+        },
+        address_line,
+        city,
+        province,
+        postcode,
+        country_code,
+        road,
+        house_number,
+        lat,
+        lng,
+        source: source.to_string(),
+    };
+
+    if is_quebec_geocode_suggestion(&suggestion) {
+        Some(suggestion)
+    } else {
+        None
+    }
+}
+
+async fn search_addresses_nominatim(query: &str) -> Result<Vec<GeocodeSuggestion>, String> {
+    let endpoint = std::env::var("GEOCODE_ENDPOINT")
+        .unwrap_or_else(|_| "https://nominatim.openstreetmap.org/search".to_string());
+    let user_agent = std::env::var("GEOCODE_USER_AGENT")
+        .unwrap_or_else(|_| "mission-app-local-prototype/0.1".to_string());
+    let client = Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|error| format!("Client HTTP géocodage invalide: {}", error))?;
+    let country_codes = std::env::var("GEOCODE_COUNTRYCODES").unwrap_or_else(|_| "ca".to_string());
+    let language = std::env::var("GEOCODE_LANGUAGE").unwrap_or_else(|_| "fr".to_string());
+    let query_text = format!("{query}, Québec, Canada");
+    let params = vec![
+        ("format".to_string(), "jsonv2".to_string()),
+        ("addressdetails".to_string(), "1".to_string()),
+        ("limit".to_string(), "6".to_string()),
+        ("countrycodes".to_string(), country_codes),
+        ("accept-language".to_string(), language),
+        ("q".to_string(), query_text),
+    ];
+
+    let response = client
+        .get(endpoint)
+        .header("User-Agent", user_agent)
+        .query(&params)
+        .send()
+        .await
+        .map_err(|error| format!("Nominatim inaccessible: {}", error))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Nominatim a répondu {}", response.status()));
+    }
+
+    let payload: Value = response
+        .json()
+        .await
+        .map_err(|error| format!("Nominatim a renvoyé un JSON invalide: {}", error))?;
+    let results = payload.as_array().cloned().unwrap_or_default();
+
+    Ok(results
+        .iter()
+        .filter_map(|item| geocode_suggestion_from_value(item, "nominatim"))
+        .take(6)
+        .collect())
+}
+
+#[tauri::command]
+async fn geocode_address(query: String) -> Result<Vec<GeocodeSuggestion>, String> {
+    let query = query.trim().to_string();
+    if query.chars().count() < 3 {
+        return Ok(vec![]);
+    }
+
+    match search_addresses_nominatim(&query).await {
+        Ok(results) => Ok(results),
+        Err(error) => {
+            log::warn!("[GEO] Géocodage indisponible: {}", error);
+            Ok(vec![])
+        }
+    }
+}
 
 // ============================================================================
 // Commandes de stockage
@@ -1411,6 +1628,8 @@ fn main() {
             export_state,
             import_state,
             clear_state,
+            // Géocodage
+            geocode_address,
             // Fichiers
             download_file,
             read_file_text,
@@ -1463,6 +1682,49 @@ mod tests {
         assert_eq!(format_hours(8.0), "8,00 h");
         assert_eq!(format_km(36.5), "36,5 km");
         assert_eq!(format_rate_cents_per_km(61), "0,61 $ / km");
+    }
+
+    #[test]
+    fn geocode_values_support_nominatim_payloads() {
+        let item = serde_json::json!({
+            "display_name": "100 rue Saint-Denis, Montréal, Québec, Canada",
+            "lat": 45.515,
+            "lon": -73.56,
+            "city": "Montréal",
+            "state": "Québec",
+            "postcode": "H2X 3K4",
+            "country_code": "ca",
+            "address": {
+                "road": "rue Saint-Denis",
+                "house_number": "100"
+            }
+        });
+
+        let suggestion = geocode_suggestion_from_value(&item, "nominatim")
+            .expect("Nominatim suggestion should be normalized");
+
+        assert_eq!(suggestion.display_name, "100 rue Saint-Denis, Montréal, Québec, Canada");
+        assert_eq!(suggestion.address_line, "100 rue Saint-Denis");
+        assert_eq!(suggestion.city, "Montréal");
+        assert_eq!(suggestion.province, "Québec");
+        assert_eq!(suggestion.postcode, "H2X 3K4");
+        assert_eq!(suggestion.country_code, "ca");
+        assert_eq!(suggestion.lat, Some(45.515));
+        assert_eq!(suggestion.lng, Some(-73.56));
+    }
+
+    #[test]
+    fn geocode_values_reject_non_quebec_payloads() {
+        let item = serde_json::json!({
+            "display_name": "100 King Street, Toronto, Ontario, Canada",
+            "lat": 43.65,
+            "lon": -79.38,
+            "city": "Toronto",
+            "state": "Ontario",
+            "country_code": "ca"
+        });
+
+        assert!(geocode_suggestion_from_value(&item, "nominatim").is_none());
     }
 
     #[test]

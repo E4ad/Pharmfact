@@ -58,8 +58,14 @@ const getInvoiceStatusColor = (status?: InvoiceStatus): 'default' | 'success' | 
   return 'warning';
 };
 
-function periodLabel(mission: Mission): string {
-  return mission.dateDebut === mission.dateFin ? mission.dateDebut : `${mission.dateDebut} - ${mission.dateFin}`;
+function missionStatusDisplayLabel(mission: Mission, invoice?: Invoice): string {
+  if (mission.status === 'COMPLETED' && invoice?.status === 'PAID') {
+    return 'Terminée · Payée';
+  }
+  if (mission.status === 'COMPLETED' && invoice && invoice.status !== 'PAID') {
+    return `Terminée · ${invoiceStatusLabels[invoice.status]}`;
+  }
+  return missionStatusLabels[mission.status];
 }
 
 function formatShortDate(date: string): string {
@@ -69,15 +75,23 @@ function formatShortDate(date: string): string {
   }).format(new Date(`${date}T00:00:00`));
 }
 
-function minimalPeriodLabel(mission: Mission): string {
-  if (mission.dateDebut === mission.dateFin) return formatShortDate(mission.dateDebut);
-  return `${formatShortDate(mission.dateDebut)} → ${formatShortDate(mission.dateFin)}`;
+function isSingleDayMission(mission: Mission): boolean {
+  return mission.dateDebut === mission.dateFin || mission.days.length <= 1;
 }
 
-function firstShiftLabel(mission: Mission): string {
+function firstShiftLabel(mission: Mission, options?: { includeHours?: boolean }): string {
   const firstDay = [...mission.days].sort((a, b) => `${a.dateService}${a.startTime}`.localeCompare(`${b.dateService}${b.startTime}`))[0];
   if (!firstDay) return `${formatShortDate(mission.dateDebut)} · heure à préciser`;
-  return `${formatShortDate(firstDay.dateService)} · ${firstDay.startTime}–${firstDay.endTime}`;
+  const workedHours = options?.includeHours ? ` (${hoursLabel(firstDay.hours)})` : '';
+  return `${formatShortDate(firstDay.dateService)} · ${firstDay.startTime}–${firstDay.endTime}${workedHours}`;
+}
+
+function missionSummaryRows(mission: Mission, includeMissionCode = false): Array<{ label: string; value: string; strong?: boolean; numeric?: boolean }> {
+  return [
+    ...(includeMissionCode ? [{ label: 'Mission', value: mission.missionCode }] : []),
+    { label: 'Début', value: firstShiftLabel(mission, { includeHours: isSingleDayMission(mission) }) },
+    { label: 'Financier', value: formatMoney(mission.totalCents), strong: true, numeric: true },
+  ];
 }
 
 function hoursLabel(hours: number): string {
@@ -368,6 +382,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
 }) {
   const canDownloadPdf = Boolean(invoice);
   const pdfBusy = invoice ? downloadingInvoiceId === invoice.id : false;
+  const stats = missionSummaryRows(mission);
   const stopAction = (event: MouseEvent) => {
     event.stopPropagation();
   };
@@ -410,7 +425,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
             {pharmacie?.nom ?? 'Remplacement officine'}
           </Typography>
           <Chip
-            label={missionStatusLabels[mission.status]}
+            label={missionStatusDisplayLabel(mission, invoice)}
             color={getMissionStatusColor(mission.status)}
             size="small"
             sx={statusPillSx}
@@ -444,11 +459,10 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
         </Typography>
       </Stack>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1 }}>
-        <MissionMiniStat label="Mission" value={minimalPeriodLabel(mission)} />
-        <MissionMiniStat label="Début" value={firstShiftLabel(mission)} />
-        <MissionMiniStat label="Heures" value={hoursLabel(mission.totalHours)} />
-        <MissionMiniStat label="Financier" value={formatMoney(mission.totalCents)} strong />
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {stats.map((item) => (
+          <MissionSummaryRow key={item.label} label={item.label} value={item.value} strong={item.strong} numeric={item.numeric} />
+        ))}
       </Box>
 
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
@@ -482,19 +496,6 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
           </IconButton>
         </Tooltip>
       </Stack>
-    </Box>
-  );
-}
-
-function MissionMiniStat({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <Box sx={{ minWidth: 0 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        {label}
-      </Typography>
-      <Typography variant="body2" sx={{ fontWeight: strong ? 800 : 650, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
-        {value}
-      </Typography>
     </Box>
   );
 }
@@ -550,6 +551,7 @@ function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, h
         </IconButton>
         <MissionSummarySection
           mission={mission}
+          invoice={invoice}
           pharmacie={pharmacie}
           isFirstMissionAtPharmacy={isFirstMissionAtPharmacy}
         />
@@ -589,14 +591,8 @@ function Section({ title, children, compact = false }: { title: string; children
   );
 }
 
-function MissionSummarySection({ mission, pharmacie, isFirstMissionAtPharmacy }: { mission: Mission; pharmacie?: Pharmacie; isFirstMissionAtPharmacy: boolean }) {
-  const summaryItems = [
-    { label: 'Mission', value: mission.missionCode },
-    { label: 'Date', value: minimalPeriodLabel(mission) },
-    { label: 'Premier shift', value: firstShiftLabel(mission) },
-    { label: 'Heures', value: hoursLabel(mission.totalHours) },
-    { label: 'Total', value: formatMoney(mission.totalCents), strong: true },
-  ];
+function MissionSummarySection({ mission, invoice, pharmacie, isFirstMissionAtPharmacy }: { mission: Mission; invoice?: Invoice; pharmacie?: Pharmacie; isFirstMissionAtPharmacy: boolean }) {
+  const summaryItems = missionSummaryRows(mission, true);
 
   return (
     <Box sx={{ pr: 5, mb: 2 }}>
@@ -606,7 +602,7 @@ function MissionSummarySection({ mission, pharmacie, isFirstMissionAtPharmacy }:
             {pharmacie?.nom ?? 'Mission pharmacie'}
           </Typography>
           <Chip
-            label={missionStatusLabels[mission.status]}
+            label={missionStatusDisplayLabel(mission, invoice)}
             color={getMissionStatusColor(mission.status)}
             size="small"
             sx={statusPillSx}
@@ -632,9 +628,12 @@ function MissionSummarySection({ mission, pharmacie, isFirstMissionAtPharmacy }:
             </Tooltip>
           ) : null}
         </Stack>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(5, minmax(0, 1fr))' }, gap: 1.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 750, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          {mission.missionCode}
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1.1 }}>
           {summaryItems.map((item) => (
-            <InfoItem key={item.label} label={item.label} value={item.value} strong={item.strong} />
+            <MissionSummaryRow key={item.label} label={item.label} value={item.value} strong={item.strong} numeric={item.numeric} />
           ))}
         </Box>
       </Stack>
@@ -642,13 +641,21 @@ function MissionSummarySection({ mission, pharmacie, isFirstMissionAtPharmacy }:
   );
 }
 
-function InfoItem({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function MissionSummaryRow({ label, value, strong = false, numeric = false }: { label: string; value: string; strong?: boolean; numeric?: boolean }) {
   return (
-    <Box sx={{ minWidth: 0 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.2 }}>
-        {label}
+    <Box sx={{ minWidth: 0, display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'baseline' }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.2, flexShrink: 0 }}>
+        {label} :
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: strong ? 850 : 650, overflowWrap: 'anywhere', lineHeight: 1.3 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: strong ? 800 : 650,
+          fontVariantNumeric: numeric ? 'tabular-nums' : undefined,
+          overflowWrap: 'anywhere',
+          lineHeight: 1.3,
+        }}
+      >
         {value}
       </Typography>
     </Box>
@@ -664,10 +671,10 @@ function MissionLocationSection({ mission, pharmacie }: { mission: Mission; phar
 
   return (
     <Section title="Lieu" compact>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.5fr 1fr' }, gap: 2 }}>
-        <InfoItem label="Adresse" value={addressLabel(pharmacie)} />
-        <InfoItem label="Distance" value={mileageLabel} />
-      </Box>
+      <Stack spacing={1}>
+        <MissionSummaryRow label="Adresse" value={addressLabel(pharmacie)} />
+        <MissionSummaryRow label="Distance" value={mileageLabel} />
+      </Stack>
     </Section>
   );
 }
@@ -682,11 +689,11 @@ function MissionPharmacySection({ pharmacie }: { pharmacie?: Pharmacie }) {
 
   return (
     <Section title="Pharmacie" compact>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+      <Stack spacing={1}>
         {details.map((item) => (
-          <InfoItem key={item.label} label={item.label} value={item.value} />
+          <MissionSummaryRow key={item.label} label={item.label} value={item.value} />
         ))}
-      </Box>
+      </Stack>
     </Section>
   );
 }

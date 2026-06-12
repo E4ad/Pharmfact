@@ -176,7 +176,7 @@ const browserSystemAdapter: AppSystemAdapter = {
 const browserApiAdapter: AppApiAdapter = {
   async geocode(query: string): Promise<GeocodeSuggestion[]> {
     try {
-      const response = await fetch(`/api/geocode?q=${encodeURIComponent(`${query} Québec`)}`);
+      const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
       if (!response.ok) return [];
       const payload = await response.json();
       return Array.isArray(payload) ? payload : payload.results ?? [];

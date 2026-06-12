@@ -32,21 +32,30 @@ function normalizeGeocodeResult(item) {
   const address = item?.address ?? {};
   const lat = Number(item?.lat);
   const lng = Number(item?.lon ?? item?.lng);
-  const road = String(address.road ?? address.pedestrian ?? address.footway ?? '');
-  const houseNumber = String(address.house_number ?? '');
+  const road = String(
+    item?.street ??
+    item?.road ??
+    address.road ??
+    address.pedestrian ??
+    address.footway ??
+    ''
+  );
+  const houseNumber = String(item?.housenumber ?? item?.house_number ?? address.house_number ?? '');
+  const displayName = String(item?.formatted ?? item?.display_name ?? item?.label ?? item?.address_line1 ?? '');
+  const addressLine = item?.address_line1 ?? item?.addressLine ?? [houseNumber, road].filter(Boolean).join(' ');
 
   return {
-    displayName: String(item?.display_name ?? item?.label ?? ''),
-    addressLine: [houseNumber, road].filter(Boolean).join(' ') || String(item?.display_name ?? item?.label ?? ''),
-    city: String(address.city ?? address.town ?? address.village ?? address.municipality ?? ''),
-    province: String(address.state ?? ''),
-    postcode: String(address.postcode ?? ''),
-    countryCode: String(address.country_code ?? ''),
+    displayName,
+    addressLine: String(addressLine || displayName),
+    city: String(item?.city ?? address.city ?? address.town ?? address.village ?? address.municipality ?? ''),
+    province: String(item?.state ?? item?.province ?? address.state ?? ''),
+    postcode: String(item?.postcode ?? address.postcode ?? ''),
+    countryCode: String(item?.country_code ?? item?.countryCode ?? address.country_code ?? ''),
     road,
     houseNumber,
     lat: Number.isFinite(lat) ? lat : undefined,
     lng: Number.isFinite(lng) ? lng : undefined,
-    source: 'nominatim',
+    source: String(item?.source ?? item?.provider ?? 'nominatim'),
   };
 }
 
@@ -73,7 +82,7 @@ export async function searchAddresses(query, options = {}) {
   url.searchParams.set('limit', '6');
   url.searchParams.set('countrycodes', process.env.GEOCODE_COUNTRYCODES ?? 'ca');
   url.searchParams.set('accept-language', process.env.GEOCODE_LANGUAGE ?? 'fr');
-  url.searchParams.set('q', `${query} Québec`);
+  url.searchParams.set('q', `${query}, Québec, Canada`);
 
   try {
     const response = await fetch(url, {
@@ -119,10 +128,10 @@ export async function calculateRouteDistance(input, options = {}) {
     const payload = await response.json();
     const meters = Number(payload?.routes?.[0]?.distance);
     if (!Number.isFinite(meters) || meters <= 0) return null;
-    const distanceAllerKm = Math.round((meters / 1000) * 10) / 10;
+    const distanceAllerKm = Math.max(1, Math.round(meters / 1000));
     return {
       distanceAllerKm,
-      distanceKm: Math.round(distanceAllerKm * 2 * 10) / 10,
+      distanceKm: distanceAllerKm * 2,
       source: 'route',
     };
   } finally {
@@ -242,7 +251,8 @@ export function createApp(options = {}) {
       const dLng = toRad(workLng - homeLng);
       const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(homeLat)) * Math.cos(toRad(workLat)) * Math.sin(dLng / 2) ** 2;
       const oneWay = earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      res.json({ distanceKm: Math.round(oneWay * 2 * 10) / 10, source: 'calculated' });
+      const distanceAllerKm = Math.max(1, Math.round(oneWay));
+      res.json({ distanceKm: distanceAllerKm * 2, distanceAllerKm, source: 'calculated' });
       return;
     }
     res.json({ distanceKm: 0, source: 'manual' });

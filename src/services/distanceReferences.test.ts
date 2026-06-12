@@ -49,7 +49,7 @@ describe('distanceReferences', () => {
     const reference = createDistanceReference({ pharmacien, pharmacie, distanceKm: 12.34, distanceAllerKm: 6.17 });
     const state = upsertDistanceReference(baseState, reference);
 
-    expect(findReusableDistanceReference(state, pharmacien, pharmacie)?.distanceKm).toBe(12.3);
+    expect(findReusableDistanceReference(state, pharmacien, pharmacie)?.distanceKm).toBe(12);
   });
 
   it('does not reuse a reference when an address changes', () => {

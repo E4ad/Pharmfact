@@ -17,16 +17,16 @@ export type GeocodeSuggestion = {
 
 export function normalizeSuggestion(raw: unknown): GeocodeSuggestion | null {
   const item = raw as Record<string, unknown>;
-  const displayName = String(item.displayName ?? item.display_name ?? item.label ?? '');
-  if (!displayName) return null;
   const address = (item.address ?? {}) as Record<string, unknown>;
+  const displayName = String(item.displayName ?? item.display_name ?? item.formatted ?? item.label ?? '');
+  if (!displayName) return null;
   const lat = Number(item.lat);
   const lng = Number(item.lng ?? item.lon);
   return {
     displayName,
-    addressLine: String(item.addressLine ?? item.address_line ?? ''),
-    city: String(item.city ?? address.city ?? address.town ?? address.village ?? ''),
-    province: String(item.province ?? address.state ?? ''),
+    addressLine: String(item.addressLine ?? item.address_line ?? item.address_line1 ?? ''),
+    city: String(item.city ?? address.city ?? address.town ?? address.village ?? address.municipality ?? ''),
+    province: String(item.province ?? item.state ?? address.state ?? ''),
     postcode: String(item.postcode ?? address.postcode ?? ''),
     countryCode: String(item.countryCode ?? item.country_code ?? address.country_code ?? ''),
     road: String(item.road ?? address.road ?? ''),

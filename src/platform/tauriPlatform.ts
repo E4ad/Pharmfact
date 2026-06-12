@@ -393,42 +393,7 @@ const tauriSystemAdapter: AppSystemAdapter = {
 const tauriApiAdapter: AppApiAdapter = {
   async geocode(query: string): Promise<GeocodeSuggestion[]> {
     try {
-      const url = new URL('https://nominatim.openstreetmap.org/search');
-      url.searchParams.set('format', 'jsonv2');
-      url.searchParams.set('addressdetails', '1');
-      url.searchParams.set('limit', '6');
-      url.searchParams.set('countrycodes', 'ca');
-      url.searchParams.set('accept-language', 'fr');
-      url.searchParams.set('q', `${query} Québec`);
-      const response = await fetch(url.toString(), {
-        headers: { 'Accept': 'application/json' },
-      });
-      if (!response.ok) return [];
-      const payload = await response.json();
-      if (!Array.isArray(payload)) return [];
-      return payload.map((item) => {
-        const address = item?.address ?? {};
-        const road = String(address.road ?? address.pedestrian ?? address.footway ?? '');
-        const houseNumber = String(address.house_number ?? '');
-        const city = String(address.city ?? address.town ?? address.village ?? address.municipality ?? '');
-        const province = String(address.state ?? '');
-        const postcode = String(address.postcode ?? '');
-        const lat = Number(item?.lat);
-        const lng = Number(item?.lon ?? item?.lng);
-        return {
-          displayName: String(item?.display_name ?? ''),
-          addressLine: [houseNumber, road].filter(Boolean).join(' ') || String(item?.display_name ?? ''),
-          city,
-          province,
-          postcode,
-          countryCode: String(address.country_code ?? ''),
-          road,
-          houseNumber,
-          lat: Number.isFinite(lat) ? lat : undefined,
-          lng: Number.isFinite(lng) ? lng : undefined,
-          source: 'nominatim',
-        };
-      });
+      return await tauriApis!.invoke<GeocodeSuggestion[]>('geocode_address', { query });
     } catch {
       return [];
     }
@@ -446,10 +411,10 @@ const tauriApiAdapter: AppApiAdapter = {
       const payload = await response.json();
       const meters = Number(payload?.routes?.[0]?.distance);
       if (!Number.isFinite(meters) || meters <= 0) return null;
-      const distanceAllerKm = Math.round((meters / 1000) * 10) / 10;
+      const distanceAllerKm = Math.max(1, Math.round(meters / 1000));
       return {
         distanceAllerKm,
-        distanceKm: Math.round(distanceAllerKm * 2 * 10) / 10,
+        distanceKm: distanceAllerKm * 2,
         source: 'route' as const,
       };
     } catch {
