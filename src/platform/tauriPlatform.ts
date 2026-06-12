@@ -392,11 +392,69 @@ const tauriSystemAdapter: AppSystemAdapter = {
 
 const tauriApiAdapter: AppApiAdapter = {
   async geocode(query: string): Promise<GeocodeSuggestion[]> {
-    // En mode Tauri, le géocodage nécessite une API externe ou un service local
-    // Pour l'instant, on retourne vide
-    // TODO: Intégrer un service de géocodage comme Nominatim (OpenStreetMap)
-    console.warn('[Tauri] Géocodage non implémenté. Utilisez la saisie manuelle.');
-    return [];
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/search');
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('addressdetails', '1');
+      url.searchParams.set('limit', '6');
+      url.searchParams.set('countrycodes', 'ca');
+      url.searchParams.set('accept-language', 'fr');
+      url.searchParams.set('q', `${query} Québec`);
+      const response = await fetch(url.toString(), {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) return [];
+      const payload = await response.json();
+      if (!Array.isArray(payload)) return [];
+      return payload.map((item) => {
+        const address = item?.address ?? {};
+        const road = String(address.road ?? address.pedestrian ?? address.footway ?? '');
+        const houseNumber = String(address.house_number ?? '');
+        const city = String(address.city ?? address.town ?? address.village ?? address.municipality ?? '');
+        const province = String(address.state ?? '');
+        const postcode = String(address.postcode ?? '');
+        const lat = Number(item?.lat);
+        const lng = Number(item?.lon ?? item?.lng);
+        return {
+          displayName: String(item?.display_name ?? ''),
+          addressLine: [houseNumber, road].filter(Boolean).join(' ') || String(item?.display_name ?? ''),
+          city,
+          province,
+          postcode,
+          countryCode: String(address.country_code ?? ''),
+          road,
+          houseNumber,
+          lat: Number.isFinite(lat) ? lat : undefined,
+          lng: Number.isFinite(lng) ? lng : undefined,
+          source: 'nominatim',
+        };
+      });
+    } catch {
+      return [];
+    }
+  },
+
+  async routeDistance(input) {
+    try {
+      const coordinates = `${input.fromLng},${input.fromLat};${input.toLng},${input.toLat}`;
+      const url = new URL(`https://router.project-osrm.org/route/v1/driving/${coordinates}`);
+      url.searchParams.set('overview', 'false');
+      const response = await fetch(url.toString(), {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) return null;
+      const payload = await response.json();
+      const meters = Number(payload?.routes?.[0]?.distance);
+      if (!Number.isFinite(meters) || meters <= 0) return null;
+      const distanceAllerKm = Math.round((meters / 1000) * 10) / 10;
+      return {
+        distanceAllerKm,
+        distanceKm: Math.round(distanceAllerKm * 2 * 10) / 10,
+        source: 'route' as const,
+      };
+    } catch {
+      return null;
+    }
   },
 
   async generateInvoicePdf(invoice: Invoice, state: AppState): Promise<Blob> {

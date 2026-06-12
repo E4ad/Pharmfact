@@ -91,7 +91,7 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
   function selectAddress(suggestion: GeocodeSuggestion) {
     setForm((current) => ({
       ...current,
-      adresse: suggestion.displayName,
+      adresse: suggestion.addressLine || suggestion.displayName,
       ville: suggestion.city || current.ville,
       codePostal: suggestion.postcode || current.codePostal,
       rue: suggestion.road || current.rue,

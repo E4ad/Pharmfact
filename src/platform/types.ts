@@ -6,6 +6,19 @@
 import type { AppState, Invoice, Pharmacien, Pharmacie, Mission, ExpenseReceipt } from '../storage/schema';
 import type { GeocodeSuggestion } from '../hooks/useAddressAutocomplete';
 
+export type RouteDistanceInput = {
+  fromLat: number;
+  fromLng: number;
+  toLat: number;
+  toLng: number;
+};
+
+export type RouteDistanceResult = {
+  distanceKm: number;
+  distanceAllerKm: number;
+  source: 'route';
+};
+
 // ============================================================================
 // Types pour les adapters
 // ============================================================================
@@ -70,6 +83,9 @@ export interface AppSystemAdapter {
 export interface AppApiAdapter {
   /** Géocodage d'une adresse */
   geocode(query: string): Promise<GeocodeSuggestion[]>;
+
+  /** Distance routière aller-retour entre deux coordonnées */
+  routeDistance(input: RouteDistanceInput): Promise<RouteDistanceResult | null>;
 
   /**
    * Génère un PDF de facture

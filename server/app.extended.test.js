@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import path from 'node:path';
-import { createApp } from './app.js';
+import { calculateRouteDistance, createApp, searchAddresses } from './app.js';
 
 const servers = [];
 
 async function listen(app) {
-  const server = app.listen(0);
+  const server = app.listen(0, '127.0.0.1');
   servers.push(server);
   await new Promise((resolve) => server.once('listening', resolve));
   const { port } = server.address();
@@ -14,6 +14,7 @@ async function listen(app) {
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise((resolve) => server.close(resolve))));
+  vi.unstubAllGlobals();
 });
 
 describe('Backend API extended', () => {
@@ -112,6 +113,56 @@ describe('Backend API extended', () => {
       const response = await fetch(`${baseUrl}/api/geocode?q=a`);
 
       expect(response.status).toBe(400);
+    });
+
+    it('keeps only Quebec suggestions with coordinates', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [
+          {
+            display_name: '100 rue Saint-Denis, Montréal, Québec, Canada',
+            lat: '45.515',
+            lon: '-73.56',
+            address: { road: 'rue Saint-Denis', house_number: '100', city: 'Montréal', state: 'Québec', postcode: 'H2X 3K4', country_code: 'ca' },
+          },
+          {
+            display_name: '100 King Street, Toronto, Ontario, Canada',
+            lat: '43.65',
+            lon: '-79.38',
+            address: { road: 'King Street', house_number: '100', city: 'Toronto', state: 'Ontario', postcode: 'M5X 1A9', country_code: 'ca' },
+          },
+        ],
+      }));
+
+      const results = await searchAddresses('100 rue saint-denis');
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({ city: 'Montréal', province: 'Québec', postcode: 'H2X 3K4' });
+    });
+  });
+
+  describe('route distance', () => {
+    it('rejects invalid coordinates on the endpoint', async () => {
+      const baseUrl = await listen(createApp({ generateInvoicePdf: vi.fn() }));
+      const response = await fetch(`${baseUrl}/api/route-distance?fromLat=x&fromLng=-73&toLat=45&toLng=-73`);
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns round-trip road distance from provider meters', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ routes: [{ distance: 12340 }] }),
+      }));
+
+      const result = await calculateRouteDistance({
+        fromLat: 45.515,
+        fromLng: -73.56,
+        toLat: 45.52,
+        toLng: -73.57,
+      });
+
+      expect(result).toEqual({ distanceAllerKm: 12.3, distanceKm: 24.6, source: 'route' });
     });
   });
 

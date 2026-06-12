@@ -63,6 +63,9 @@ export type DistanceReference = {
   pharmacienId: string;
   pharmacieId: string;
   distanceKm: number;
+  distanceAllerKm?: number;
+  pharmacienAddressKey?: string;
+  pharmacieAddressKey?: string;
   source: 'calculated' | 'manual';
   updatedAt: string;
 };

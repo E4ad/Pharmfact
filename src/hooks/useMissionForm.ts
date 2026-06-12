@@ -18,15 +18,22 @@ import {
   type MissionCalculationInput,
   type MissionCalculation,
 } from '../services/missionCalculator';
-import { addressOf, estimateDistanceKm, calculateLocalDistance } from '../services/distanceCalculator';
+import { addressOf, estimateDistanceKm } from '../services/distanceCalculator';
+import {
+  createDistanceReference,
+  findReusableDistanceReference,
+  hasCoordinates,
+  upsertDistanceReference,
+} from '../services/distanceReferences';
 import { buildMissionDefaults } from './useMissionDefaults';
 import { resolveMissionDefaults } from '../storage/selectors';
-import { useAppState } from '../storage/localStore';
+import { updateAppState, useAppState } from '../storage/localStore';
 import type { AppState, Mission, MissionDay, MissionExpense, ExpenseReceipt } from '../storage/schema';
 import { findPharmacien, findPharmacie } from '../storage/selectors';
 import { createMissionExpenseDraft, normalizeMissionExpense, expenseTypeConfig } from '../services/expenseTypes';
 import { createLocalReceipt, validateReceiptFile } from '../services/expenseReceipts';
 import { formatMoney } from '../services/money';
+import { getPlatformAsync } from '../services/platformService';
 
 export type ExpenseType = 'REPAS' | 'KM' | 'AUTRE';
 export type MissionExpenseFormValue = MissionExpense;
@@ -76,13 +83,50 @@ export function useMissionForm(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Effet pour calculer la distance automatiquement
+  // Effet pour calculer la distance automatiquement, puis réutiliser la référence sauvegardée.
   useEffect(() => {
-    const km = estimateDistanceKm(pharmacien, pharmacie);
-    if (km > 0 && values.distanceReferenceKm === 0) {
-      setField('distanceReferenceKm', km);
+    let cancelled = false;
+    if (!pharmacien || !pharmacie || values.distanceReferenceKm > 0) return undefined;
+
+    const cached = findReusableDistanceReference(state, pharmacien, pharmacie);
+    if (cached?.distanceKm) {
+      setValues((current) => ({ ...current, distanceReferenceKm: cached.distanceKm }));
+      return undefined;
     }
-  }, [values.pharmacienId, values.pharmacieId, pharmacien, pharmacie, values.distanceReferenceKm]);
+
+    if (!hasCoordinates(pharmacien) || !hasCoordinates(pharmacie)) {
+      const km = estimateDistanceKm(pharmacien, pharmacie);
+      if (km > 0) setValues((current) => ({ ...current, distanceReferenceKm: km }));
+      return undefined;
+    }
+
+    getPlatformAsync()
+      .then((platform) => platform.api.routeDistance({
+        fromLat: pharmacien.lat,
+        fromLng: pharmacien.lng,
+        toLat: pharmacie.lat,
+        toLng: pharmacie.lng,
+      }))
+      .then((result) => {
+        if (cancelled || !result?.distanceKm) return;
+        const reference = createDistanceReference({
+          pharmacien,
+          pharmacie,
+          distanceKm: result.distanceKm,
+          distanceAllerKm: result.distanceAllerKm,
+        });
+        updateAppState((current) => upsertDistanceReference(current, reference));
+        setValues((current) => ({ ...current, distanceReferenceKm: reference.distanceKm }));
+      })
+      .catch(() => {
+        const km = estimateDistanceKm(pharmacien, pharmacie);
+        if (!cancelled && km > 0) setValues((current) => ({ ...current, distanceReferenceKm: km }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state, values.pharmacienId, values.pharmacieId, pharmacien, pharmacie, values.distanceReferenceKm]);
 
   // Gestion des justificatifs en attente
   const [pendingReceipts, setPendingReceipts] = useState<ExpenseReceipt[]>([]);
@@ -218,8 +262,38 @@ export function useMissionForm(
   }, []);
 
   const recalcDistance = useCallback(() => {
-    const km = estimateDistanceKm(pharmacien, pharmacie);
-    setField('distanceReferenceKm', km);
+    if (!pharmacien || !pharmacie) {
+      setField('distanceReferenceKm', 0);
+      return;
+    }
+
+    if (!hasCoordinates(pharmacien) || !hasCoordinates(pharmacie)) {
+      setField('distanceReferenceKm', estimateDistanceKm(pharmacien, pharmacie));
+      return;
+    }
+
+    getPlatformAsync()
+      .then((platform) => platform.api.routeDistance({
+        fromLat: pharmacien.lat,
+        fromLng: pharmacien.lng,
+        toLat: pharmacie.lat,
+        toLng: pharmacie.lng,
+      }))
+      .then((result) => {
+        if (!result?.distanceKm) {
+          setField('distanceReferenceKm', estimateDistanceKm(pharmacien, pharmacie));
+          return;
+        }
+        const reference = createDistanceReference({
+          pharmacien,
+          pharmacie,
+          distanceKm: result.distanceKm,
+          distanceAllerKm: result.distanceAllerKm,
+        });
+        updateAppState((current) => upsertDistanceReference(current, reference));
+        setField('distanceReferenceKm', reference.distanceKm);
+      })
+      .catch(() => setField('distanceReferenceKm', estimateDistanceKm(pharmacien, pharmacie)));
   }, [pharmacien, pharmacie, setField]);
 
   const changePharmacien = useCallback((id: string) => {
@@ -229,6 +303,7 @@ export function useMissionForm(
       pharmacienId: id,
       tauxHoraire: centsToMoney(next?.hourlyRateCents ?? moneyToCents(current.tauxHoraire)),
       pharmacieId: next?.favoritePharmacieId ?? current.pharmacieId,
+      distanceReferenceKm: 0,
     }));
   }, [state]);
 
@@ -238,6 +313,7 @@ export function useMissionForm(
       regenerateDays({
         ...current,
         pharmacieId: id,
+        distanceReferenceKm: 0,
         defaultUnpaidBreakMinutes: next?.defaultBreakMinutes ?? current.defaultUnpaidBreakMinutes,
       })
     );

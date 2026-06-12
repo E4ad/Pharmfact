@@ -2,14 +2,13 @@ import { useMemo } from 'react';
 import type { AppState, Pharmacien, Pharmacie } from '../storage/schema';
 import { useAppState } from '../storage/localStore';
 import { findPharmacie } from '../storage/selectors';
+import { findReusableDistanceReference } from '../services/distanceReferences';
 
 export function buildMissionDefaults(state: AppState, activePharmacienId?: string) {
   const pharmacien = state.pharmaciens.find((item) => item.id === (activePharmacienId ?? state.activePharmacienId)) ?? state.pharmaciens.find((item) => item.isDefaultProfile) ?? state.pharmaciens[0];
   const defaultPharmacie = pharmacien?.favoritePharmacieId ? findPharmacie(state, pharmacien.favoritePharmacieId) : state.pharmacies[0];
   const options = state.appOptions;
-  const distanceReference = pharmacien && defaultPharmacie
-    ? state.distanceReferences.find((item) => item.pharmacienId === pharmacien.id && item.pharmacieId === defaultPharmacie.id)
-    : undefined;
+  const distanceReference = findReusableDistanceReference(state, pharmacien, defaultPharmacie);
 
   return {
     pharmacien,

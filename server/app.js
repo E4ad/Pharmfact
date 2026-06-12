@@ -32,16 +32,32 @@ function normalizeGeocodeResult(item) {
   const address = item?.address ?? {};
   const lat = Number(item?.lat);
   const lng = Number(item?.lon ?? item?.lng);
+  const road = String(address.road ?? address.pedestrian ?? address.footway ?? '');
+  const houseNumber = String(address.house_number ?? '');
 
   return {
     displayName: String(item?.display_name ?? item?.label ?? ''),
+    addressLine: [houseNumber, road].filter(Boolean).join(' ') || String(item?.display_name ?? item?.label ?? ''),
     city: String(address.city ?? address.town ?? address.village ?? address.municipality ?? ''),
+    province: String(address.state ?? ''),
     postcode: String(address.postcode ?? ''),
-    road: String(address.road ?? address.pedestrian ?? address.footway ?? ''),
-    houseNumber: String(address.house_number ?? ''),
+    countryCode: String(address.country_code ?? ''),
+    road,
+    houseNumber,
     lat: Number.isFinite(lat) ? lat : undefined,
     lng: Number.isFinite(lng) ? lng : undefined,
+    source: 'nominatim',
   };
+}
+
+function isQuebecGeocodeResult(item) {
+  const province = item.province.toLowerCase();
+  const countryCode = item.countryCode.toLowerCase();
+  const display = item.displayName.toLowerCase();
+  return (countryCode === '' || countryCode === 'ca') &&
+    (province.includes('québec') || province.includes('quebec') || display.includes('québec') || display.includes('quebec')) &&
+    Number.isFinite(item.lat) &&
+    Number.isFinite(item.lng);
 }
 
 export async function searchAddresses(query, options = {}) {
@@ -57,7 +73,7 @@ export async function searchAddresses(query, options = {}) {
   url.searchParams.set('limit', '6');
   url.searchParams.set('countrycodes', process.env.GEOCODE_COUNTRYCODES ?? 'ca');
   url.searchParams.set('accept-language', process.env.GEOCODE_LANGUAGE ?? 'fr');
-  url.searchParams.set('q', query);
+  url.searchParams.set('q', `${query} Québec`);
 
   try {
     const response = await fetch(url, {
@@ -73,7 +89,42 @@ export async function searchAddresses(query, options = {}) {
 
     const payload = await response.json();
     if (!Array.isArray(payload)) return [];
-    return payload.map(normalizeGeocodeResult).filter((item) => item.displayName).slice(0, 6);
+    return payload.map(normalizeGeocodeResult).filter(isQuebecGeocodeResult).slice(0, 6);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function parseCoordinate(value) {
+  const coordinate = Number(value);
+  return Number.isFinite(coordinate) ? coordinate : null;
+}
+
+export async function calculateRouteDistance(input, options = {}) {
+  if (process.env.ROUTE_DISTANCE_DISABLED === 'true') return null;
+  const endpoint = options.routeDistanceEndpoint ?? process.env.ROUTE_DISTANCE_ENDPOINT ?? 'https://router.project-osrm.org/route/v1/driving';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  const coordinates = `${input.fromLng},${input.fromLat};${input.toLng},${input.toLat}`;
+  const url = new URL(`${endpoint}/${coordinates}`);
+  url.searchParams.set('overview', 'false');
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      const error = new Error(`Route provider returned ${response.status}`);
+      error.status = 502;
+      throw error;
+    }
+    const payload = await response.json();
+    const meters = Number(payload?.routes?.[0]?.distance);
+    if (!Number.isFinite(meters) || meters <= 0) return null;
+    const distanceAllerKm = Math.round((meters / 1000) * 10) / 10;
+    return {
+      distanceAllerKm,
+      distanceKm: Math.round(distanceAllerKm * 2 * 10) / 10,
+      source: 'route',
+    };
   } finally {
     clearTimeout(timeout);
   }
@@ -312,6 +363,29 @@ export function createApp(options = {}) {
     } catch (error) {
       logger.error({ query, error: error.message }, 'Erreur de géocodage');
       res.status(error.status || 502).json({ message: 'Les suggestions d’adresse sont temporairement indisponibles.', results: [] });
+    }
+  });
+
+  app.get('/api/route-distance', async (req, res) => {
+    const fromLat = parseCoordinate(req.query.fromLat);
+    const fromLng = parseCoordinate(req.query.fromLng);
+    const toLat = parseCoordinate(req.query.toLat);
+    const toLng = parseCoordinate(req.query.toLng);
+    if ([fromLat, fromLng, toLat, toLng].some((coordinate) => coordinate === null)) {
+      res.status(400).json({ message: 'Coordonnées invalides.' });
+      return;
+    }
+
+    try {
+      const result = await calculateRouteDistance({ fromLat, fromLng, toLat, toLng }, options);
+      if (!result) {
+        res.status(502).json({ message: 'Distance temporairement indisponible.' });
+        return;
+      }
+      res.json(result);
+    } catch (error) {
+      logger.error({ error: error.message }, 'Erreur de calcul de distance');
+      res.status(error.status || 502).json({ message: 'Distance temporairement indisponible.' });
     }
   });
 

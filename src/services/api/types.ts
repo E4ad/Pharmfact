@@ -6,6 +6,7 @@
 import type { AppState } from '../../storage/schema';
 import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
 import type { ExpenseReceipt } from '../../storage/schema';
+import type { RouteDistanceInput, RouteDistanceResult } from '../../platform/types';
 
 export interface AppApiAdapter {
   /**
@@ -14,6 +15,11 @@ export interface AppApiAdapter {
    * @returns Liste de suggestions
    */
   geocode(query: string): Promise<GeocodeSuggestion[]>;
+
+  /**
+   * Calcule une distance routière aller-retour entre deux coordonnées.
+   */
+  routeDistance(input: RouteDistanceInput): Promise<RouteDistanceResult | null>;
 
   /**
    * Génère un PDF de facture

@@ -48,7 +48,14 @@ export function AddressAutocompleteInput({ label, value, onChange, onSelect }: P
                     setOpen(false);
                   }}
                 >
-                  {suggestion.displayName}
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                      {suggestion.addressLine || suggestion.displayName}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {[suggestion.city, suggestion.province || 'Québec', suggestion.postcode].filter(Boolean).join(' · ')}
+                    </Typography>
+                  </Box>
                 </ListItemButton>
               ))}
             </List>

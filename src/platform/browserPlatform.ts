@@ -176,11 +176,31 @@ const browserSystemAdapter: AppSystemAdapter = {
 const browserApiAdapter: AppApiAdapter = {
   async geocode(query: string): Promise<GeocodeSuggestion[]> {
     try {
-      const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`/api/geocode?q=${encodeURIComponent(`${query} Québec`)}`);
       if (!response.ok) return [];
-      return await response.json();
+      const payload = await response.json();
+      return Array.isArray(payload) ? payload : payload.results ?? [];
     } catch {
       return [];
+    }
+  },
+
+  async routeDistance(input) {
+    try {
+      const params = new URLSearchParams({
+        fromLat: String(input.fromLat),
+        fromLng: String(input.fromLng),
+        toLat: String(input.toLat),
+        toLng: String(input.toLng),
+      });
+      const response = await fetch(`/api/route-distance?${params.toString()}`);
+      if (!response.ok) return null;
+      const payload = await response.json();
+      return Number.isFinite(payload.distanceKm) && Number.isFinite(payload.distanceAllerKm)
+        ? { distanceKm: payload.distanceKm, distanceAllerKm: payload.distanceAllerKm, source: 'route' as const }
+        : null;
+    } catch {
+      return null;
     }
   },
 
