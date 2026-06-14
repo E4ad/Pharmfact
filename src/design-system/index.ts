@@ -1,20 +1,8 @@
 // Design System - Export Principal
-// Phase 3 - Structure unifiée
+// Phase 3 - Structure avec sous-dossiers
 
-// Ré-export des tokens (compatibilité descendante)
+// Export des tokens depuis le dossier organisé
 export * from './tokens';
 
-// Export des tokens organisés
-export * from './tokens/colors';
-export * from './tokens/typography';
-export * from './tokens/spacing';
-export * from './tokens/borderRadius';
-export * from './tokens/shadows';
-export * from './tokens/zIndex';
-export * from './tokens/animation';
-
-// Export des tokens pour MUI
-export * from './theme/tokens';
-
-// Export des factories de thème
+// Export des factories de thème depuis le dossier theme/
 export * from './theme';

@@ -1,5 +1,5 @@
 // Design Tokens - Export centralisé
-// Phase 3 - Structure unifiée
+// Phase 3 - Tokens organisés dans un dossier dédié
 
 export * from './colors';
 export * from './typography';

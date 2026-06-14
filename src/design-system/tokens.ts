@@ -1,5 +1,4 @@
-// Ré-exports des tokens depuis le dossier tokens/
-// Maintenu pour la compatibilité descendante
+// Ré-exports depuis le dossier tokens/
 export * from './tokens/animation';
 export * from './tokens/borderRadius';
 export * from './tokens/colors';

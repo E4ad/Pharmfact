@@ -5,26 +5,42 @@ import {
   brandColors,
   semanticColors,
   neutralColors,
-  backgroundColors,
-  textColors,
-  fontSizes,
-  fontSizesRem,
+  lightThemeColors,
+  darkThemeColors,
+  typographyScale,
   fontWeights,
   lineHeights,
-  spacing,
-  spacingAliases,
-  spacingRem,
-  borderRadius,
-  radiusAliases,
-  shadows,
-  shadowAliases,
+  spacingScalePx,
+  spacingScale,
+  componentBorderRadius,
+  lightShadows,
   darkShadows,
-  zIndex,
-  zIndexAliases,
-  easing,
-  durationsMs,
-  transitions,
+  componentShadows,
+  zIndexScale,
+  animationDurations,
+  animationEasings,
+  animationTokens,
 } from '../tokens';
+
+// Alias pour compatibilité avec les noms attendus
+const fontSizes = typographyScale;
+const fontSizesRem = Object.fromEntries(
+  Object.entries(typographyScale).map(([key, pxValue]) => [key, `${pxValue / 16}rem`])
+) as Record<keyof typeof typographyScale, string>;
+const spacing = spacingScalePx;
+const spacingAliases = spacingScale;
+const spacingRem = Object.fromEntries(
+  Object.entries(spacingScalePx).map(([key, pxValue]) => [key, `${pxValue / 16}rem`])
+) as Record<keyof typeof spacingScalePx, string>;
+const borderRadius = borderRadiusScale;
+const radiusAliases = componentBorderRadius;
+const shadows = lightShadows;
+const shadowAliases = componentShadows;
+const zIndex = zIndexScale;
+const zIndexAliases = zIndexScale;
+const easing = animationEasings;
+const durationsMs = animationDurations;
+const transitions = animationTokens;
 
 // ============================================================================
 // Palette Tokens for MUI
@@ -70,14 +86,14 @@ export const paletteTokens = {
       contrastText: neutralColors.white,
     },
     background: {
-      default: backgroundColors.light.default,
-      paper: backgroundColors.light.paper,
+      default: lightThemeColors.background.default,
+      paper: lightThemeColors.background.paper,
     },
     text: {
-      primary: textColors.light.primary,
-      secondary: textColors.light.secondary,
+      primary: lightThemeColors.text.primary,
+      secondary: lightThemeColors.text.secondary,
     },
-    divider: '#e5e7eb',
+    divider: lightThemeColors.divider,
   },
   dark: {
     mode: 'dark' as const,
@@ -118,14 +134,14 @@ export const paletteTokens = {
       contrastText: neutralColors.black,
     },
     background: {
-      default: backgroundColors.dark.default,
-      paper: backgroundColors.dark.paper,
+      default: darkThemeColors.background.default,
+      paper: darkThemeColors.background.paper,
     },
     text: {
-      primary: textColors.dark.primary,
-      secondary: textColors.dark.secondary,
+      primary: darkThemeColors.text.primary,
+      secondary: darkThemeColors.text.secondary,
     },
-    divider: 'rgba(255, 255, 255, 0.12)',
+    divider: darkThemeColors.divider,
   },
 } as const;
 
@@ -133,7 +149,7 @@ export const paletteTokens = {
 // Typography Tokens for MUI
 // ============================================================================
 
-export const typographyTokens = {
+export const typographyTokensForMUI = {
   fontFamily: `'Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif`,
   fontSize: fontSizes.base,
   h1: {
@@ -205,28 +221,18 @@ export const typographyTokens = {
 // ============================================================================
 
 // Convert px spacing to MUI spacing (MUI spacing 1 = 8px)
-export const spacingTokensForMUI = {
+export const spacingForMUI = {
   toMuiSpacing: (pxValue: number): number => pxValue / 8,
   muiSpacing: {
     0: 0,
-    0.5: spacing[1] / 8,  // 4px -> 0.5
-    1: spacing[2] / 8,   // 8px -> 1
-    1.5: spacing[3] / 8, // 12px -> 1.5
-    2: spacing[4] / 8,   // 16px -> 2
-    3: spacing[6] / 8,   // 24px -> 3
-    4: spacing[8] / 8,   // 32px -> 4
-    6: spacing[12] / 8,  // 48px -> 6
-    8: spacing[16] / 8,  // 64px -> 8
-  },
-  // Alias sémantiques en MUI spacing
-  muiSpacingAliases: {
-    xs: spacingTokensForMUI.toMuiSpacing(spacingAliases.xs),
-    sm: spacingTokensForMUI.toMuiSpacing(spacingAliases.sm),
-    md: spacingTokensForMUI.toMuiSpacing(spacingAliases.md),
-    base: spacingTokensForMUI.toMuiSpacing(spacingAliases.base),
-    lg: spacingTokensForMUI.toMuiSpacing(spacingAliases.lg),
-    xl: spacingTokensForMUI.toMuiSpacing(spacingAliases.xl),
-    '2xl': spacingTokensForMUI.toMuiSpacing(spacingAliases['2xl']),
+    0.5: 0.5,   // 4px
+    1: 1,       // 8px
+    1.5: 1.5,   // 12px
+    2: 2,       // 16px
+    3: 3,       // 24px
+    4: 4,       // 32px
+    6: 6,       // 48px
+    8: 8,       // 64px
   },
 } as const;
 
@@ -262,8 +268,6 @@ export const shadowTokens = {
     xl: darkShadows.xl,
     '2xl': darkShadows['2xl'],
   },
-  // Alias sémantiques
-  aliases: shadowAliases,
 } as const;
 
 // ============================================================================
@@ -280,8 +284,6 @@ export const zIndexTokensForMUI = {
     snackbar: zIndex.snackbar,
     tooltip: zIndex.tooltip,
   },
-  // Alias
-  zIndexAliases: zIndexAliases,
 } as const;
 
 // ============================================================================
@@ -305,13 +307,5 @@ export const animationTokensForMUI = {
       easeIn: easing.easeIn,
       sharp: easing.easeIn,
     },
-  },
-  // Custom transitions pour les composants
-  custom: {
-    button: transitions.hover.button,
-    card: `box-shadow ${durationsMs.normal} ${easing.easeOut}`,
-    modal: `opacity ${durationsMs.normal} ${easing.easeOut}`,
-    drawer: `transform ${durationsMs.normal} ${easing.easeOut}`,
-    tooltip: `opacity ${durationsMs.fast} ${easing.easeOut}`,
   },
 } as const;
