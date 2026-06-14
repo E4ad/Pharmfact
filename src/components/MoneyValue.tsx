@@ -7,8 +7,8 @@ type Props = TypographyProps & {
 
 export function MoneyValue({ cents, ...typographyProps }: Props) {
   const sx = typographyProps.sx
-    ? [{ fontVariantNumeric: 'tabular-nums' }, ...(Array.isArray(typographyProps.sx) ? typographyProps.sx : [typographyProps.sx])]
-    : { fontVariantNumeric: 'tabular-nums' };
+    ? [{ fontVariantNumeric: 'tabular-nums', fontWeight: 850 }, ...(Array.isArray(typographyProps.sx) ? typographyProps.sx : [typographyProps.sx])]
+    : { fontVariantNumeric: 'tabular-nums', fontWeight: 850 };
 
   return (
     <Typography {...typographyProps} sx={sx}>

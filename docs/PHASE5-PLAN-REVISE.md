@@ -1,7 +1,7 @@
 # Phase 5 — Plan révisé après correction critique
 
 Date : 14 juin 2026  
-Statut : Lot 1 implémenté  
+Statut : Lot 3 implémenté  
 Prérequis : correction Design System appliquée
 
 ## Décision critique
@@ -66,7 +66,21 @@ Composants migrés :
 - `src/components/OptionActionCard.tsx`
 - `src/components/EmptyState.tsx`
 
-### Lot 3 — Écrans non migrés
+### Lot 3 — Composants financiers
+
+- ✅ Standardiser `MoneyValue`.
+- ✅ Standardiser `FinancialActionCard` — suppression des hex fixes, tons dérivés du thème.
+- ✅ Standardiser `FinancialMetricCard` — suppression des hex fixes, tons dérivés du thème.
+- ✅ Standardiser `FinancialPeriodCard` — migration vers SurfaceCard.
+
+Composants migrés :
+
+- `src/components/MoneyValue.tsx`
+- `src/features/financial/components/FinancialActionCard.tsx`
+- `src/features/financial/components/FinancialMetricCard.tsx`
+- `src/features/financial/components/FinancialPeriodCard.tsx`
+
+### Lot 4 — Écrans non migrés
 
 - `ActivityPage`
 - `MissionFormPage`
@@ -103,4 +117,4 @@ Composants migrés :
 
 ## Prochaine étape recommandée
 
-Passer au Lot 3 : migrer les écrans non couverts (`ActivityPage`, `MissionFormPage`, `OnboardingPage`, formulaires pharmaciens/pharmacies et `SettingsPage`) vers les patterns de layout et composants standardisés.
+Passer au Lot 4 : migrer les écrans non couverts (`ActivityPage`, `MissionFormPage`, `OnboardingPage`, formulaires pharmaciens/pharmacies et `SettingsPage`) vers les patterns de layout et composants standardisés.

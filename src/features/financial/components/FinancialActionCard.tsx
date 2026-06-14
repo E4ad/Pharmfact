@@ -1,4 +1,6 @@
-import { Card, CardActionArea, Stack, Typography, Box } from '@mui/material';
+import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import { SurfaceCard } from '../../../components/SurfaceCard';
 
 type IconTone = 'green' | 'blue' | 'amber' | 'purple' | 'red' | 'gray';
 
@@ -10,6 +12,33 @@ interface FinancialActionCardProps {
   onClick: () => void;
 }
 
+const toneStyles: Record<IconTone, SxProps<Theme>> = {
+  green: (theme) => ({
+    bgcolor: alpha(theme.palette.success.main, 0.1),
+    color: theme.palette.success.main,
+  }),
+  blue: (theme) => ({
+    bgcolor: alpha(theme.palette.primary.main, 0.1),
+    color: theme.palette.primary.main,
+  }),
+  amber: (theme) => ({
+    bgcolor: alpha(theme.palette.warning.main, 0.12),
+    color: theme.palette.warning.main,
+  }),
+  purple: (theme) => ({
+    bgcolor: alpha(theme.palette.info.main, 0.1),
+    color: theme.palette.info.main,
+  }),
+  red: (theme) => ({
+    bgcolor: alpha(theme.palette.error.main, 0.1),
+    color: theme.palette.error.main,
+  }),
+  gray: (theme) => ({
+    bgcolor: alpha(theme.palette.text.secondary, 0.08),
+    color: theme.palette.text.secondary,
+  }),
+};
+
 export function FinancialActionCard({
   iconTone,
   icon,
@@ -17,17 +46,8 @@ export function FinancialActionCard({
   description,
   onClick,
 }: FinancialActionCardProps) {
-  const toneColors: Record<IconTone, string> = {
-    green: '#C8E6C9',
-    blue: '#BBDEFB',
-    amber: '#FFE0B2',
-    purple: '#E1BEE7',
-    red: '#FFCDD2',
-    gray: '#F5F5F5',
-  };
-
   return (
-    <Card>
+    <SurfaceCard>
       <CardActionArea onClick={onClick} sx={{ p: 3 }}>
         <Stack spacing={2} sx={{ minHeight: 140, justifyContent: 'space-between' }}>
           <Stack spacing={2}>
@@ -36,10 +56,10 @@ export function FinancialActionCard({
                  width: 40,
                  height: 40,
                  borderRadius: '50%',
-                 backgroundColor: toneColors[iconTone],
                  display: 'flex',
                  alignItems: 'center',
-                 justifyContent: 'center'
+                 justifyContent: 'center',
+                 ...toneStyles[iconTone],
                }}
              >
               {icon}
@@ -49,6 +69,6 @@ export function FinancialActionCard({
           <Typography color="text.secondary" variant="body2">{description}</Typography>
         </Stack>
       </CardActionArea>
-    </Card>
+    </SurfaceCard>
   );
 }

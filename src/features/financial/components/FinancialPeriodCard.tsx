@@ -1,5 +1,6 @@
-import { Card, CardContent, MenuItem, Select, Stack, Typography, Button } from '@mui/material';
+import { CardContent, MenuItem, Select, Stack, Typography, Button } from '@mui/material';
 import { formatMoney } from '../../../services/money';
+import { SurfaceCard } from '../../../components/SurfaceCard';
 
 interface FinancialPeriodCardProps {
   periodType: 'monthly' | 'quarterly' | 'annual';
@@ -12,6 +13,18 @@ interface FinancialPeriodCardProps {
   onExport: () => void;
 }
 
+const periodLabels = {
+  monthly: 'État financier — ',
+  quarterly: 'État financier — ',
+  annual: 'État financier — ',
+} as const;
+
+const periodExportLabels = {
+  monthly: 'mensuelle',
+  quarterly: 'trimestrielle',
+  annual: 'annuelle',
+} as const;
+
 export function FinancialPeriodCard({
   periodType,
   periodLabel,
@@ -22,59 +35,32 @@ export function FinancialPeriodCard({
   availablePeriods,
   onExport,
 }: FinancialPeriodCardProps) {
+  const renderPeriodSelect = () => (
+    <Select
+      value={periodLabel}
+      onChange={(e) => onPeriodChange(e.target.value)}
+      size="small"
+      sx={{ minWidth: 220 }}
+    >
+      {availablePeriods.map((period) => (
+        <MenuItem key={period} value={period}>
+          {periodType === 'monthly'
+            ? new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' }).format(new Date(`${period}-01T00:00:00`))
+            : period}
+        </MenuItem>
+      ))}
+    </Select>
+  );
+
   return (
-    <Card>
+    <SurfaceCard>
       <CardContent sx={{ p: 3 }}>
         <Stack spacing={2}>
           <Typography variant="h5">
-            {periodType === 'monthly' ? 'État financier — ' : periodType === 'quarterly' ? 'État financier — ' : 'État financier — '}
-            {periodLabel}
+            {periodLabels[periodType]}{periodLabel}
           </Typography>
 
-          {periodType === 'monthly' && (
-            <Select
-              value={periodLabel}
-              onChange={(e) => onPeriodChange(e.target.value)}
-              size="small"
-              sx={{ minWidth: 220 }}
-            >
-              {availablePeriods.map((period) => (
-                <MenuItem key={period} value={period}>
-                  {new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' }).format(new Date(`${period}-01T00:00:00`))}
-                </MenuItem>
-              ))}
-            </Select>
-          )}
-
-          {periodType === 'quarterly' && (
-            <Select
-              value={periodLabel}
-              onChange={(e) => onPeriodChange(e.target.value)}
-              size="small"
-              sx={{ minWidth: 220 }}
-            >
-              {availablePeriods.map((period) => (
-                <MenuItem key={period} value={period}>
-                  {period}
-                </MenuItem>
-              ))}
-            </Select>
-          )}
-
-          {periodType === 'annual' && (
-            <Select
-              value={periodLabel}
-              onChange={(e) => onPeriodChange(e.target.value)}
-              size="small"
-              sx={{ minWidth: 220 }}
-            >
-              {availablePeriods.map((period) => (
-                <MenuItem key={period} value={period}>
-                  {period}
-                </MenuItem>
-              ))}
-            </Select>
-          )}
+          {renderPeriodSelect()}
 
            <Stack direction="row" spacing={2} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <Stack spacing={1}>
@@ -84,11 +70,11 @@ export function FinancialPeriodCard({
             </Stack>
 
             <Button onClick={onExport} variant="outlined" size="small">
-              Exporter synthèse {periodType === 'monthly' ? 'mensuelle' : periodType === 'quarterly' ? 'trimestrielle' : 'annuelle'}
+              Exporter synthèse {periodExportLabels[periodType]}
             </Button>
           </Stack>
         </Stack>
       </CardContent>
-    </Card>
+    </SurfaceCard>
   );
 }
