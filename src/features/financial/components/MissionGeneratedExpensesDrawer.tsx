@@ -19,12 +19,12 @@ export function MissionGeneratedExpensesDrawer({ open, onClose, rows }: MissionG
           <Table size="small" aria-label="Dépenses issues des missions">
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Mission</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell align="right">Montant facturé</TableCell>
-                <TableCell align="right">Montant déductible estimé</TableCell>
-                <TableCell>Justificatif</TableCell>
+                <TableCell component="th" scope="col">Date</TableCell>
+                <TableCell component="th" scope="col">Mission</TableCell>
+                <TableCell component="th" scope="col">Type</TableCell>
+                <TableCell component="th" scope="col" align="right">Montant facturé</TableCell>
+                <TableCell component="th" scope="col" align="right">Montant déductible estimé</TableCell>
+                <TableCell component="th" scope="col">Justificatif</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

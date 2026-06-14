@@ -70,13 +70,13 @@ export function InvoicesPage() {
             <Table aria-label="Liste des factures">
               <TableHead>
                 <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Numéro</TableCell>
-                  <TableCell>Pharmacie</TableCell>
-                  <TableCell>Heures</TableCell>
-                  <TableCell>Montant</TableCell>
-                  <TableCell>Statut</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell component="th" scope="col">Date</TableCell>
+                  <TableCell component="th" scope="col">Numéro</TableCell>
+                  <TableCell component="th" scope="col">Pharmacie</TableCell>
+                  <TableCell component="th" scope="col">Heures</TableCell>
+                  <TableCell component="th" scope="col">Montant</TableCell>
+                  <TableCell component="th" scope="col">Statut</TableCell>
+                  <TableCell component="th" scope="col" align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -107,17 +107,23 @@ export function InvoicesPage() {
           </CardContent>
         </Card>
       )}
-      <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} maxWidth="sm" fullWidth
+      <Dialog
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        maxWidth="sm"
+        fullWidth
+        aria-labelledby="invoice-detail-title"
+        aria-describedby="invoice-detail-description"
         slotProps={{
           paper: {
             sx: { zIndex: 1400 },
           },
         }}
       >
-        <DialogTitle>{selected?.numero}</DialogTitle>
+        <DialogTitle id="invoice-detail-title">{selected?.numero}</DialogTitle>
         <DialogContent>
           {selected ? (
-            <Stack spacing={2}>
+            <Stack id="invoice-detail-description" spacing={2}>
               <Typography>Statut: {invoiceStatusLabels[selected.status]}</Typography>
               <Typography>Échéance: {selected.dateEcheance}</Typography>
               <Typography>Heures: {selected.hours.toFixed(2)} h</Typography>

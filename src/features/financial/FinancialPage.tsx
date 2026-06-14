@@ -355,12 +355,12 @@ export function MonthlyFinancialView({
             <Table size="small" aria-label="Dépenses déductibles">
               <TableHead>
                 <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Mission</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell align="right">Montant facturé</TableCell>
-                  <TableCell align="right">Montant déductible</TableCell>
-                  <TableCell>Justificatif</TableCell>
+                  <TableCell component="th" scope="col">Date</TableCell>
+                  <TableCell component="th" scope="col">Mission</TableCell>
+                  <TableCell component="th" scope="col">Type</TableCell>
+                  <TableCell component="th" scope="col" align="right">Montant facturé</TableCell>
+                  <TableCell component="th" scope="col" align="right">Montant déductible</TableCell>
+                  <TableCell component="th" scope="col">Justificatif</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

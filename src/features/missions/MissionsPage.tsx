@@ -153,6 +153,10 @@ export function MissionsPage() {
   const selectedInvoice = selected ? findInvoice(state, selected.invoiceId) ?? missionInvoice(state, selected) : undefined;
 
   useEffect(() => {
+    document.title = 'Pilotage des missions · Pharmfact';
+  }, []);
+
+  useEffect(() => {
     const selected = searchParams.get('selected');
     if (selected) setSelectedId(selected);
   }, [searchParams]);
@@ -273,7 +277,7 @@ export function MissionsPage() {
   }
 
   return (
-    <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto', px: { xs: 2, md: 4 }, py: 4 }}>
+    <Stack id="main-content" component="main" tabIndex={-1} spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto', px: { xs: 2, md: 4 }, py: 4 }}>
       <Stack spacing={2}>
         <BackHomeButton to="/activity" label="Accueil" data-testid="missions-back-button" />
         <Stack spacing={1}>
@@ -524,6 +528,8 @@ function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, h
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      aria-labelledby="mission-detail-title"
+      aria-describedby="mission-detail-description"
       slotProps={{
         paper: {
           sx: {
@@ -558,7 +564,7 @@ function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, h
           isFirstMissionAtPharmacy={isFirstMissionAtPharmacy}
         />
       </DialogTitle>
-      <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
+      <DialogContent id="mission-detail-description" sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
         <MissionLocationSection mission={mission} pharmacie={pharmacie} />
         <MissionPharmacySection pharmacie={pharmacie} />
         <MissionScheduleSection mission={mission} />
@@ -600,7 +606,7 @@ function MissionSummarySection({ mission, invoice, pharmacie, isFirstMissionAtPh
     <Box sx={{ pr: 5, mb: 2 }}>
       <Stack spacing={1.5}>
         <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography variant="h5" sx={{ fontWeight: 850, lineHeight: 1.15 }}>
+          <Typography id="mission-detail-title" variant="h5" sx={{ fontWeight: 850, lineHeight: 1.15 }}>
             {pharmacie ? pharmacieDisplayName(pharmacie) : 'Mission pharmacie'}
           </Typography>
           <Chip

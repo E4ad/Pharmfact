@@ -10,17 +10,26 @@ type Props = {
 };
 
 export function ConfirmDialog({ open, title, description, confirmLabel, onClose, onConfirm }: Props) {
+  const titleId = 'confirm-dialog-title';
+  const descriptionId = 'confirm-dialog-description';
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
       slotProps={{
         paper: {
           sx: { zIndex: 1400 },
         },
       }}
     >
-      <DialogTitle>{title}</DialogTitle>
+      <DialogTitle id={titleId}>{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText>{description}</DialogContentText>
+        <DialogContentText id={descriptionId}>{description}</DialogContentText>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Annuler</Button>

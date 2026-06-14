@@ -10,12 +10,15 @@ interface FinancialModalProps {
 }
 
 export function FinancialModal({ title, open, onClose, children, 'data-testid': testId }: FinancialModalProps) {
+  const titleId = `financial-modal-${title.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-title`;
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      aria-labelledby={titleId}
       data-testid={testId || 'financial-modal'}
       slotProps={{
         paper: {
@@ -28,7 +31,7 @@ export function FinancialModal({ title, open, onClose, children, 'data-testid': 
       }}
     >
       <DialogTitle sx={{ p: 3, pb: 0, position: 'relative' }}>
-        <Typography variant="h6">{title}</Typography>
+        <Typography id={titleId} variant="h6">{title}</Typography>
         <IconButton
           aria-label="Fermer"
           onClick={onClose}

@@ -177,6 +177,8 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      aria-labelledby="pharmacist-form-title"
+      aria-describedby="pharmacist-form-description"
       slotProps={{
         paper: {
           sx: {
@@ -188,7 +190,7 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
       }}
     >
       <DialogTitle sx={{ p: 3, pb: 0, position: 'relative' }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Typography id="pharmacist-form-title" variant="h6" sx={{ fontWeight: 600 }}>
           {existingPharmacien ? 'Modifier le pharmacien' : 'Nouveau pharmacien'}
         </Typography>
         <IconButton
@@ -200,6 +202,9 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
+        <Typography id="pharmacist-form-description" variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+          Complétez le profil professionnel utilisé pour les missions et les factures.
+        </Typography>
         {existingPharmacien && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Modification de : {existingPharmacien.nom}

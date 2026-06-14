@@ -761,6 +761,8 @@ export function OptionsPage() {
         onClose={() => setActiveCategory(null)}
         maxWidth="sm"
         fullWidth
+        aria-labelledby="references-dialog-title"
+        aria-describedby="references-dialog-description"
         slotProps={{
           paper: {
             sx: {
@@ -774,7 +776,7 @@ export function OptionsPage() {
         <DialogTitle sx={{ p: 3, pb: 0 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <LocalPharmacyRoundedIcon color="primary" />
-            <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
+            <Typography id="references-dialog-title" variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
               Pharmaciens & Pharmacies
             </Typography>
             <IconButton aria-label="Fermer" onClick={() => setActiveCategory(null)} sx={{ p: 0.5 }}>
@@ -783,7 +785,7 @@ export function OptionsPage() {
           </Stack>
         </DialogTitle>
         <DialogContent sx={{ p: 3, pt: 1, overflowY: 'auto' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Gérez vos profils et lieux de mission.</Typography>
+          <Typography id="references-dialog-description" variant="body2" color="text.secondary" sx={{ mb: 2 }}>Gérez vos profils et lieux de mission.</Typography>
           <Divider sx={{ my: 1 }} />
           <Stack spacing={2}>
             {/* Pharmacies Section */}
@@ -942,12 +944,17 @@ function SettingsModal({
   icon: ReactNode;
   children: ReactNode;
 }) {
+  const titleId = `settings-modal-${title.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-title`;
+  const descriptionId = `${titleId}-description`;
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
       slotProps={{
         paper: {
           sx: {
@@ -961,7 +968,7 @@ function SettingsModal({
       <DialogTitle sx={{ p: 3, pb: 0 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {icon}
-          <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
+          <Typography id={titleId} variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
             {title}
           </Typography>
           <IconButton aria-label="Fermer" onClick={onClose} sx={{ p: 0.5 }}>
@@ -970,7 +977,7 @@ function SettingsModal({
         </Stack>
       </DialogTitle>
       <DialogContent sx={{ p: 3, pt: 1, overflowY: 'auto' }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{description}</Typography>
+        <Typography id={descriptionId} variant="body2" color="text.secondary" sx={{ mb: 2 }}>{description}</Typography>
         <Divider sx={{ my: 1 }} />
         <Stack spacing={2}>
           {children}

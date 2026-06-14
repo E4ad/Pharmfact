@@ -155,6 +155,8 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      aria-labelledby="pharmacy-form-title"
+      aria-describedby="pharmacy-form-description"
       slotProps={{
         paper: {
           sx: {
@@ -166,7 +168,7 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
       }}
     >
       <DialogTitle sx={{ p: 3, pb: 0, position: 'relative' }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Typography id="pharmacy-form-title" variant="h6" sx={{ fontWeight: 600 }}>
           {existingPharmacie ? 'Modifier la pharmacie' : 'Ajouter une pharmacie'}
         </Typography>
         <IconButton
@@ -178,6 +180,9 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
+        <Typography id="pharmacy-form-description" variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+          Complétez les informations utilisées pour les missions et les factures.
+        </Typography>
         {existingPharmacie && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Modification de : {existingPharmacie.nom}

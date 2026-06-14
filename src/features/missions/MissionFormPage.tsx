@@ -863,7 +863,7 @@ function MissionExpenseEditorActions({ onSave, onCancel, onDelete }: { onSave: (
   return (
     <div className="mission-expense-edit-actions">
       <button type="button" onClick={onSave}>✓ Enregistrer</button>
-      <button type="button" onClick={onCancel}>×</button>
+      <button type="button" aria-label="Annuler la modification" onClick={onCancel}>×</button>
       <button className="is-danger" type="button" onClick={onDelete}>Supprimer</button>
     </div>
   );
@@ -911,12 +911,12 @@ function ExpenseReceiptPreview({ receipt, onDeleteReceipt }: { receipt: ExpenseR
   return (
     <div className="mission-receipt-preview">
       <span>📎 {receipt.fileName}</span>
-      <a href={receipt.storageUrl}>Voir</a>
+      <a href={receipt.storageUrl} aria-label={`Voir le justificatif ${receipt.fileName}`}>Voir</a>
       <label className="mission-link-button">
         Remplacer
         <input type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" hidden />
       </label>
-      <button className="mission-link-button" type="button" onClick={() => onDeleteReceipt(receipt.id)}>
+      <button className="mission-link-button" type="button" aria-label={`Supprimer le justificatif ${receipt.fileName}`} onClick={() => onDeleteReceipt(receipt.id)}>
         Supprimer
       </button>
     </div>

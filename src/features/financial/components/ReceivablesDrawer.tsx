@@ -19,12 +19,12 @@ export function ReceivablesDrawer({ open, onClose, invoices }: ReceivablesDrawer
           <Table size="small" aria-label="Factures à encaisser">
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Numéro</TableCell>
-                <TableCell>Pharmacie</TableCell>
-                <TableCell align="right">Montant</TableCell>
-                <TableCell>Échéance</TableCell>
-                <TableCell>Statut</TableCell>
+                <TableCell component="th" scope="col">Date</TableCell>
+                <TableCell component="th" scope="col">Numéro</TableCell>
+                <TableCell component="th" scope="col">Pharmacie</TableCell>
+                <TableCell component="th" scope="col" align="right">Montant</TableCell>
+                <TableCell component="th" scope="col">Échéance</TableCell>
+                <TableCell component="th" scope="col">Statut</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

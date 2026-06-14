@@ -1,4 +1,5 @@
 import { Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
+import { useEffect } from 'react';
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router-dom';
 
 export function RouteErrorPage() {
@@ -12,8 +13,12 @@ export function RouteErrorPage() {
     ? 'La page demandée est introuvable ou inaccessible.'
     : 'L’application a rencontré une erreur inattendue.';
 
+  useEffect(() => {
+    document.title = 'Erreur · Pharmfact';
+  }, []);
+
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3, bgcolor: 'background.default' }}>
+    <Box id="main-content" component="main" tabIndex={-1} sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3, bgcolor: 'background.default' }}>
       <Card sx={{ maxWidth: 560, width: '100%' }}>
         <CardContent sx={{ p: { xs: 3, md: 4 } }}>
           <Stack spacing={2}>

@@ -51,6 +51,39 @@ const baseTheme = {
         root: {
           borderRadius: 14,
           paddingInline: 20,
+          '&.Mui-focusVisible': {
+            outline: '3px solid #2563eb',
+            outlineOffset: 3,
+          },
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focusVisible': {
+            outline: '3px solid #2563eb',
+            outlineOffset: 3,
+          },
+        },
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focusVisible': {
+            outline: '3px solid #2563eb',
+            outlineOffset: 3,
+          },
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderWidth: 2,
+          },
         },
       },
     },
