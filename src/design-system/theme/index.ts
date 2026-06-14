@@ -14,7 +14,7 @@ import {
   neutralColors,
   typographyTokens,
   zIndexScale,
-} from '../tokens';
+} from '../tokens/index';
 
 export type DesignSystemThemeMode = 'light' | 'dark' | 'system';
 

@@ -5,7 +5,7 @@ import {
   lightThemeColors,
   spacingScalePx,
   typographyScale,
-} from './tokens';
+} from './tokens/index';
 
 describe('design tokens', () => {
   it('preserves the Pharmfact primary brand color', () => {
