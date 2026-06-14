@@ -1,37 +1,63 @@
 import { createTheme, type Theme } from '@mui/material/styles';
 import { deepmerge } from '@mui/utils';
+import {
+  animationTokens,
+  brandColors,
+  componentBorderRadius,
+  componentShadows,
+  darkThemeColors,
+  fontFamilies,
+  fontWeights,
+  lightThemeColors,
+  neutralColors,
+  spacingScale,
+  typographyScale,
+  typographyTokens,
+} from '../design-system';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 // Thème de base commun à light et dark
 const baseTheme = {
   typography: {
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: fontFamilies.sans,
+    fontSize: typographyTokens.fontSize,
     h1: {
-      fontSize: 'clamp(2.6rem, 6vw, 4.6rem)',
-      fontWeight: 500,
-      letterSpacing: '-0.055em',
+      ...typographyTokens.h1,
     },
     h2: {
-      fontSize: 'clamp(2.1rem, 4vw, 3.5rem)',
-      fontWeight: 500,
-      letterSpacing: '-0.05em',
+      ...typographyTokens.h2,
+    },
+    h3: {
+      ...typographyTokens.h3,
     },
     h4: {
-      fontWeight: 650,
-      letterSpacing: '-0.035em',
+      ...typographyTokens.h4,
     },
     h5: {
-      fontWeight: 650,
-      letterSpacing: '-0.025em',
+      ...typographyTokens.h5,
+    },
+    h6: {
+      ...typographyTokens.h6,
+    },
+    body1: {
+      ...typographyTokens.body1,
+    },
+    body2: {
+      ...typographyTokens.body2,
     },
     button: {
-      textTransform: 'none',
-      fontWeight: 650,
+      ...typographyTokens.button,
+    },
+    caption: {
+      ...typographyTokens.caption,
+    },
+    overline: {
+      ...typographyTokens.overline,
     },
   },
   shape: {
-    borderRadius: 18,
+    borderRadius: componentBorderRadius.container,
   },
   components: {
     MuiPaper: {
@@ -49,11 +75,48 @@ const baseTheme = {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 14,
-          paddingInline: 20,
+          borderRadius: componentBorderRadius.button.default,
+          minHeight: 36,
+          paddingInline: spacingScale.lg,
+          transition: `background-color ${animationTokens.transition.fast}, border-color ${animationTokens.transition.fast}, box-shadow ${animationTokens.transition.fast}, transform ${animationTokens.transition.fast}`,
+          '&:hover': {
+            boxShadow: componentShadows.button.light,
+            transform: 'translateY(-1px)',
+          },
+          '&:active': {
+            boxShadow: componentShadows.button.pressed,
+            transform: 'translateY(0)',
+          },
+          '&.Mui-disabled': {
+            cursor: 'not-allowed',
+            opacity: 0.52,
+          },
           '&.Mui-focusVisible': {
-            outline: '3px solid #2563eb',
+            outline: `3px solid ${brandColors.primary[600]}`,
             outlineOffset: 3,
+          },
+        },
+        sizeSmall: {
+          minHeight: 32,
+          paddingInline: spacingScale.md,
+          fontSize: `${typographyScale.sm / 16}rem`,
+        },
+        sizeLarge: {
+          minHeight: 44,
+          paddingInline: spacingScale.xl,
+          fontSize: `${typographyScale.base / 16}rem`,
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: componentBorderRadius.card,
+          border: `1px solid ${lightThemeColors.border.light}`,
+          boxShadow: componentShadows.card.light,
+          transition: `box-shadow ${animationTokens.transition.normal}`,
+          '&:hover': {
+            boxShadow: componentShadows.card.elevatedLight,
           },
         },
       },
@@ -61,8 +124,10 @@ const baseTheme = {
     MuiIconButton: {
       styleOverrides: {
         root: {
+          borderRadius: componentBorderRadius.avatar,
+          transition: `background-color ${animationTokens.transition.fast}, color ${animationTokens.transition.fast}`,
           '&.Mui-focusVisible': {
-            outline: '3px solid #2563eb',
+            outline: `3px solid ${brandColors.primary[600]}`,
             outlineOffset: 3,
           },
         },
@@ -71,8 +136,9 @@ const baseTheme = {
     MuiToggleButton: {
       styleOverrides: {
         root: {
+          borderRadius: componentBorderRadius.button.default,
           '&.Mui-focusVisible': {
-            outline: '3px solid #2563eb',
+            outline: `3px solid ${brandColors.primary[600]}`,
             outlineOffset: 3,
           },
         },
@@ -81,9 +147,64 @@ const baseTheme = {
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
+          borderRadius: componentBorderRadius.input,
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
             borderWidth: 2,
+            borderColor: brandColors.primary[600],
           },
+        },
+        notchedOutline: {
+          borderColor: lightThemeColors.border.default,
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: componentBorderRadius.chip,
+          fontWeight: fontWeights.medium,
+        },
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          borderRadius: componentBorderRadius.alert,
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: componentBorderRadius.dialog,
+          boxShadow: componentShadows.modal.light,
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          borderRadius: componentBorderRadius.paper,
+          boxShadow: componentShadows.dropdown.light,
+        },
+      },
+    },
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          borderRadius: componentBorderRadius.tooltip,
+          boxShadow: componentShadows.tooltip.light,
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          padding: `${spacingScale.sm} ${spacingScale.md}`,
+        },
+        head: {
+          fontWeight: fontWeights.semibold,
+          fontSize: `${typographyScale.sm / 16}rem`,
         },
       },
     },
@@ -94,49 +215,49 @@ const baseTheme = {
 const lightThemePalette = {
   mode: 'light' as const,
   background: {
-    default: '#f7f7f8',
-    paper: '#ffffff',
+    default: lightThemeColors.background.default,
+    paper: lightThemeColors.background.paper,
   },
   primary: {
-    main: '#2563eb',
-    light: '#3b82f6',
-    dark: '#1d4ed8',
-    contrastText: '#ffffff',
+    main: brandColors.primary[600],
+    light: brandColors.primary[500],
+    dark: brandColors.primary[700],
+    contrastText: neutralColors.white,
   },
   success: {
     main: '#059669',
-    light: '#10b981',
+    light: brandColors.success[500],
     dark: '#047857',
   },
   warning: {
-    main: '#d97706',
-    light: '#f59e0b',
-    dark: '#b45309',
+    main: brandColors.warning[600],
+    light: brandColors.warning[500],
+    dark: brandColors.warning[700],
   },
   error: {
-    main: '#dc2626',
-    light: '#ef4444',
-    dark: '#b91c1c',
+    main: brandColors.error[600],
+    light: brandColors.error[500],
+    dark: brandColors.error[700],
   },
   text: {
-    primary: '#202124',
-    secondary: '#686b70',
+    primary: lightThemeColors.text.primary,
+    secondary: lightThemeColors.text.secondary,
   },
-  divider: '#e8e8eb',
+  divider: lightThemeColors.divider,
 };
 
 // Thème sombre
 const darkThemePalette = {
   mode: 'dark' as const,
   background: {
-    default: '#0f1115',
-    paper: '#171a21',
+    default: darkThemeColors.background.default,
+    paper: darkThemeColors.background.paper,
   },
   primary: {
     main: '#90caf9',
     light: '#c7d8f0',
     dark: '#639ddb',
-    contrastText: '#000000',
+    contrastText: neutralColors.black,
   },
   success: {
     main: '#4caf50',
@@ -157,10 +278,10 @@ const darkThemePalette = {
     contrastText: '#000000',
   },
   text: {
-    primary: '#f5f5f5',
-    secondary: '#a0aec0',
+    primary: darkThemeColors.text.primary,
+    secondary: darkThemeColors.text.secondary,
   },
-  divider: 'rgba(255, 255, 255, 0.08)',
+  divider: darkThemeColors.divider,
 };
 
 // Overrides spécifiques pour le dark mode
