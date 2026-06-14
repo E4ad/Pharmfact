@@ -1,40 +1,27 @@
-// Nouveau Thème Principal
-// Phase 3 - Thème basé sur le Design System
-
-import { createTheme, type Theme, type ThemeOptions } from '@mui/material/styles';
+import { createTheme, type Theme } from '@mui/material/styles';
 import { deepmerge } from '@mui/utils';
 import {
+  animationTokens,
   brandColors,
   componentBorderRadius,
   componentShadows,
-  lightThemeColors,
   darkThemeColors,
-  neutralColors,
-  spacingScalePx,
-  typographyScale,
-  typographyTokens,
   fontFamilies,
   fontWeights,
-  animationTokens,
+  lightThemeColors,
+  neutralColors,
+  spacingScale,
+  typographyScale,
+  typographyTokens,
 } from '../design-system';
-
-import {
-  createLightTheme as createDSLightTheme,
-  createDarkTheme as createDSDarkTheme,
-  createDesignSystemTheme,
-  mergeThemes,
-} from '../design-system/theme';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-// ============================================================================
-// Base Theme - Communes à light et dark
-// ============================================================================
-
+// Thème de base commun à light et dark
 const baseTheme = {
   typography: {
     fontFamily: fontFamilies.sans,
-    fontSize: typographyScale.base,
+    fontSize: typographyTokens.fontSize,
     h1: {
       ...typographyTokens.h1,
     },
@@ -90,7 +77,7 @@ const baseTheme = {
         root: {
           borderRadius: componentBorderRadius.button.default,
           minHeight: 36,
-          paddingInline: spacingScalePx.lg,
+          paddingInline: spacingScale.lg,
           transition: `background-color ${animationTokens.transition.fast}, border-color ${animationTokens.transition.fast}, box-shadow ${animationTokens.transition.fast}, transform ${animationTokens.transition.fast}`,
           '&:hover': {
             boxShadow: componentShadows.button.light,
@@ -111,12 +98,12 @@ const baseTheme = {
         },
         sizeSmall: {
           minHeight: 32,
-          paddingInline: spacingScalePx.md,
+          paddingInline: spacingScale.md,
           fontSize: `${typographyScale.sm / 16}rem`,
         },
         sizeLarge: {
           minHeight: 44,
-          paddingInline: spacingScalePx.xl,
+          paddingInline: spacingScale.xl,
           fontSize: `${typographyScale.base / 16}rem`,
         },
       },
@@ -213,7 +200,7 @@ const baseTheme = {
     MuiTableCell: {
       styleOverrides: {
         root: {
-          padding: `${spacingScalePx.sm} ${spacingScalePx.md}`,
+          padding: `${spacingScale.sm} ${spacingScale.md}`,
         },
         head: {
           fontWeight: fontWeights.semibold,
@@ -224,10 +211,7 @@ const baseTheme = {
   },
 };
 
-// ============================================================================
-// Light Theme Palette
-// ============================================================================
-
+// Thème clair
 const lightThemePalette = {
   mode: 'light' as const,
   background: {
@@ -262,10 +246,7 @@ const lightThemePalette = {
   divider: lightThemeColors.divider,
 };
 
-// ============================================================================
-// Dark Theme Palette & Overrides
-// ============================================================================
-
+// Thème sombre
 const darkThemePalette = {
   mode: 'dark' as const,
   background: {
@@ -303,6 +284,7 @@ const darkThemePalette = {
   divider: darkThemeColors.divider,
 };
 
+// Overrides spécifiques pour le dark mode
 const darkThemeOverrides = {
   components: {
     MuiCard: {
@@ -446,6 +428,38 @@ const darkThemeOverrides = {
         },
       },
     },
+    MuiCardHeader: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'transparent',
+          color: '#f5f5f5',
+        },
+        title: {
+          color: '#f5f5f5',
+        },
+        subheader: {
+          color: '#a0aec0',
+        },
+      },
+    },
+    MuiCardContent: {
+      styleOverrides: {
+        root: {
+          color: '#f5f5f5',
+          '&:last-child': {
+            paddingBottom: 16,
+          },
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: '#171a21',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+        },
+      },
+    },
     MuiMenu: {
       styleOverrides: {
         paper: {
@@ -455,21 +469,13 @@ const darkThemeOverrides = {
         },
       },
     },
-    MuiChip: {
+    MuiListItem: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
           color: '#f5f5f5',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-        },
-        deleteIcon: {
-          color: '#a0aec0',
           '&:hover': {
-            color: '#f5f5f5',
+            backgroundColor: 'rgba(255, 255, 255, 0.04)',
           },
-        },
-        label: {
-          color: '#f5f5f5',
         },
       },
     },
@@ -535,12 +541,47 @@ const darkThemeOverrides = {
         },
       },
     },
-    MuiListItem: {
+    MuiChip: {
       styleOverrides: {
         root: {
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
           color: '#f5f5f5',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+        },
+        deleteIcon: {
+          color: '#a0aec0',
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            color: '#f5f5f5',
+          },
+        },
+        label: {
+          color: '#f5f5f5',
+        },
+      },
+    },
+    MuiBadge: {
+      styleOverrides: {
+        badge: {
+          backgroundColor: '#90caf9',
+          color: '#000000',
+        },
+      },
+    },
+    MuiAvatar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          color: '#f5f5f5',
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          color: '#a0aec0',
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            color: '#f5f5f5',
           },
         },
       },
@@ -578,37 +619,13 @@ const darkThemeOverrides = {
         },
       },
     },
-    MuiDialog: {
-      styleOverrides: {
-        paper: {
-          backgroundColor: '#171a21',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-        },
-      },
-    },
-    MuiBadge: {
-      styleOverrides: {
-        badge: {
-          backgroundColor: '#90caf9',
-          color: '#000000',
-        },
-      },
-    },
-    MuiAvatar: {
+    MuiFilledInput: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          backgroundColor: 'rgba(255, 255, 255, 0.04)',
           color: '#f5f5f5',
-        },
-      },
-    },
-    MuiIconButton: {
-      styleOverrides: {
-        root: {
-          color: '#a0aec0',
           '&:hover': {
             backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            color: '#f5f5f5',
           },
         },
       },
@@ -628,16 +645,9 @@ const darkThemeOverrides = {
   },
 };
 
-// ============================================================================
 // Créer les thèmes
-// ============================================================================
-
 const lightTheme = createTheme(deepmerge(baseTheme, { palette: lightThemePalette }));
 const darkTheme = createTheme(deepmerge(deepmerge(baseTheme, { palette: darkThemePalette }), darkThemeOverrides));
-
-// ============================================================================
-// Utilitaires
-// ============================================================================
 
 // Détecter le mode système
 export function getSystemMode(): 'light' | 'dark' {
@@ -660,26 +670,3 @@ export const theme = lightTheme;
 
 // Exporter les thèmes pour les tests
 export { lightTheme, darkTheme };
-
-// ============================================================================
-// Fonctions de création basées sur le Design System
-// ============================================================================
-
-/**
- * Crée un thème basé sur le Design System
- * Utilise les nouveaux tokens de la Phase 3
- */
-export function createThemeFromDesignSystem(mode: ThemeMode): Theme {
-  return createDesignSystemTheme(mode === 'dark' ? 'dark' : 'light');
-}
-
-/**
- * Obtient un thème avec les améliorations de la Phase 3
- * Combine l'ancien système avec le nouveau Design System
- */
-export function getEnhancedTheme(mode: ThemeMode): Theme {
-  return getTheme(mode);
-}
-
-// Exporter les créateurs de thèmes du Design System
-export { createDSLightTheme, createDSDarkTheme, createDesignSystemTheme, mergeThemes } from '../design-system/theme';
