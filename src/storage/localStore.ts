@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from 'react';
-import { APP_SCHEMA_VERSION, APP_STORAGE_KEY, type AppState, type TaxPayment } from './schema';
+import { APP_SCHEMA_VERSION, APP_STORAGE_KEY, type AppState, type OpqPharmacistRegistry, type TaxPayment } from './schema';
 import type { AppOptions } from './settings/appOptions';
 import { createDefaultFiscalSettings, createSeedState } from './seedData';
 import { createDefaultUiSettings } from './settings/uiSettings';
 import { createDefaultLocalDataSettings } from './settings/localDataSettings';
 import { normalizeMissionExpense } from '../services/expenseTypes';
+import { OPQ_REGISTRY_SOURCE_URL, bundledOpqRegistryEntries } from '../services/opqRegistry';
 import { loadFromIndexedDB, saveToIndexedDB, clearIndexedDB, migrateFromLocalStorageToIndexedDB, isIndexedDBSupported } from './indexedDB';
 import { getPlatform } from '../services/platformService';
 
@@ -20,6 +21,24 @@ let useIndexedDB = false;
 let useTauriPlatform = false;
 
 type MigrationCandidate = AppState & { options?: AppOptions };
+
+function createDefaultOpqPharmacistRegistry(): OpqPharmacistRegistry {
+  return {
+    entries: bundledOpqRegistryEntries(),
+    sourceUrl: OPQ_REGISTRY_SOURCE_URL,
+  };
+}
+
+function normalizeOpqPharmacistRegistry(registry?: OpqPharmacistRegistry): OpqPharmacistRegistry {
+  if (registry?.entries?.length) {
+    return {
+      ...registry,
+      sourceUrl: registry.sourceUrl || OPQ_REGISTRY_SOURCE_URL,
+    };
+  }
+
+  return createDefaultOpqPharmacistRegistry();
+}
 
 function createDefaultAppOptions(): AppOptions {
   return {
@@ -118,6 +137,7 @@ function migrateV1ToV2(candidate: MigrationCandidate): AppState {
     expenseReceipts: candidate.expenseReceipts ?? [],
     fiscalSettings: migratedFiscalSettings,
     distanceReferences: candidate.distanceReferences ?? [],
+    opqPharmacistRegistry: normalizeOpqPharmacistRegistry(candidate.opqPharmacistRegistry),
     appOptions,
     uiSettings: createDefaultUiSettings(),
     localDataSettings: createDefaultLocalDataSettings(),
@@ -142,6 +162,7 @@ function migrateLegacyToV2(candidate: MigrationCandidate): AppState {
     expenseReceipts: candidate.expenseReceipts ?? [],
     fiscalSettings: candidate.fiscalSettings ?? createDefaultFiscalSettings(),
     distanceReferences: candidate.distanceReferences ?? [],
+    opqPharmacistRegistry: normalizeOpqPharmacistRegistry(candidate.opqPharmacistRegistry),
     appOptions: candidate.appOptions ?? createDefaultAppOptions(),
     uiSettings: candidate.uiSettings ?? createDefaultUiSettings(),
     localDataSettings: candidate.localDataSettings ?? createDefaultLocalDataSettings(),
@@ -152,12 +173,15 @@ function migrateLegacyToV2(candidate: MigrationCandidate): AppState {
   };
 }
 
-function migrate(raw: unknown): AppState {
+export function migrateAppState(raw: unknown): AppState {
   const candidate = raw as MigrationCandidate | null;
   
   // Si déjà version 2, retourner tel quel
   if (candidate?.version === 2) {
-    return candidate as AppState;
+    return {
+      ...(candidate as AppState),
+      opqPharmacistRegistry: normalizeOpqPharmacistRegistry(candidate.opqPharmacistRegistry),
+    };
   }
   
   // Si version 1, migrer vers v2
@@ -212,7 +236,7 @@ async function readStorage(): Promise<AppState> {
       raw = localData ? JSON.parse(localData) : null;
     }
     
-    cachedState = raw ? migrate(raw) : createSeedState();
+    cachedState = raw ? migrateAppState(raw) : createSeedState();
   } catch {
     cachedState = createSeedState();
   }
@@ -265,7 +289,7 @@ function syncReadStorage(): AppState {
       return createSeedState();
     }
     const localData = localStorage.getItem(APP_STORAGE_KEY);
-    syncCachedState = localData ? migrate(JSON.parse(localData)) : createSeedState();
+    syncCachedState = localData ? migrateAppState(JSON.parse(localData)) : createSeedState();
   } catch {
     syncCachedState = createSeedState();
   }
@@ -322,7 +346,7 @@ export function resetAppState(): void {
 }
 
 export function importAppState(json: string): void {
-  setAppState(migrate(JSON.parse(json)));
+  setAppState(migrateAppState(JSON.parse(json)));
 }
 
 export function exportAppState(): string {

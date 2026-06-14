@@ -11,6 +11,8 @@ import { eurosToCents } from '../../services/money';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacien, TaxStatus } from '../../storage/schema';
 import { getPlatform } from '../../services/platformService';
+import { findOpqPharmacistByLicense, normalizeOpqLicenseNumber } from '../../services/opqRegistry';
+import { findDuplicatePharmacist } from '../../services/entityDuplicates';
 
 export function PharmacienNewPage() {
   const state = useAppState();
@@ -20,13 +22,14 @@ export function PharmacienNewPage() {
   const fromOnboarding = searchParams.get('from') === 'onboarding';
   const existingPharmacien = state.pharmaciens.find(p => p.id === id);
   
-  const [form, setForm] = useState({ nom: '', adresse: '', ville: '', codePostal: '', rue: '', numero: '', lat: undefined as number | undefined, lng: undefined as number | undefined, telephone: '', email: '', hourlyRate: '80', distanceKmDomicile: '0', taxStatus: 'SMALL_SUPPLIER' as TaxStatus, gstNumber: '', qstNumber: '', favoritePharmacieId: '' });
+  const [form, setForm] = useState({ nom: '', opqLicenseNumber: '', adresse: '', ville: '', codePostal: '', rue: '', numero: '', lat: undefined as number | undefined, lng: undefined as number | undefined, telephone: '', email: '', hourlyRate: '80', distanceKmDomicile: '0', taxStatus: 'SMALL_SUPPLIER' as TaxStatus, gstNumber: '', qstNumber: '', favoritePharmacieId: '' });
   
   // Charger les données existantes si on est en mode édition
   useEffect(() => {
     if (existingPharmacien) {
       setForm({
         nom: existingPharmacien.nom || '',
+        opqLicenseNumber: existingPharmacien.opqLicenseNumber || '',
         adresse: existingPharmacien.adresse || '',
         ville: existingPharmacien.ville || '',
         codePostal: existingPharmacien.codePostal || '',
@@ -63,6 +66,15 @@ export function PharmacienNewPage() {
     }));
   }
 
+  const opqMatch = findOpqPharmacistByLicense(state.opqPharmacistRegistry.entries, form.opqLicenseNumber);
+  const normalizedOpqLicenseNumber = normalizeOpqLicenseNumber(form.opqLicenseNumber);
+  const duplicatePharmacien = findDuplicatePharmacist(state.pharmaciens, {
+    nom: form.nom,
+    opqLicenseNumber: form.opqLicenseNumber,
+    email: form.email,
+    codePostal: form.codePostal,
+  }, existingPharmacien?.id);
+
   const handleDelete = useCallback(async () => {
     if (!existingPharmacien) return;
     const confirmed = await getPlatform().system.showConfirm(`Voulez-vous vraiment supprimer le pharmacien "${existingPharmacien.nom}" ?`);
@@ -79,9 +91,14 @@ export function PharmacienNewPage() {
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.nom.trim()) return;
+    if (duplicatePharmacien) return;
     const pharmacien: Pharmacien = {
       id: existingPharmacien?.id || createId('ph'),
       nom: form.nom.trim(),
+      opqLicenseNumber: normalizedOpqLicenseNumber || undefined,
+      opqRegistryId: opqMatch?.id ?? existingPharmacien?.opqRegistryId,
+      opqStatusLabel: opqMatch ? 'Inscrit au référentiel OPQ' : existingPharmacien?.opqStatusLabel,
+      opqVerifiedAt: opqMatch ? new Date().toISOString() : existingPharmacien?.opqVerifiedAt,
       adresse: form.adresse.trim(),
       rue: form.rue.trim() || undefined,
       numero: form.numero.trim() || undefined,
@@ -126,7 +143,7 @@ export function PharmacienNewPage() {
         </Stack>
         {existingPharmacien && (
           <Tooltip title="Supprimer ce pharmacien">
-            <IconButton onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacien-delete-button">
+            <IconButton aria-label="Supprimer ce pharmacien" onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacien-delete-button">
               <DeleteRoundedIcon />
             </IconButton>
           </Tooltip>
@@ -143,9 +160,24 @@ export function PharmacienNewPage() {
             <Typography variant="h4">Profil professionnel</Typography>
             <Stack sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
               <TextField label="Nom complet *" value={form.nom} onChange={(e) => update('nom', e.target.value)} required />
+              <TextField label="Numéro de permis OPQ" value={form.opqLicenseNumber} onChange={(e) => update('opqLicenseNumber', e.target.value)} />
               <Box sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }}>
                 <AddressAutocompleteInput label="Adresse" value={form.adresse} onChange={(value) => update('adresse', value)} onSelect={selectAddress} />
               </Box>
+              {normalizedOpqLicenseNumber ? (
+                <Alert severity={opqMatch ? 'success' : 'warning'} sx={{ gridColumn: '1 / -1' }}>
+                  {opqMatch
+                    ? `Pharmacien confirmé : ${opqMatch.fullName}${opqMatch.city ? ` · ${opqMatch.city}` : ''}`
+                    : state.opqPharmacistRegistry.entries.length
+                      ? 'Aucun pharmacien trouvé pour ce numéro dans le référentiel local.'
+                      : 'Référentiel OPQ non synchronisé. Mise à jour disponible dans Options > Données locales.'}
+                </Alert>
+              ) : null}
+              {duplicatePharmacien ? (
+                <Alert severity="warning" sx={{ gridColumn: '1 / -1' }}>
+                  Ce pharmacien semble déjà exister : {duplicatePharmacien.nom}.
+                </Alert>
+              ) : null}
               <TextField label="Ville" value={form.ville} onChange={(e) => update('ville', e.target.value)} />
               <TextField label="Code postal" value={form.codePostal} onChange={(e) => update('codePostal', e.target.value)} />
               <TextField label="Téléphone" value={form.telephone} onChange={(e) => update('telephone', e.target.value)} />
@@ -171,7 +203,7 @@ export function PharmacienNewPage() {
             </Stack>
             <Stack direction="row" sx={{ gap: 2, justifyContent: 'flex-end' }}>
               <Button variant="outlined" color="inherit" onClick={() => navigate('/settings')} data-testid="pharmacien-cancel-button">Annuler</Button>
-              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} data-testid="pharmacien-save-button">
+              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacien)} data-testid="pharmacien-save-button">
                 {existingPharmacien ? 'Enregistrer les modifications' : 'Enregistrer'}
               </Button>
             </Stack>

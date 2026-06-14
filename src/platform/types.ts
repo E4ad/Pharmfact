@@ -3,7 +3,7 @@
  * Permet de supporter web (navigateur) et desktop (Tauri)
  */
 
-import type { AppState, Invoice, Pharmacien, Pharmacie, Mission, ExpenseReceipt } from '../storage/schema';
+import type { AppState, Invoice, Pharmacien, Pharmacie, Mission, ExpenseReceipt, OpqPharmacistRegistryEntry } from '../storage/schema';
 import type { GeocodeSuggestion } from '../hooks/useAddressAutocomplete';
 
 export type RouteDistanceInput = {
@@ -46,7 +46,7 @@ export interface AppFileAdapter {
     data: Blob | string | Uint8Array;
     filename: string;
     mimeType: string;
-  }): Promise<void>;
+  }): Promise<boolean>;
   
   /** Ouvrir un dialogue de sélection de fichier */
   open(params?: { accept?: string[] }): Promise<File | null>;
@@ -86,6 +86,9 @@ export interface AppApiAdapter {
 
   /** Distance routière aller-retour entre deux coordonnées */
   routeDistance(input: RouteDistanceInput): Promise<RouteDistanceResult | null>;
+
+  /** Récupérer l'index public OPQ des pharmaciens, sur action utilisateur */
+  fetchOpqPharmacistRegistry(): Promise<OpqPharmacistRegistryEntry[]>;
 
   /**
    * Génère un PDF de facture

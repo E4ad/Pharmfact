@@ -59,7 +59,7 @@ const browserStorageAdapter: AppStorageAdapter = {
 // ============================================================================
 
 const browserFileAdapter: AppFileAdapter = {
-  async download(params: { data: Blob | string; filename: string; mimeType: string }): Promise<void> {
+  async download(params: { data: Blob | string; filename: string; mimeType: string }): Promise<boolean> {
     const { data, filename, mimeType } = params;
     const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
     
@@ -73,6 +73,7 @@ const browserFileAdapter: AppFileAdapter = {
     
     // Nettoyer après un délai pour éviter les fuites mémoire
     setTimeout(() => URL.revokeObjectURL(url), 100);
+    return true;
   },
 
   async open(params?: { accept?: string[] }): Promise<File | null> {
@@ -202,6 +203,10 @@ const browserApiAdapter: AppApiAdapter = {
     } catch {
       return null;
     }
+  },
+
+  async fetchOpqPharmacistRegistry() {
+    return [];
   },
 
   async generateInvoicePdf(invoice: Invoice, state: AppState): Promise<Blob> {

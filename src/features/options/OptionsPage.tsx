@@ -1,5 +1,5 @@
 import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton } from '@mui/material';
+import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton, CircularProgress } from '@mui/material';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
 import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
@@ -13,11 +13,14 @@ import { useSearchParams } from 'react-router-dom';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { OptionActionCard } from '../../components/OptionActionCard';
-import { exportAppState, importAppState, resetAppState, useAppState, updateAppState } from '../../storage/localStore';
+import { resetAppState, useAppState, updateAppState } from '../../storage/localStore';
 import { activePharmacien, selectAppOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions } from '../../storage/selectors';
 import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings, Pharmacie, Pharmacien } from '../../storage/schema';
 import { PharmacieFormModal } from '../pharmacies/PharmacieFormModal';
 import { PharmacienFormModal } from '../pharmaciens/PharmacienFormModal';
+import { getPlatformAsync } from '../../services/platformService';
+import { createBackup, downloadBackup, importBackup, loadBackupFromFile, type BackupResult } from '../../services/backupService';
+import { formatBytes } from '../../services/formatting';
 
 const missionTypes = [
   ['REMPLACEMENT_OFFICINE', 'Remplacement officine'],
@@ -51,6 +54,9 @@ export function OptionsPage() {
   const [pharmacienModalOpen, setPharmacienModalOpen] = useState(false);
   const [pharmacienModalId, setPharmacienModalId] = useState<string | undefined>();
   const [resetOpen, setResetOpen] = useState(false);
+  const [opqSyncing, setOpqSyncing] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [importResult, setImportResult] = useState<BackupResult | null>(null);
 
   useEffect(() => {
     setForm(appOptions);
@@ -109,15 +115,20 @@ export function OptionsPage() {
     }
   };
 
-  function downloadExport() {
-    const blob = new Blob([exportAppState()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `pharmfact-export-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setToast({ severity: 'success', message: 'Export JSON téléchargé.' });
+  async function downloadExport() {
+    setBackupBusy(true);
+    setImportResult(null);
+    try {
+      const backup = createBackup(state);
+      const saved = await downloadBackup(backup);
+      if (saved) {
+        setToast({ severity: 'success', message: `Sauvegarde exportée (${formatBytes(backup.size)}).` });
+      }
+    } catch {
+      setToast({ severity: 'error', message: 'Export impossible. Veuillez réessayer.' });
+    } finally {
+      setBackupBusy(false);
+    }
   }
 
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
@@ -126,11 +137,34 @@ export function OptionsPage() {
     if (!file) return;
 
     try {
-      importAppState(await file.text());
-      setToast({ severity: 'success', message: 'Données importées avec succès.' });
+      const parsed = await loadBackupFromFile(file);
+      setImportResult(parsed);
+      if (!parsed.success) {
+        setToast({ severity: 'error', message: 'Import impossible. Vérifiez le fichier JSON.' });
+        return;
+      }
+
+      const platform = await getPlatformAsync();
+      const confirmed = await platform.system.showConfirm(
+        'Restaurer cette sauvegarde remplacera les données actuelles. Une sauvegarde de sécurité sera demandée avant la restauration. Continuer ?',
+      );
+      if (!confirmed) return;
+
+      setBackupBusy(true);
+      const restored = await importBackup(parsed);
+      setImportResult(restored);
+      if (!restored.success) {
+        setToast({ severity: 'error', message: restored.errors[0] || 'Restauration annulée.' });
+        return;
+      }
+
+      setToast({ severity: 'success', message: 'Données restaurées avec succès.' });
       setActiveCategory(null);
+      window.location.reload();
     } catch {
       setToast({ severity: 'error', message: 'Import impossible. Vérifiez que le fichier JSON provient de cette application.' });
+    } finally {
+      setBackupBusy(false);
     }
   }
 
@@ -139,6 +173,32 @@ export function OptionsPage() {
     setResetOpen(false);
     setActiveCategory(null);
     setToast({ severity: 'success', message: 'Données réinitialisées avec les données de démonstration.' });
+  }
+
+  async function syncOpqRegistry() {
+    setOpqSyncing(true);
+    try {
+      const platform = await getPlatformAsync();
+      const entries = await platform.api.fetchOpqPharmacistRegistry();
+      if (!entries.length) {
+        setToast({ severity: 'error', message: 'Référentiel indisponible pour le moment.' });
+        return;
+      }
+
+      updateAppState((current) => ({
+        ...current,
+        opqPharmacistRegistry: {
+          entries,
+          updatedAt: new Date().toISOString(),
+          sourceUrl: 'https://www.opq.org/trouver-un-pharmacien/',
+        },
+      }));
+      setToast({ severity: 'success', message: `${entries.length} pharmaciens ajoutés au référentiel local.` });
+    } catch {
+      setToast({ severity: 'error', message: 'Mise à jour du référentiel impossible.' });
+    } finally {
+      setOpqSyncing(false);
+    }
   }
 
   return (
@@ -609,19 +669,54 @@ export function OptionsPage() {
             label="Sauvegarde automatique"
           />
           <Divider />
+          {importResult ? (
+            <Alert severity={importResult.success ? 'success' : 'error'} onClose={() => setImportResult(null)}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {importResult.success ? 'Sauvegarde compatible' : 'Sauvegarde refusée'}
+              </Typography>
+              <Typography variant="caption" component="div">
+                Version {importResult.fromVersion} → {importResult.toVersion}
+              </Typography>
+              {importResult.warnings.length ? (
+                <Typography variant="caption" component="div" color="warning.main">
+                  {importResult.warnings.length} avertissement(s) détecté(s).
+                </Typography>
+              ) : null}
+              {importResult.errors.length ? (
+                <Typography variant="caption" component="div">
+                  {importResult.errors[0]}
+                </Typography>
+              ) : null}
+            </Alert>
+          ) : null}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
             <DataAction
               title="Exporter"
               description="Télécharger une sauvegarde JSON complète."
-              action={<Button variant="contained" startIcon={<DownloadRoundedIcon />} onClick={downloadExport}>Exporter</Button>}
+              action={
+                <Button
+                  variant="contained"
+                  startIcon={backupBusy ? <CircularProgress color="inherit" size={18} /> : <DownloadRoundedIcon />}
+                  onClick={downloadExport}
+                  disabled={backupBusy}
+                >
+                  Exporter
+                </Button>
+              }
             />
             <DataAction
               title="Importer"
-              description="Restaurer un export JSON compatible."
+              description="Restaurer une sauvegarde compatible après validation."
               action={
                 <>
                   <input ref={fileInputRef} type="file" accept="application/json,.json" hidden onChange={importFile} />
-                  <Button variant="outlined" color="inherit" startIcon={<UploadRoundedIcon />} onClick={() => fileInputRef.current?.click()}>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    startIcon={backupBusy ? <CircularProgress color="inherit" size={18} /> : <UploadRoundedIcon />}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={backupBusy}
+                  >
                     Importer
                   </Button>
                 </>
@@ -644,6 +739,19 @@ export function OptionsPage() {
               </Box>
             </CardContent>
           </Card>
+          <DataAction
+            title="Référentiel OPQ"
+            description={
+              state.opqPharmacistRegistry.updatedAt
+                ? `${state.opqPharmacistRegistry.entries.length} pharmaciens · Mis à jour le ${state.opqPharmacistRegistry.updatedAt.slice(0, 10)}`
+                : 'Permet de vérifier localement l’existence d’un pharmacien par numéro de permis.'
+            }
+            action={
+              <Button variant="outlined" onClick={() => syncOpqRegistry().catch(() => {})} disabled={opqSyncing}>
+                {opqSyncing ? 'Mise à jour...' : 'Mettre à jour'}
+              </Button>
+            }
+          />
         </Stack>
       </SettingsModal>
 
@@ -669,7 +777,7 @@ export function OptionsPage() {
             <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
               Pharmaciens & Pharmacies
             </Typography>
-            <IconButton onClick={() => setActiveCategory(null)} sx={{ p: 0.5 }}>
+            <IconButton aria-label="Fermer" onClick={() => setActiveCategory(null)} sx={{ p: 0.5 }}>
               <CloseRoundedIcon />
             </IconButton>
           </Stack>
@@ -856,7 +964,7 @@ function SettingsModal({
           <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
             {title}
           </Typography>
-          <IconButton onClick={onClose} sx={{ p: 0.5 }}>
+          <IconButton aria-label="Fermer" onClick={onClose} sx={{ p: 0.5 }}>
             <CloseRoundedIcon />
           </IconButton>
         </Stack>

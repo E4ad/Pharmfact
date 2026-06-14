@@ -39,7 +39,7 @@ import { expenseTypeConfig, missionQuickExpenseTypes } from '../../services/expe
 import { getAvailableEditActions, getInvoiceEditImpact, type MissionEditAction } from '../../services/missionEditRules';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { ExpenseReceipt, Invoice, Mission, MissionExpense, MissionStatus } from '../../storage/schema';
-import { findInvoice, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
+import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
 import './MissionFormPage.css';
 import { getPlatform } from '../../services/platformService';
 import { PharmacieFormModal } from '../pharmacies/PharmacieFormModal';
@@ -262,7 +262,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
       <BackHomeButton to={mode === 'edit' ? returnPath : '/activity'} label={mode === 'edit' ? 'Missions' : 'Accueil'} data-testid="mission-form-back-button" />
       <h1>{mode === 'edit' ? 'Modifier mission' : 'Nouvelle mission'}</h1>
       <p>Créez une mission de remplacement. La facture sera générée automatiquement à partir des horaires, frais et informations saisies.</p>
-      <div className="mission-heading-summary">{[pharmacien?.nom, pharmacie?.nom, values.dateDebut].filter(Boolean).join(' · ')}</div>
+      <div className="mission-heading-summary">{[pharmacien?.nom, pharmacie ? pharmacieDisplayName(pharmacie) : undefined, values.dateDebut].filter(Boolean).join(' · ')}</div>
     </div>
     {mode === 'edit' ? <MissionWarning invoice={invoice} /> : null}
     <div className="mission-form-grid">
@@ -273,7 +273,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
       <MissionLocationCard
         values={values}
         pharmacies={state.pharmacies}
-        pharmacyName={pharmacie?.nom}
+        pharmacyName={pharmacie ? pharmacieDisplayName(pharmacie) : undefined}
         address={addressOf(pharmacie)}
         onOpenPharmacyModal={() => setPharmacieModalOpen(true)}
         onChangePharmacie={changePharmacie}
@@ -290,7 +290,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
         values={values}
         onSetValues={setValues}
         regenerateDays={regenerateDays}
-        pharmacyName={pharmacie?.nom}
+        pharmacyName={pharmacie ? pharmacieDisplayName(pharmacie) : undefined}
         pharmacistName={pharmacien?.nom}
       />
       <MissionDaysSection values={values} receipts={[...state.expenseReceipts, ...pendingReceipts]} openDayId={openDayId} setOpenDayId={setOpenDayId} updateDay={updateDay} addExpense={addExpense} addTypedExpense={addTypedExpense} updateExpense={updateExpense} removeExpense={removeExpense} addReceipt={addReceipt} deleteReceipt={deleteReceipt} />
@@ -318,7 +318,7 @@ function MissionLocationCard({
   onDistanceChange,
 }: {
   values: MissionFormValues;
-  pharmacies: Array<{ id: string; nom: string }>;
+  pharmacies: Array<{ id: string; nom: string; displayLabel?: string }>;
   pharmacyName?: string;
   address: string;
   onOpenPharmacyModal: () => void;
@@ -348,7 +348,7 @@ function MissionLocationCard({
           >
             {pharmacies.map((item) => (
               <MenuItem key={item.id} value={item.id}>
-                {item.nom}
+                {pharmacieDisplayName(item)}
               </MenuItem>
             ))}
             <Divider sx={{ my: 0.5 }} />

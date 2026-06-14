@@ -1,12 +1,20 @@
-import type { AppOptions, AppState, DeductibleExpense, FiscalSettings, Invoice, Mission, MissionDay, MissionEvent, Pharmacien, Pharmacie, TaxPayment, UiSettings, LocalDataSettings } from './schema';
+import type { AppOptions, AppState, DeductibleExpense, FiscalSettings, Invoice, Mission, MissionDay, MissionEvent, Pharmacien, Pharmacie, TaxPayment, UiSettings, LocalDataSettings, OpqPharmacistRegistry } from './schema';
 import { addDaysIso, createId, todayIso } from '../services/ids';
 import { calculateMission } from '../services/missionCalculator';
 import { createDefaultUiSettings } from './settings/uiSettings';
 import { createDefaultLocalDataSettings } from './settings/localDataSettings';
+import { OPQ_REGISTRY_SOURCE_URL, bundledOpqRegistryEntries } from '../services/opqRegistry';
 
 const today = todayIso();
 const yesterday = addDaysIso(today, -1);
 const nextWeek = addDaysIso(today, 7);
+
+function createDefaultOpqPharmacistRegistry(): OpqPharmacistRegistry {
+  return {
+    entries: bundledOpqRegistryEntries(),
+    sourceUrl: OPQ_REGISTRY_SOURCE_URL,
+  };
+}
 
 const pharmaciens: Pharmacien[] = [
   {
@@ -292,6 +300,7 @@ export function createSeedState(): AppState {
     expenseReceipts: [],
     fiscalSettings: createDefaultFiscalSettings(),
     distanceReferences: [],
+    opqPharmacistRegistry: createDefaultOpqPharmacistRegistry(),
     appOptions: createDefaultAppOptions(),
     uiSettings: createDefaultUiSettings(),
     localDataSettings: createDefaultLocalDataSettings(),
@@ -319,6 +328,7 @@ export function createDemoState(): AppState {
     expenseReceipts: [],
     fiscalSettings: createDefaultFiscalSettings(2026),
     distanceReferences: [],
+    opqPharmacistRegistry: createDefaultOpqPharmacistRegistry(),
     appOptions: createDefaultAppOptions(),
     uiSettings: createDefaultUiSettings(),
     localDataSettings: createDefaultLocalDataSettings(),

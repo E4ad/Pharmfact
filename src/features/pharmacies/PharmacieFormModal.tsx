@@ -1,13 +1,14 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Stack, TextField, Typography } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { FormEvent, useState, useEffect } from 'react';
-import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
-import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
+import { PharmacyRegistryAutocompleteInput } from '../../components/PharmacyRegistryAutocompleteInput';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacie } from '../../storage/schema';
 import { createId } from '../../services/ids';
 import { getPlatform } from '../../services/platformService';
+import { buildSantePharmacyNotes, getSantePharmacyAddressParts, type SantePharmacyRegistryEntry } from '../../services/santePharmacyRegistry';
+import { findDuplicatePharmacy } from '../../services/entityDuplicates';
 
 interface PharmacieFormModalProps {
   open: boolean;
@@ -18,9 +19,11 @@ interface PharmacieFormModalProps {
 export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieFormModalProps) {
   const state = useAppState();
   const existingPharmacie = pharmacieId ? state.pharmacies.find(p => p.id === pharmacieId) : undefined;
+  const formId = 'pharmacie-modal-form';
 
   const [form, setForm] = useState({
     nom: '',
+    displayLabel: '',
     adresse: '',
     codePostal: '',
     ville: '',
@@ -39,6 +42,7 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
     if (existingPharmacie) {
       setForm({
         nom: existingPharmacie.nom || '',
+        displayLabel: existingPharmacie.displayLabel || existingPharmacie.nom || '',
         adresse: existingPharmacie.adresse || '',
         codePostal: existingPharmacie.codePostal || '',
         ville: existingPharmacie.ville || '',
@@ -55,6 +59,7 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
       // Réinitialiser le formulaire si on ajoute une nouvelle pharmacie
       setForm({
         nom: '',
+        displayLabel: '',
         adresse: '',
         codePostal: '',
         ville: '',
@@ -74,18 +79,32 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function selectAddress(suggestion: GeocodeSuggestion) {
+  function selectRegistryPharmacy(pharmacy: SantePharmacyRegistryEntry) {
+    const address = getSantePharmacyAddressParts(pharmacy);
+    const registryNotes = buildSantePharmacyNotes(pharmacy);
     setForm((current) => ({
       ...current,
-      adresse: suggestion.addressLine || suggestion.displayName,
-      ville: suggestion.city || current.ville,
-      codePostal: suggestion.postcode || current.codePostal,
-      rue: suggestion.road || current.rue,
-      numero: suggestion.houseNumber || current.numero,
-      lat: suggestion.lat,
-      lng: suggestion.lng,
+      nom: pharmacy.name,
+      displayLabel: pharmacy.name,
+      adresse: address.adresse,
+      ville: address.ville,
+      codePostal: address.codePostal,
+      rue: address.rue || '',
+      numero: address.numero || '',
+      telephone: address.telephone || current.telephone,
+      lat: address.lat,
+      lng: address.lng,
+      notes: registryNotes || current.notes,
     }));
   }
+
+  const duplicatePharmacy = findDuplicatePharmacy(state.pharmacies, {
+    nom: form.nom,
+    displayLabel: form.displayLabel,
+    adresse: form.adresse,
+    ville: form.ville,
+    codePostal: form.codePostal,
+  }, existingPharmacie?.id);
 
   async function handleDelete() {
     if (!existingPharmacie) return;
@@ -102,10 +121,12 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.nom.trim()) return;
+    if (duplicatePharmacy) return;
 
     const pharmacie: Pharmacie = {
       id: existingPharmacie?.id || createId('pha'),
       nom: form.nom.trim(),
+      displayLabel: form.displayLabel.trim() || form.nom.trim(),
       adresse: form.adresse.trim(),
       rue: form.rue.trim() || undefined,
       numero: form.numero.trim() || undefined,
@@ -149,6 +170,7 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
           {existingPharmacie ? 'Modifier la pharmacie' : 'Ajouter une pharmacie'}
         </Typography>
         <IconButton
+          aria-label="Fermer"
           onClick={onClose}
           sx={{ position: 'absolute', top: 8, right: 8, p: 0.5 }}
         >
@@ -161,13 +183,36 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
             Modification de : {existingPharmacie.nom}
           </Alert>
         )}
-        <Stack component="form" onSubmit={submit} spacing={3}>
+        <Stack id={formId} component="form" onSubmit={submit} spacing={3}>
           <Typography variant="h4" sx={{ mt: 1 }}>Informations générales</Typography>
           <Divider sx={{ my: 1 }} />
           <Stack sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
-            <TextField label="Nom de la pharmacie *" value={form.nom} onChange={(e) => update('nom', e.target.value)} required />
+            <PharmacyRegistryAutocompleteInput
+              label="Nom officiel ou adresse de la pharmacie *"
+              value={form.nom}
+              onChange={(value) => update('nom', value)}
+              onSelect={selectRegistryPharmacy}
+              required
+            />
+            <TextField
+              label="Dénomination affichée *"
+              value={form.displayLabel}
+              onChange={(event) => update('displayLabel', event.target.value)}
+              helperText="Nom court utilisé dans l’app et sur les factures."
+              required
+            />
+            {duplicatePharmacy ? (
+              <Alert severity="warning" sx={{ gridColumn: '1 / -1' }}>
+                Cette pharmacie semble déjà exister : {duplicatePharmacy.displayLabel || duplicatePharmacy.nom}.
+              </Alert>
+            ) : null}
             <Box sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }}>
-              <AddressAutocompleteInput label="Adresse" value={form.adresse} onChange={(value) => update('adresse', value)} onSelect={selectAddress} />
+              <PharmacyRegistryAutocompleteInput
+                label="Adresse"
+                value={form.adresse}
+                onChange={(value) => update('adresse', value)}
+                onSelect={selectRegistryPharmacy}
+              />
             </Box>
             <TextField label="Code postal" value={form.codePostal} onChange={(e) => update('codePostal', e.target.value)} />
             <TextField label="Ville" value={form.ville} onChange={(e) => update('ville', e.target.value)} />
@@ -187,7 +232,7 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
         <Button variant="outlined" onClick={onClose} sx={{ borderRadius: 999 }}>
           Annuler
         </Button>
-        <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} sx={{ borderRadius: 999 }}>
+        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacy)} sx={{ borderRadius: 999 }}>
           {existingPharmacie ? 'Enregistrer les modifications' : 'Enregistrer'}
         </Button>
       </DialogActions>

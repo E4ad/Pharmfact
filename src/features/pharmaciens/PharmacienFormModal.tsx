@@ -10,6 +10,8 @@ import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacien, TaxStatus } from '../../storage/schema';
 import { createId } from '../../services/ids';
 import { getPlatform } from '../../services/platformService';
+import { findOpqPharmacistByLicense, normalizeOpqLicenseNumber } from '../../services/opqRegistry';
+import { findDuplicatePharmacist } from '../../services/entityDuplicates';
 
 interface PharmacienFormModalProps {
   open: boolean;
@@ -20,9 +22,11 @@ interface PharmacienFormModalProps {
 export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienFormModalProps) {
   const state = useAppState();
   const existingPharmacien = pharmacienId ? state.pharmaciens.find(p => p.id === pharmacienId) : undefined;
+  const formId = 'pharmacien-modal-form';
 
   const [form, setForm] = useState({
     nom: '',
+    opqLicenseNumber: '',
     adresse: '',
     ville: '',
     codePostal: '',
@@ -45,6 +49,7 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
     if (existingPharmacien) {
       setForm({
         nom: existingPharmacien.nom || '',
+        opqLicenseNumber: existingPharmacien.opqLicenseNumber || '',
         adresse: existingPharmacien.adresse || '',
         ville: existingPharmacien.ville || '',
         codePostal: existingPharmacien.codePostal || '',
@@ -65,6 +70,7 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
       // Réinitialiser le formulaire si on ajoute un nouveau pharmacien
       setForm({
         nom: '',
+        opqLicenseNumber: '',
         adresse: '',
         ville: '',
         codePostal: '',
@@ -101,6 +107,15 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
     }));
   }
 
+  const opqMatch = findOpqPharmacistByLicense(state.opqPharmacistRegistry.entries, form.opqLicenseNumber);
+  const normalizedOpqLicenseNumber = normalizeOpqLicenseNumber(form.opqLicenseNumber);
+  const duplicatePharmacien = findDuplicatePharmacist(state.pharmaciens, {
+    nom: form.nom,
+    opqLicenseNumber: form.opqLicenseNumber,
+    email: form.email,
+    codePostal: form.codePostal,
+  }, existingPharmacien?.id);
+
   async function handleDelete() {
     if (!existingPharmacien) return;
     const confirmed = await getPlatform().system.showConfirm(`Voulez-vous vraiment supprimer le pharmacien "${existingPharmacien.nom}" ?`);
@@ -117,10 +132,15 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.nom.trim()) return;
+    if (duplicatePharmacien) return;
 
     const pharmacien: Pharmacien = {
       id: existingPharmacien?.id || createId('ph'),
       nom: form.nom.trim(),
+      opqLicenseNumber: normalizedOpqLicenseNumber || undefined,
+      opqRegistryId: opqMatch?.id ?? existingPharmacien?.opqRegistryId,
+      opqStatusLabel: opqMatch ? 'Inscrit au référentiel OPQ' : existingPharmacien?.opqStatusLabel,
+      opqVerifiedAt: opqMatch ? new Date().toISOString() : existingPharmacien?.opqVerifiedAt,
       adresse: form.adresse.trim(),
       rue: form.rue.trim() || undefined,
       numero: form.numero.trim() || undefined,
@@ -172,6 +192,7 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
           {existingPharmacien ? 'Modifier le pharmacien' : 'Nouveau pharmacien'}
         </Typography>
         <IconButton
+          aria-label="Fermer"
           onClick={onClose}
           sx={{ position: 'absolute', top: 8, right: 8, p: 0.5 }}
         >
@@ -184,14 +205,29 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
             Modification de : {existingPharmacien.nom}
           </Alert>
         )}
-        <Stack component="form" onSubmit={submit} spacing={3}>
+        <Stack id={formId} component="form" onSubmit={submit} spacing={3}>
           <Typography variant="h4" sx={{ mt: 1 }}>Profil professionnel</Typography>
           <Divider sx={{ my: 1 }} />
           <Stack sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
             <TextField label="Nom complet *" value={form.nom} onChange={(e) => update('nom', e.target.value)} required />
+            <TextField label="Numéro de permis OPQ" value={form.opqLicenseNumber} onChange={(e) => update('opqLicenseNumber', e.target.value)} />
             <Box sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }}>
               <AddressAutocompleteInput label="Adresse" value={form.adresse} onChange={(value) => update('adresse', value)} onSelect={selectAddress} />
             </Box>
+            {normalizedOpqLicenseNumber ? (
+              <Alert severity={opqMatch ? 'success' : 'warning'} sx={{ gridColumn: '1 / -1' }}>
+                {opqMatch
+                  ? `Pharmacien confirmé : ${opqMatch.fullName}${opqMatch.city ? ` · ${opqMatch.city}` : ''}`
+                  : state.opqPharmacistRegistry.entries.length
+                    ? 'Aucun pharmacien trouvé pour ce numéro dans le référentiel local.'
+                    : 'Référentiel OPQ non synchronisé. Mise à jour disponible dans Options > Données locales.'}
+              </Alert>
+            ) : null}
+            {duplicatePharmacien ? (
+              <Alert severity="warning" sx={{ gridColumn: '1 / -1' }}>
+                Ce pharmacien semble déjà exister : {duplicatePharmacien.nom}.
+              </Alert>
+            ) : null}
             <TextField label="Ville" value={form.ville} onChange={(e) => update('ville', e.target.value)} />
             <TextField label="Code postal" value={form.codePostal} onChange={(e) => update('codePostal', e.target.value)} />
             <TextField label="Téléphone" value={form.telephone} onChange={(e) => update('telephone', e.target.value)} />
@@ -219,14 +255,14 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
       </DialogContent>
       <DialogActions sx={{ p: 3, pt: 0 }}>
         {existingPharmacien && (
-          <IconButton onClick={() => handleDelete().catch(() => {})} color="error" title="Supprimer ce pharmacien">
+          <IconButton aria-label="Supprimer ce pharmacien" onClick={() => handleDelete().catch(() => {})} color="error" title="Supprimer ce pharmacien">
             <DeleteRoundedIcon />
           </IconButton>
         )}
         <Button variant="outlined" onClick={onClose} sx={{ borderRadius: 999 }}>
           Annuler
         </Button>
-        <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} sx={{ borderRadius: 999 }}>
+        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacien)} sx={{ borderRadius: 999 }}>
           {existingPharmacien ? 'Enregistrer les modifications' : 'Enregistrer'}
         </Button>
       </DialogActions>

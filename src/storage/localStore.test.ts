@@ -98,6 +98,32 @@ describe('localStore migration', () => {
 
     expect(state.version).toBe(2);
     expect(state.appOptions.missionDefaults.defaultBreakMinutes).toBe(60);
+    expect(state.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
+  });
+
+  it('fills an existing empty OPQ registry from the bundled snapshot', () => {
+    const v2 = {
+      version: 2,
+      pharmaciens: [],
+      pharmacies: [],
+      missions: [],
+      invoices: [],
+      taxPayments: [],
+      deductibleExpenses: [],
+      expenseReceipts: [],
+      fiscalSettings: { reserveRate: 0.3 },
+      distanceReferences: [],
+      opqPharmacistRegistry: { entries: [], sourceUrl: 'https://www.opq.org/trouver-un-pharmacien/' },
+      appOptions: { missionDefaults: { defaultBreakMinutes: 60 }, invoiceDefaults: { invoiceDueDays: 30 }, pdfCalendar: { calendarIcsEnabled: true } },
+      uiSettings: { themeMode: 'light' },
+      localDataSettings: { autoBackupEnabled: true },
+      ui: {},
+    };
+
+    importAppState(JSON.stringify(v2));
+    const state = getAppState();
+
+    expect(state.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
   });
 
   it('resets state to default via resetAppState', () => {
@@ -107,7 +133,8 @@ describe('localStore migration', () => {
     resetAppState();
     const state = getAppState();
     expect(state.version).toBe(2);
-    expect(state.pharmaciens.length).toBeGreaterThan(0);
+    expect(state.pharmaciens).toEqual([]);
+    expect(state.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
   });
 
   it('preserves fiscalSettings with fallbacks', () => {
@@ -150,7 +177,9 @@ describe('localStore state operations', () => {
   it('returns seed state when localStorage is empty', () => {
     const state = getAppState();
     expect(state.version).toBe(2);
-    expect(state.pharmaciens.length).toBeGreaterThan(0);
+    expect(state.pharmaciens).toEqual([]);
+    expect(state.opqPharmacistRegistry.sourceUrl).toBe('https://www.opq.org/trouver-un-pharmacien/');
+    expect(state.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
   });
 
   it('updates state via updateAppState', () => {
@@ -169,6 +198,7 @@ describe('localStore state operations', () => {
     const parsed = JSON.parse(json);
 
     expect(parsed.version).toBe(2);
-    expect(parsed.pharmaciens.length).toBeGreaterThan(0);
+    expect(parsed.pharmaciens).toEqual([]);
+    expect(parsed.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
   });
 });

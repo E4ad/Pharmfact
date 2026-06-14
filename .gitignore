@@ -2,6 +2,9 @@ node_modules/
 dist/
 .env*
 data/
+!src/data/
+!src/data/opq-pharmacists-index.json
+!src/data/sante-pharmacies-index.json
 screenshots/
 .kilo/
 *.log

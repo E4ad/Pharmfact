@@ -16,7 +16,7 @@ export function ReceivablesDrawer({ open, onClose, invoices }: ReceivablesDrawer
         {invoices.length === 0 ? (
           <Typography>Aucune facture en attente de paiement.</Typography>
         ) : (
-          <Table size="small">
+          <Table size="small" aria-label="Factures à encaisser">
             <TableHead>
               <TableRow>
                 <TableCell>Date</TableCell>

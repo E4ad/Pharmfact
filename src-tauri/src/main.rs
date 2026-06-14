@@ -15,6 +15,8 @@ use tauri::{path::BaseDirectory, Manager};
 
 const APP_DATA_DIR: &str = "Pharmfact";
 const STATE_FILE: &str = "app-state.json";
+const OPQ_PHARMACIST_INDEX_URL: &str =
+    "https://www.opq.org/wp-content/uploads/pharmacist-search/pharmacists_index.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,8 +34,44 @@ struct GeocodeSuggestion {
     source: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RouteDistanceInput {
+    from_lat: f64,
+    from_lng: f64,
+    to_lat: f64,
+    to_lng: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RouteDistanceResult {
+    distance_km: i64,
+    distance_aller_km: i64,
+    source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpqPharmacistRegistryEntry {
+    id: String,
+    full_name: String,
+    license_number: Option<String>,
+    student_license_number: Option<String>,
+    city: Option<String>,
+    is_student: bool,
+}
+
 fn normalize_geocode_text(value: &str) -> String {
     value.trim().to_lowercase()
+}
+
+fn json_f64_value(item: &Value, key: &str) -> Option<f64> {
+    item.get(key).and_then(|value| {
+        value
+            .as_f64()
+            .or_else(|| value.as_str().and_then(|text| text.parse::<f64>().ok()))
+    })
 }
 
 fn is_quebec_geocode_suggestion(suggestion: &GeocodeSuggestion) -> bool {
@@ -56,15 +94,10 @@ fn is_quebec_geocode_suggestion(suggestion: &GeocodeSuggestion) -> bool {
 
 fn geocode_suggestion_from_value(item: &Value, source: &str) -> Option<GeocodeSuggestion> {
     let address = item.get("address").and_then(|value| value.as_object());
-    let lat = item
-        .get("lat")
-        .and_then(|value| value.as_f64())
-        .or_else(|| item.get("latitude").and_then(|value| value.as_f64()));
-    let lng = item
-        .get("lon")
-        .and_then(|value| value.as_f64())
-        .or_else(|| item.get("lng").and_then(|value| value.as_f64()))
-        .or_else(|| item.get("longitude").and_then(|value| value.as_f64()));
+    let lat = json_f64_value(item, "lat").or_else(|| json_f64_value(item, "latitude"));
+    let lng = json_f64_value(item, "lon")
+        .or_else(|| json_f64_value(item, "lng"))
+        .or_else(|| json_f64_value(item, "longitude"));
 
     let road = item
         .get("street")
@@ -171,7 +204,7 @@ async fn search_addresses_nominatim(query: &str) -> Result<Vec<GeocodeSuggestion
     let endpoint = std::env::var("GEOCODE_ENDPOINT")
         .unwrap_or_else(|_| "https://nominatim.openstreetmap.org/search".to_string());
     let user_agent = std::env::var("GEOCODE_USER_AGENT")
-        .unwrap_or_else(|_| "mission-app-local-prototype/0.1".to_string());
+        .unwrap_or_else(|_| "Pharmfact/1.0 contact:local".to_string());
     let client = Client::builder()
         .timeout(Duration::from_secs(5))
         .build()
@@ -206,11 +239,14 @@ async fn search_addresses_nominatim(query: &str) -> Result<Vec<GeocodeSuggestion
         .map_err(|error| format!("Nominatim a renvoyé un JSON invalide: {}", error))?;
     let results = payload.as_array().cloned().unwrap_or_default();
 
-    Ok(results
+    let suggestions = results
         .iter()
         .filter_map(|item| geocode_suggestion_from_value(item, "nominatim"))
         .take(6)
-        .collect())
+        .collect::<Vec<_>>();
+
+    log::info!("[OSM] Géocodage: {} résultat(s)", suggestions.len());
+    Ok(suggestions)
 }
 
 #[tauri::command]
@@ -223,10 +259,104 @@ async fn geocode_address(query: String) -> Result<Vec<GeocodeSuggestion>, String
     match search_addresses_nominatim(&query).await {
         Ok(results) => Ok(results),
         Err(error) => {
-            log::warn!("[GEO] Géocodage indisponible: {}", error);
+            log::warn!("[OSM] Géocodage indisponible: {}", error);
             Ok(vec![])
         }
     }
+}
+
+fn route_distance_from_payload(payload: &Value) -> Option<RouteDistanceResult> {
+    let meters = payload
+        .get("routes")
+        .and_then(|value| value.as_array())
+        .and_then(|routes| routes.first())
+        .and_then(|route| route.get("distance"))
+        .and_then(|value| value.as_f64())?;
+
+    if !meters.is_finite() || meters <= 0.0 {
+        return None;
+    }
+
+    let distance_aller_km = ((meters / 1000.0).round() as i64).max(1);
+    Some(RouteDistanceResult {
+        distance_km: distance_aller_km * 2,
+        distance_aller_km,
+        source: "route".to_string(),
+    })
+}
+
+#[tauri::command]
+async fn route_distance(input: RouteDistanceInput) -> Result<Option<RouteDistanceResult>, String> {
+    let endpoint = std::env::var("ROUTE_DISTANCE_ENDPOINT")
+        .unwrap_or_else(|_| "https://router.project-osrm.org/route/v1/driving".to_string());
+    let client = Client::builder()
+        .timeout(Duration::from_secs(8))
+        .build()
+        .map_err(|error| format!("Client HTTP distance invalide: {}", error))?;
+    let url = format!(
+        "{}/{},{};{},{}",
+        endpoint.trim_end_matches('/'),
+        input.from_lng,
+        input.from_lat,
+        input.to_lng,
+        input.to_lat
+    );
+
+    let response = client
+        .get(url)
+        .query(&[("overview", "false")])
+        .header("Accept", "application/json")
+        .header("User-Agent", "Pharmfact/1.0 contact:local")
+        .send()
+        .await
+        .map_err(|error| format!("Distance routière inaccessible: {}", error))?;
+
+    if !response.status().is_success() {
+        log::warn!("[OSM] Distance routière indisponible: {}", response.status());
+        return Ok(None);
+    }
+
+    let payload: Value = response
+        .json()
+        .await
+        .map_err(|error| format!("Distance routière JSON invalide: {}", error))?;
+    let result = route_distance_from_payload(&payload);
+    if let Some(distance) = &result {
+        log::info!("[OSM] Distance routière: {} km aller-retour", distance.distance_km);
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+async fn fetch_opq_pharmacist_registry() -> Result<Vec<OpqPharmacistRegistryEntry>, String> {
+    let endpoint = std::env::var("OPQ_PHARMACIST_INDEX_URL")
+        .unwrap_or_else(|_| OPQ_PHARMACIST_INDEX_URL.to_string());
+    let user_agent = std::env::var("OPQ_USER_AGENT")
+        .unwrap_or_else(|_| "Pharmfact/1.0 contact:local".to_string());
+    let client = Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|error| format!("Client HTTP OPQ invalide: {}", error))?;
+
+    let response = client
+        .get(endpoint)
+        .header("Accept", "application/json")
+        .header("User-Agent", user_agent)
+        .send()
+        .await
+        .map_err(|error| format!("Référentiel OPQ inaccessible: {}", error))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Référentiel OPQ indisponible: {}", response.status()));
+    }
+
+    let entries: Vec<OpqPharmacistRegistryEntry> = response
+        .json()
+        .await
+        .map_err(|error| format!("Référentiel OPQ JSON invalide: {}", error))?;
+
+    log::info!("[OPQ] Référentiel pharmaciens: {} entrée(s)", entries.len());
+    Ok(entries)
 }
 
 // ============================================================================
@@ -693,7 +823,14 @@ fn generate_invoice_pdf_bytes(
     let pharmacien_email = pharmacien.map(|item| json_str(item, "email")).unwrap_or("");
 
     let pharmacie_nom = pharmacie
-        .map(|item| json_str(item, "nom"))
+        .map(|item| {
+            let display_label = json_str(item, "displayLabel");
+            if display_label.is_empty() {
+                json_str(item, "nom")
+            } else {
+                display_label
+            }
+        })
         .filter(|value| !value.is_empty())
         .unwrap_or("Pharmacie");
     let pharmacie_adresse = pharmacie
@@ -1604,11 +1741,13 @@ async fn generate_invoice_pdf(
 ) -> Result<String, String> {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
 
-    let bytes = generate_invoice_pdf_bytes(invoice, state_json)?;
+    let bytes = tauri::async_runtime::spawn_blocking(move || generate_invoice_pdf_bytes(invoice, state_json))
+        .await
+        .map_err(|error| format!("[PDF] Erreur de génération: {}", error))??;
 
     // Encoder en base64 pour le retour JSON
     let base64_result = STANDARD.encode(&bytes);
-    log::info!("[PDF] Base64 générée, longueur: {}", base64_result.len());
+    log::debug!("[PDF] Base64 générée, longueur: {}", base64_result.len());
     Ok(base64_result)
 }
 
@@ -1630,6 +1769,8 @@ fn main() {
             clear_state,
             // Géocodage
             geocode_address,
+            route_distance,
+            fetch_opq_pharmacist_registry,
             // Fichiers
             download_file,
             read_file_text,
@@ -1688,8 +1829,8 @@ mod tests {
     fn geocode_values_support_nominatim_payloads() {
         let item = serde_json::json!({
             "display_name": "100 rue Saint-Denis, Montréal, Québec, Canada",
-            "lat": 45.515,
-            "lon": -73.56,
+            "lat": "45.515",
+            "lon": "-73.56",
             "city": "Montréal",
             "state": "Québec",
             "postcode": "H2X 3K4",
@@ -1711,6 +1852,57 @@ mod tests {
         assert_eq!(suggestion.country_code, "ca");
         assert_eq!(suggestion.lat, Some(45.515));
         assert_eq!(suggestion.lng, Some(-73.56));
+    }
+
+    #[test]
+    fn route_distance_payload_rounds_kilometers() {
+        let payload = serde_json::json!({
+            "routes": [
+                {
+                    "distance": 12345.0
+                }
+            ]
+        });
+
+        let distance = route_distance_from_payload(&payload)
+            .expect("OSRM route distance should be normalized");
+
+        assert_eq!(distance.distance_aller_km, 12);
+        assert_eq!(distance.distance_km, 24);
+        assert_eq!(distance.source, "route");
+    }
+
+    #[test]
+    fn route_distance_payload_rejects_invalid_distance() {
+        let payload = serde_json::json!({
+            "routes": [
+                {
+                    "distance": 0.0
+                }
+            ]
+        });
+
+        assert!(route_distance_from_payload(&payload).is_none());
+    }
+
+    #[test]
+    fn opq_registry_entries_parse_public_index_payload() {
+        let payload = r#"[{
+            "id": "opq-1",
+            "fullName": "Isabelle Fleurent",
+            "licenseNumber": "093224",
+            "studentLicenseNumber": null,
+            "city": "QUEBEC",
+            "isStudent": false
+        }]"#;
+
+        let entries: Vec<OpqPharmacistRegistryEntry> =
+            serde_json::from_str(payload).expect("OPQ registry payload should parse");
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].full_name, "Isabelle Fleurent");
+        assert_eq!(entries[0].license_number.as_deref(), Some("093224"));
+        assert!(!entries[0].is_student);
     }
 
     #[test]

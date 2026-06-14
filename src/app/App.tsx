@@ -17,6 +17,7 @@ function ThemeWrapper({ children }: { children: React.ReactNode }) {
   return (
     <MuiThemeProvider theme={theme}>
       <CssBaseline />
+      <a className="skip-link" href="#main-content">Aller au contenu principal</a>
       {children}
     </MuiThemeProvider>
   );

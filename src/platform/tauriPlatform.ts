@@ -10,8 +10,9 @@ import type {
   AppPdfAdapter,
   AppSystemAdapter,
   AppApiAdapter,
+  RouteDistanceResult,
 } from './types';
-import type { AppState, Invoice, ExpenseReceipt } from '../storage/schema';
+import type { AppState, Invoice, ExpenseReceipt, OpqPharmacistRegistryEntry } from '../storage/schema';
 import type { GeocodeSuggestion } from '../hooks/useAddressAutocomplete';
 import { createId } from '../services/ids';
 
@@ -152,7 +153,7 @@ const tauriStorageAdapter: AppStorageAdapter = {
 // ============================================================================
 
 const tauriFileAdapter: AppFileAdapter = {
-  async download(params: { data: Blob | string | Uint8Array; filename: string; mimeType: string }): Promise<void> {
+  async download(params: { data: Blob | string | Uint8Array; filename: string; mimeType: string }): Promise<boolean> {
     await initTauriApis();
     const { data, filename, mimeType } = params;
     
@@ -164,13 +165,18 @@ const tauriFileAdapter: AppFileAdapter = {
         : new TextEncoder().encode(data);
     
     // Sauvegarder avec dialogue natif
+    const extension = filename.includes('.') ? filename.split('.').pop() || mimeType.split('/')[1] : mimeType.split('/')[1];
     const filePath = await tauriApis!.save({
-      filters: [{ name: filename, extensions: [mimeType.split('/')[1]] }],
+      defaultPath: filename,
+      filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
     });
     
-    if (filePath) {
-      await tauriApis!.writeFile(filePath, dataBytes);
+    if (!filePath) {
+      return false;
     }
+
+    await tauriApis!.writeFile(filePath, dataBytes);
+    return true;
   },
 
   async open(params?: { accept?: string[] }): Promise<File | null> {
@@ -393,6 +399,7 @@ const tauriSystemAdapter: AppSystemAdapter = {
 const tauriApiAdapter: AppApiAdapter = {
   async geocode(query: string): Promise<GeocodeSuggestion[]> {
     try {
+      await initTauriApis();
       return await tauriApis!.invoke<GeocodeSuggestion[]>('geocode_address', { query });
     } catch {
       return [];
@@ -401,24 +408,19 @@ const tauriApiAdapter: AppApiAdapter = {
 
   async routeDistance(input) {
     try {
-      const coordinates = `${input.fromLng},${input.fromLat};${input.toLng},${input.toLat}`;
-      const url = new URL(`https://router.project-osrm.org/route/v1/driving/${coordinates}`);
-      url.searchParams.set('overview', 'false');
-      const response = await fetch(url.toString(), {
-        headers: { 'Accept': 'application/json' },
-      });
-      if (!response.ok) return null;
-      const payload = await response.json();
-      const meters = Number(payload?.routes?.[0]?.distance);
-      if (!Number.isFinite(meters) || meters <= 0) return null;
-      const distanceAllerKm = Math.max(1, Math.round(meters / 1000));
-      return {
-        distanceAllerKm,
-        distanceKm: distanceAllerKm * 2,
-        source: 'route' as const,
-      };
+      await initTauriApis();
+      return await tauriApis!.invoke<RouteDistanceResult | null>('route_distance', { input });
     } catch {
       return null;
+    }
+  },
+
+  async fetchOpqPharmacistRegistry(): Promise<OpqPharmacistRegistryEntry[]> {
+    try {
+      await initTauriApis();
+      return await tauriApis!.invoke<OpqPharmacistRegistryEntry[]>('fetch_opq_pharmacist_registry');
+    } catch {
+      return [];
     }
   },
 

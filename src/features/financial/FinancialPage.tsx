@@ -352,7 +352,7 @@ export function MonthlyFinancialView({
         <Card>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 2 }}>Dépenses issues des missions</Typography>
-            <Table size="small">
+            <Table size="small" aria-label="Dépenses déductibles">
               <TableHead>
                 <TableRow>
                   <TableCell>Date</TableCell>

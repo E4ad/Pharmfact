@@ -30,6 +30,7 @@ export function FinancialModal({ title, open, onClose, children, 'data-testid': 
       <DialogTitle sx={{ p: 3, pb: 0, position: 'relative' }}>
         <Typography variant="h6">{title}</Typography>
         <IconButton
+          aria-label="Fermer"
           onClick={onClose}
           sx={{ position: 'absolute', top: 8, right: 8 }}
         >

@@ -114,6 +114,8 @@ function InvoiceStatusBadge({ invoice }: { invoice: Invoice }) {
 }
 
 function InvoiceClientBlock({ mission, pharmacie }: { mission?: Mission; pharmacie?: Pharmacie }) {
+  const pharmacyName = pharmacie?.displayLabel || pharmacie?.nom;
+
   return (
     <table className="invoice-info-table">
       <tbody>
@@ -121,7 +123,7 @@ function InvoiceClientBlock({ mission, pharmacie }: { mission?: Mission; pharmac
           <td className="invoice-client-col">
             <div className="invoice-info-label">Facturé à</div>
             <div className="invoice-info-value">
-              <div className="invoice-client-name">{pharmacie?.nom ?? 'Pharmacie'}</div>
+              <div className="invoice-client-name">{pharmacyName ?? 'Pharmacie'}</div>
               <div>{pharmacie?.adresse || 'Adresse non renseignée'}</div>
               <div>{pharmacie?.ville ? `${pharmacie.ville}, QC ${pharmacie.codePostal}` : 'Ville non renseignée'}</div>
               <div>Téléphone : {pharmacie?.telephone || '—'}</div>

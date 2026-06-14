@@ -12,6 +12,10 @@ export function findPharmacie(state: AppState, id?: string): Pharmacie | undefin
   return state.pharmacies.find((pharmacie) => pharmacie.id === id);
 }
 
+export function pharmacieDisplayName(pharmacie?: Pick<Pharmacie, 'displayLabel' | 'nom'>): string {
+  return pharmacie?.displayLabel?.trim() || pharmacie?.nom?.trim() || 'Pharmacie';
+}
+
 export function findMission(state: AppState, id?: string): Mission | undefined {
   return state.missions.find((mission) => mission.id === id);
 }

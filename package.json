@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "screenshots": "node scripts/capture-ui.js",
     "screenshots:auto": "./scripts/run-captures.sh",
+    "build:pharmacy-registry": "node scripts/build-sante-pharmacy-registry.mjs",
     "start": "vite",
     "lint": "eslint src/ server/ --ext .ts,.tsx,.js",
     "lint:fix": "eslint src/ server/ --ext .ts,.tsx,.js --fix",

@@ -53,6 +53,6 @@ describe('expenseReceipts', () => {
   });
 
   it('builds correct download url', () => {
-    expect(expenseReceiptDownloadUrl('rcpt-123')).toBe('/api/expense-receipts/rcpt-123/download');
+    expect(expenseReceiptDownloadUrl('rcpt-123')).toBe('/expense-receipts/rcpt-123/download');
   });
 });

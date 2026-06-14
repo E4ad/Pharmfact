@@ -88,8 +88,8 @@
 
 .invoice-status {
   display: inline-block;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #e0e7ff;
+  color: #1e40af;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 7pt;
@@ -98,14 +98,14 @@
 }
 
 .invoice-status.is-paid {
-  background: #dcfce7;
-  color: #166534;
+  background: #d1fae5;
+  color: #065f46;
 }
 
 .invoice-status.is-archived,
 .invoice-status.is-voided {
-  background: #e5e7eb;
-  color: #374151;
+  background: #f3f4f6;
+  color: #1f2937;
 }
 
 .invoice-section-divider {

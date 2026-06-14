@@ -16,7 +16,7 @@ export function MissionGeneratedExpensesDrawer({ open, onClose, rows }: MissionG
         {rows.length === 0 ? (
           <Typography>Aucun frais de mission déductible à afficher.</Typography>
         ) : (
-          <Table size="small">
+          <Table size="small" aria-label="Dépenses issues des missions">
             <TableHead>
               <TableRow>
                 <TableCell>Date</TableCell>

@@ -30,7 +30,8 @@ import { missionStatusLabels } from '../../services/missionStatus';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Invoice, InvoiceStatus, Mission, MissionStatus, Pharmacie } from '../../storage/schema';
 import { getPlatformAsync } from '../../services/platformService';
-import { findInvoice, findPharmacien, findPharmacie, missionInvoice } from '../../storage/selectors';
+import { logMappedError, mapError } from '../../services/errorMapper';
+import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
 
 const missionStatusOptions: MissionStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'ARCHIVED'];
 const missionFilterOptions: Array<{ value: MissionStatus | 'ALL'; label: string }> = [
@@ -261,10 +262,11 @@ export function MissionsPage() {
         setToast({ severity: 'success', message: 'PDF téléchargé' });
       }
     } catch (error) {
-      console.error('[PDF Download] Erreur complète:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('[PDF Download] Message d\'erreur:', errorMessage);
-      setToast({ severity: 'error', message: 'Impossible de générer le PDF. Vérifiez les données de la facture et réessayez.' });
+      const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
+      logMappedError(mapped, error);
+      if (mapped.shouldDisplay) {
+        setToast({ severity: 'error', message: mapped.message });
+      }
     } finally {
       setDownloadingInvoiceId(null);
     }
@@ -422,7 +424,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
       <Stack spacing={1}>
         <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-            {pharmacie?.nom ?? 'Remplacement officine'}
+            {pharmacie ? pharmacieDisplayName(pharmacie) : 'Remplacement officine'}
           </Typography>
           <Chip
             label={missionStatusDisplayLabel(mission, invoice)}
@@ -599,7 +601,7 @@ function MissionSummarySection({ mission, invoice, pharmacie, isFirstMissionAtPh
       <Stack spacing={1.5}>
         <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Typography variant="h5" sx={{ fontWeight: 850, lineHeight: 1.15 }}>
-            {pharmacie?.nom ?? 'Mission pharmacie'}
+            {pharmacie ? pharmacieDisplayName(pharmacie) : 'Mission pharmacie'}
           </Typography>
           <Chip
             label={missionStatusDisplayLabel(mission, invoice)}
@@ -681,7 +683,8 @@ function MissionLocationSection({ mission, pharmacie }: { mission: Mission; phar
 
 function MissionPharmacySection({ pharmacie }: { pharmacie?: Pharmacie }) {
   const details = [
-    { label: 'Nom', value: pharmacie?.nom ?? 'Pharmacie non définie' },
+    { label: 'Dénomination', value: pharmacie ? pharmacieDisplayName(pharmacie) : 'Pharmacie non définie' },
+    { label: 'Nom officiel', value: pharmacie?.nom ?? 'Pharmacie non définie' },
     { label: 'Téléphone', value: pharmacie?.telephone || 'Non renseigné' },
     { label: 'Courriel', value: pharmacie?.email || 'Non renseigné' },
     { label: 'Notes', value: pharmacie?.notes || 'Aucune note' },

@@ -4,12 +4,13 @@ import { Box, Button, Card, CardContent, Stack, TextField, Typography, Alert, Ic
 import { FormEvent, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createId } from '../../services/ids';
-import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
-import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
+import { PharmacyRegistryAutocompleteInput } from '../../components/PharmacyRegistryAutocompleteInput';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacie } from '../../storage/schema';
 import { getPlatform } from '../../services/platformService';
+import { buildSantePharmacyNotes, getSantePharmacyAddressParts, type SantePharmacyRegistryEntry } from '../../services/santePharmacyRegistry';
+import { findDuplicatePharmacy } from '../../services/entityDuplicates';
 
 export function PharmacieAddPage() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export function PharmacieAddPage() {
   
   const [form, setForm] = useState({
     nom: '', 
+    displayLabel: '',
     adresse: '', 
     codePostal: '', 
     ville: '', 
@@ -39,6 +41,7 @@ export function PharmacieAddPage() {
     if (existingPharmacie) {
       setForm({
         nom: existingPharmacie.nom || '',
+        displayLabel: existingPharmacie.displayLabel || existingPharmacie.nom || '',
         adresse: existingPharmacie.adresse || '',
         codePostal: existingPharmacie.codePostal || '',
         ville: existingPharmacie.ville || '',
@@ -58,16 +61,22 @@ export function PharmacieAddPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function selectAddress(suggestion: GeocodeSuggestion) {
+  function selectRegistryPharmacy(pharmacy: SantePharmacyRegistryEntry) {
+    const address = getSantePharmacyAddressParts(pharmacy);
+    const registryNotes = buildSantePharmacyNotes(pharmacy);
     setForm((current) => ({
       ...current,
-      adresse: suggestion.addressLine || suggestion.displayName,
-      ville: suggestion.city || current.ville,
-      codePostal: suggestion.postcode || current.codePostal,
-      rue: suggestion.road || current.rue,
-      numero: suggestion.houseNumber || current.numero,
-      lat: suggestion.lat,
-      lng: suggestion.lng,
+      nom: pharmacy.name,
+      displayLabel: pharmacy.name,
+      adresse: address.adresse,
+      ville: address.ville,
+      codePostal: address.codePostal,
+      rue: address.rue || '',
+      numero: address.numero || '',
+      telephone: address.telephone || current.telephone,
+      lat: address.lat,
+      lng: address.lng,
+      notes: registryNotes || current.notes,
     }));
   }
 
@@ -83,13 +92,23 @@ export function PharmacieAddPage() {
     }
   }, [existingPharmacie, navigate]);
 
+  const duplicatePharmacy = findDuplicatePharmacy(state.pharmacies, {
+    nom: form.nom,
+    displayLabel: form.displayLabel,
+    adresse: form.adresse,
+    ville: form.ville,
+    codePostal: form.codePostal,
+  }, existingPharmacie?.id);
+
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.nom.trim()) return;
+    if (duplicatePharmacy) return;
     
     const pharmacie: Pharmacie = {
       id: existingPharmacie?.id || createId('pha'),
       nom: form.nom.trim(),
+      displayLabel: form.displayLabel.trim() || form.nom.trim(),
       adresse: form.adresse.trim(),
       rue: form.rue.trim() || undefined,
       numero: form.numero.trim() || undefined,
@@ -127,7 +146,7 @@ export function PharmacieAddPage() {
         </Stack>
         {existingPharmacie && (
           <Tooltip title="Supprimer cette pharmacie">
-            <IconButton onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacy-delete-button">
+            <IconButton aria-label="Supprimer cette pharmacie" onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacy-delete-button">
               <DeleteRoundedIcon />
             </IconButton>
           </Tooltip>
@@ -143,9 +162,32 @@ export function PharmacieAddPage() {
           <Stack component="form" onSubmit={submit} spacing={4}>
             <Typography variant="h4">Informations générales</Typography>
             <Stack sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
-              <TextField label="Nom de la pharmacie *" value={form.nom} onChange={(e) => update('nom', e.target.value)} required />
+              <PharmacyRegistryAutocompleteInput
+                label="Nom officiel ou adresse de la pharmacie *"
+                value={form.nom}
+                onChange={(value) => update('nom', value)}
+                onSelect={selectRegistryPharmacy}
+                required
+              />
+              <TextField
+                label="Dénomination affichée *"
+                value={form.displayLabel}
+                onChange={(event) => update('displayLabel', event.target.value)}
+                helperText="Nom court utilisé dans l’app et sur les factures."
+                required
+              />
+              {duplicatePharmacy ? (
+                <Alert severity="warning" sx={{ gridColumn: '1 / -1' }}>
+                  Cette pharmacie semble déjà exister : {duplicatePharmacy.displayLabel || duplicatePharmacy.nom}.
+                </Alert>
+              ) : null}
               <Box sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }}>
-                <AddressAutocompleteInput label="Adresse" value={form.adresse} onChange={(value) => update('adresse', value)} onSelect={selectAddress} />
+                <PharmacyRegistryAutocompleteInput
+                  label="Adresse"
+                  value={form.adresse}
+                  onChange={(value) => update('adresse', value)}
+                  onSelect={selectRegistryPharmacy}
+                />
               </Box>
               <TextField label="Code postal" value={form.codePostal} onChange={(e) => update('codePostal', e.target.value)} />
               <TextField label="Ville" value={form.ville} onChange={(e) => update('ville', e.target.value)} />
@@ -156,7 +198,7 @@ export function PharmacieAddPage() {
             </Stack>
             <Stack direction="row" sx={{ gap: 2, justifyContent: 'flex-end' }}>
               <Button variant="outlined" color="inherit" onClick={() => navigate('/activity')} data-testid="pharmacie-cancel-button">Annuler</Button>
-              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim()} data-testid="pharmacie-save-button">
+              <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacy)} data-testid="pharmacie-save-button">
                 {existingPharmacie ? 'Enregistrer les modifications' : 'Enregistrer'}
               </Button>
             </Stack>

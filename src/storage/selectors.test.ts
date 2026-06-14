@@ -42,6 +42,10 @@ const state: AppState = {
     enableExpenseTracking: true,
   },
   distanceReferences: [],
+  opqPharmacistRegistry: {
+    entries: [],
+    sourceUrl: 'https://www.opq.org/trouver-un-pharmacien/',
+  },
   appOptions: {
     missionDefaults: {
       defaultMissionType: 'REMPLACEMENT_OFFICINE',

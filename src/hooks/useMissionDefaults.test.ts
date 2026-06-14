@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { AppState } from '../storage/schema';
-import { createSeedState } from '../storage/seedData';
+import { createDemoState } from '../storage/seedData';
 import { buildMissionDefaults, canDeletePharmacien, canDeletePharmacie, resolveBreakMinutes } from './useMissionDefaults';
 
 function stateWithDefaults(): AppState {
-  return createSeedState();
+  return createDemoState();
 }
 
 describe('useMissionDefaults helpers', () => {

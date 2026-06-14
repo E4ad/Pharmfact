@@ -12,8 +12,9 @@ import { StatusChip } from '../../components/StatusChip';
 import { invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
 import { exportAppState, updateAppState, useAppState } from '../../storage/localStore';
 import type { Invoice, InvoiceStatus } from '../../storage/schema';
-import { findPharmacie } from '../../storage/selectors';
+import { findPharmacie, pharmacieDisplayName } from '../../storage/selectors';
 import { getPlatformAsync } from '../../services/platformService';
+import { logMappedError, mapError } from '../../services/errorMapper';
 
 export function InvoicesPage() {
   const state = useAppState();
@@ -41,11 +42,11 @@ export function InvoicesPage() {
         setToast({ severity: 'success', message: 'PDF téléchargé.' });
       }
     } catch (error) {
-      console.error('[PDF Download] Erreur complète:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('[PDF Download] Message d\'erreur:', errorMessage);
-      // Message utilisateur générique mais utile
-      setToast({ severity: 'error', message: 'Impossible de générer le PDF. Vérifiez les données de la facture et réessayez.' });
+      const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
+      logMappedError(mapped, error);
+      if (mapped.shouldDisplay) {
+        setToast({ severity: 'error', message: mapped.message });
+      }
     } finally {
       setDownloadingId(null);
     }
@@ -66,7 +67,7 @@ export function InvoicesPage() {
       ) : (
         <Card>
           <CardContent sx={{ overflowX: 'auto' }}>
-            <Table>
+            <Table aria-label="Liste des factures">
               <TableHead>
                 <TableRow>
                   <TableCell>Date</TableCell>
@@ -85,7 +86,7 @@ export function InvoicesPage() {
                     <TableRow key={invoice.id} hover>
                       <TableCell>{invoice.dateFacture}</TableCell>
                       <TableCell>{invoice.numero}</TableCell>
-                      <TableCell>{pharmacie?.nom ?? 'Pharmacie'}</TableCell>
+                      <TableCell>{pharmacieDisplayName(pharmacie)}</TableCell>
                       <TableCell>{invoice.hours.toFixed(2)} h</TableCell>
                       <TableCell><MoneyValue cents={invoice.amountCents} /></TableCell>
                       <TableCell><StatusChip kind="invoice" status={invoice.status} /></TableCell>

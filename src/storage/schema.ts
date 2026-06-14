@@ -12,6 +12,10 @@ export type MissionEventType = 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'INVOI
 export type Pharmacien = {
   id: string;
   nom: string;
+  opqLicenseNumber?: string;
+  opqRegistryId?: string;
+  opqStatusLabel?: string;
+  opqVerifiedAt?: string;
   adresse: string;
   rue?: string;
   numero?: string;
@@ -68,6 +72,21 @@ export type DistanceReference = {
   pharmacieAddressKey?: string;
   source: 'calculated' | 'manual';
   updatedAt: string;
+};
+
+export type OpqPharmacistRegistryEntry = {
+  id: string;
+  fullName: string;
+  licenseNumber?: string | null;
+  studentLicenseNumber?: string | null;
+  city?: string | null;
+  isStudent: boolean;
+};
+
+export type OpqPharmacistRegistry = {
+  entries: OpqPharmacistRegistryEntry[];
+  updatedAt?: string;
+  sourceUrl: string;
 };
 
 export type AppOptions = {
@@ -296,6 +315,7 @@ export type AppState = {
   expenseReceipts: ExpenseReceipt[];
   fiscalSettings: FiscalSettings;
   distanceReferences: DistanceReference[];
+  opqPharmacistRegistry: OpqPharmacistRegistry;
   appOptions: AppOptions;
   uiSettings: UiSettings;
   localDataSettings: LocalDataSettings;

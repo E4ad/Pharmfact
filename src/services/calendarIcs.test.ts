@@ -55,6 +55,9 @@ describe('calendarIcs', () => {
     const ics = buildMissionIcs(baseMission, basePharmacien, basePharmacie);
 
     expect(ics).toContain('BEGIN:VCALENDAR');
+    expect(ics).toContain('BEGIN:VTIMEZONE');
+    expect(ics).toContain('TZID:America/Toronto');
+    expect(ics).toContain('X-WR-TIMEZONE:America/Toronto');
     expect(ics).toContain('END:VCALENDAR');
     expect(ics).toContain('UID:mis1-day1@mission-app');
     expect(ics).toContain('Pharmacie Verte');
@@ -76,10 +79,10 @@ describe('calendarIcs', () => {
     expect(ics.match(/END:VEVENT/g)).toHaveLength(2);
     expect(ics).toContain('UID:mis1-day1@mission-app');
     expect(ics).toContain('UID:mis1-day2@mission-app');
-    expect(ics).toContain('DTSTART:20260610T090000');
-    expect(ics).toContain('DTEND:20260610T180000');
-    expect(ics).toContain('DTSTART:20260611T090000');
-    expect(ics).toContain('DTEND:20260611T180000');
+    expect(ics).toContain('DTSTART;TZID=America/Toronto:20260610T090000');
+    expect(ics).toContain('DTEND;TZID=America/Toronto:20260610T180000');
+    expect(ics).toContain('DTSTART;TZID=America/Toronto:20260611T090000');
+    expect(ics).toContain('DTEND;TZID=America/Toronto:20260611T180000');
   });
 
   it('falls back when no days are provided', () => {
@@ -88,8 +91,8 @@ describe('calendarIcs', () => {
 
     expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(1);
     expect(ics.match(/END:VEVENT/g)).toHaveLength(1);
-    expect(ics).toContain('DTSTART:20260610T090000');
-    expect(ics).toContain('DTEND:20260610T170000');
+    expect(ics).toContain('DTSTART;TZID=America/Toronto:20260610T090000');
+    expect(ics).toContain('DTEND;TZID=America/Toronto:20260610T170000');
   });
 
   it('escapes special ICS characters', () => {
@@ -113,7 +116,25 @@ describe('calendarIcs', () => {
     };
     const ics = buildMissionIcs(mission);
 
-    expect(ics).toContain('DTSTART:20261231T083000');
-    expect(ics).toContain('DTEND:20261231T174500');
+    expect(ics).toContain('DTSTART;TZID=America/Toronto:20261231T083000');
+    expect(ics).toContain('DTEND;TZID=America/Toronto:20261231T174500');
+  });
+
+  it('uses Quebec daylight saving rules for summer and winter shifts', () => {
+    const mission = {
+      ...baseMission,
+      days: [
+        { id: 'summer', dateService: '2026-07-10', startTime: '09:00', endTime: '18:00', description: '', unpaidBreakMinutes: 0, hours: 8 } as any,
+        { id: 'winter', dateService: '2026-12-10', startTime: '09:00', endTime: '18:00', description: '', unpaidBreakMinutes: 0, hours: 8 } as any,
+      ],
+    };
+    const ics = buildMissionIcs(mission);
+
+    expect(ics).toContain('TZOFFSETTO:-0400');
+    expect(ics).toContain('TZOFFSETTO:-0500');
+    expect(ics).toContain('RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU');
+    expect(ics).toContain('RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU');
+    expect(ics).toContain('DTSTART;TZID=America/Toronto:20260710T090000');
+    expect(ics).toContain('DTSTART;TZID=America/Toronto:20261210T090000');
   });
 });
