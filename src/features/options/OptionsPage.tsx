@@ -10,9 +10,10 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import UploadRoundedIcon from '@mui/icons-material/UploadRounded';
 import { useSearchParams } from 'react-router-dom';
-import { BackHomeButton } from '../../components/BackHomeButton';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { OptionActionCard } from '../../components/OptionActionCard';
+import { PageHeader } from '../../components/PageHeader';
+import { PageSection } from '../../components/PageSection';
 import { resetAppState, useAppState, updateAppState } from '../../storage/localStore';
 import { activePharmacien, selectAppOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions } from '../../storage/selectors';
 import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings, Pharmacie, Pharmacien } from '../../storage/schema';
@@ -213,21 +214,19 @@ export function OptionsPage() {
   return (
     <>
       {/* Main Page with Tiles */}
-      <Stack spacing={3} sx={{ width: 'min(1120px, 100%)', mx: 'auto', py: 4 }}>
-        <Stack spacing={2}>
-          <BackHomeButton to="/activity" data-testid="options-back-button" />
-          <Stack spacing={1}>
-            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
-              Paramètres
-            </Typography>
-            <Typography variant="h2">Options</Typography>
-            <Typography color="text.secondary">
-              Configurez vos paramètres par défaut et préférences.
-            </Typography>
-          </Stack>
-        </Stack>
+      <Stack spacing={{ xs: 3, md: 4 }} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
+        <PageHeader
+          eyebrow="Paramètres"
+          title="Options"
+          description="Configurez les préférences, référentiels et réglages par défaut de Pharmfact."
+          data-testid="options-page-header"
+        />
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5 }}>
+        <PageSection
+          title="Catégories de paramètres"
+          description="Chaque carte ouvre un groupe de réglages cohérent pour limiter les écrans trop chargés."
+        >
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2 }}>
           <OptionActionCard
             title="Informations générales"
             description="Profil actif et statut fiscal."
@@ -289,7 +288,8 @@ export function OptionsPage() {
             onClick={() => setActiveCategory('references')}
             data-testid="options-card-references"
           />
-        </Box>
+          </Box>
+        </PageSection>
       </Stack>
 
       {/* General Settings Panel */}

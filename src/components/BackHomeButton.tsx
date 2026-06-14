@@ -30,6 +30,7 @@ export function BackHomeButton({
   buttonProps = {},
 }: BackHomeButtonProps) {
   const navigate = useNavigate();
+  const { sx, ...restButtonProps } = buttonProps;
 
   const handleClick = () => {
     navigate(to);
@@ -44,11 +45,10 @@ export function BackHomeButton({
         alignSelf: 'flex-start',
         textTransform: 'none',
         fontWeight: 500,
-        // Assurer la cohérence avec PageBackButton
-        ...buttonProps.sx,
+        ...sx,
       }}
       data-testid={testId}
-      {...buttonProps}
+      {...restButtonProps}
     >
       {label}
     </Button>

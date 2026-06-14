@@ -1,7 +1,7 @@
 # Phase 5 — Plan révisé après correction critique
 
 Date : 14 juin 2026  
-Statut : prêt à planifier  
+Statut : Lot 1 implémenté  
 Prérequis : correction Design System appliquée
 
 ## Décision critique
@@ -32,17 +32,39 @@ Rendre le design system perceptible dans l’application :
 
 ### Lot 1 — Fondations visibles
 
-- Créer ou standardiser un `PageHeader`.
-- Créer ou standardiser un `PageSection`.
-- Créer ou standardiser une surface de carte réutilisable.
-- Appliquer ces patterns à `MissionsPage`, `InvoicesPage`, `FinancialPage` et `OptionsPage`.
+- ✅ Créer ou standardiser un `PageHeader`.
+- ✅ Créer ou standardiser un `PageSection`.
+- ✅ Créer ou standardiser une surface de carte réutilisable.
+- ✅ Appliquer ces patterns à `MissionsPage`, `InvoicesPage`, `FinancialPage` et `OptionsPage`.
+
+Composants livrés :
+
+- `src/components/PageHeader.tsx`
+- `src/components/PageSection.tsx`
+- `src/components/SurfaceCard.tsx`
+
+Pages migrées :
+
+- `src/features/missions/MissionsPage.tsx`
+- `src/features/invoices/InvoicesPage.tsx`
+- `src/features/financial/FinancialPage.tsx`
+- `src/features/options/OptionsPage.tsx`
 
 ### Lot 2 — Composants existants
 
-- Standardiser `StatusChip`.
-- Standardiser `ConfirmDialog`.
-- Standardiser `MetricCard`, `ActionCard`, `OptionActionCard` et `EmptyState`.
-- Supprimer les styles ad hoc lorsque le thème couvre déjà le besoin.
+- ✅ Standardiser `StatusChip`.
+- ✅ Standardiser `ConfirmDialog`.
+- ✅ Standardiser `MetricCard`, `ActionCard`, `OptionActionCard` et `EmptyState`.
+- ✅ Supprimer les styles ad hoc lorsque le thème couvre déjà le besoin.
+
+Composants migrés :
+
+- `src/components/StatusChip.tsx`
+- `src/components/ConfirmDialog.tsx`
+- `src/components/MetricCard.tsx`
+- `src/components/ActionCard.tsx`
+- `src/components/OptionActionCard.tsx`
+- `src/components/EmptyState.tsx`
 
 ### Lot 3 — Écrans non migrés
 
@@ -81,4 +103,4 @@ Rendre le design system perceptible dans l’application :
 
 ## Prochaine étape recommandée
 
-Commencer par le lot 1 sur les quatre pages principales. C’est le chemin le plus court pour rendre les Phases 2 à 4 visibles à l’utilisateur.
+Passer au Lot 3 : migrer les écrans non couverts (`ActivityPage`, `MissionFormPage`, `OnboardingPage`, formulaires pharmaciens/pharmacies et `SettingsPage`) vers les patterns de layout et composants standardisés.

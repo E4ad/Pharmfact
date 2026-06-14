@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Card, CardContent, Stack, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
-import { BackHomeButton } from '../../components/BackHomeButton';
 import { MoneyValue } from '../../components/MoneyValue';
 import { FadeIn } from '../../components/FadeIn';
+import { PageHeader } from '../../components/PageHeader';
+import { PageSection } from '../../components/PageSection';
 import { useNotifications } from '../../components/NotificationSystem';
 import { useFinancialSettings } from '../../hooks/useFinancialSettings';
 import { selectFinancialOptions } from '../../storage/selectors';
@@ -100,21 +101,20 @@ export function FinancialDashboardPage() {
 
   return (
     <FadeIn>
-      <Stack spacing={4} sx={{ width: 'min(1180px, 100%)', mx: 'auto' }}>
-      <Stack spacing={2}>
-        <BackHomeButton to="/activity" label="Accueil" data-testid="financial-back-button" />
-        <Stack spacing={1}>
-          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
-            État financier
-          </Typography>
-          <Typography variant="h2">Pilotage fiscal</Typography>
-          <Typography color="text.secondary">
-            Estimations de pilotage — à valider avec votre comptable.
-          </Typography>
-        </Stack>
-      </Stack>
+      <Stack spacing={{ xs: 3, md: 4 }} sx={{ width: 'min(1180px, 100%)', mx: 'auto' }}>
+      <PageHeader
+        eyebrow="État financier"
+        title="Pilotage fiscal"
+        description="Suivez les estimations, réserves fiscales et montants à valider avec votre comptable."
+        data-testid="financial-page-header"
+      />
 
-      <FinancialViewTabs value={view} onChange={setView} availableViews={availableViews} />
+      <PageSection
+        title="Synthèse financière"
+        description="Changez de période pour comparer rapidement le mois, le trimestre ou l’année."
+      >
+        <FinancialViewTabs value={view} onChange={setView} availableViews={availableViews} />
+      </PageSection>
 
       {view === 'monthly' && selectedMonthly ? (
         <MonthlyFinancialView

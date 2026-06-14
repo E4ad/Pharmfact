@@ -1,5 +1,7 @@
-import { Card, CardActionArea, Stack, Typography, Box } from '@mui/material';
+import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
+import { SurfaceCard } from './SurfaceCard';
 
 type IconTone = 'green' | 'blue' | 'amber' | 'purple' | 'red' | 'gray';
 
@@ -12,13 +14,37 @@ interface OptionActionCardProps {
   'data-testid'?: string;
 }
 
-const toneColors: Record<IconTone, string> = {
-  green: '#C8E6C9',
-  blue: '#BBDEFB',
-  amber: '#FFE0B2',
-  purple: '#E1BEE7',
-  red: '#FFCDD2',
-  gray: '#F5F5F5',
+const toneStyles: Record<IconTone, SxProps<Theme>> = {
+  green: (theme) => ({
+    bgcolor: alpha(theme.palette.success.main, 0.1),
+    color: theme.palette.success.main,
+    borderColor: alpha(theme.palette.success.main, 0.18),
+  }),
+  blue: (theme) => ({
+    bgcolor: alpha(theme.palette.primary.main, 0.1),
+    color: theme.palette.primary.main,
+    borderColor: alpha(theme.palette.primary.main, 0.18),
+  }),
+  amber: (theme) => ({
+    bgcolor: alpha(theme.palette.warning.main, 0.12),
+    color: theme.palette.warning.main,
+    borderColor: alpha(theme.palette.warning.main, 0.2),
+  }),
+  purple: (theme) => ({
+    bgcolor: alpha(theme.palette.info.main, 0.1),
+    color: theme.palette.info.main,
+    borderColor: alpha(theme.palette.info.main, 0.18),
+  }),
+  red: (theme) => ({
+    bgcolor: alpha(theme.palette.error.main, 0.1),
+    color: theme.palette.error.main,
+    borderColor: alpha(theme.palette.error.main, 0.18),
+  }),
+  gray: (theme) => ({
+    bgcolor: alpha(theme.palette.text.secondary, 0.08),
+    color: theme.palette.text.secondary,
+    borderColor: alpha(theme.palette.text.secondary, 0.16),
+  }),
 };
 
 export function OptionActionCard({
@@ -30,7 +56,7 @@ export function OptionActionCard({
   'data-testid': testId,
 }: OptionActionCardProps) {
   return (
-    <Card data-testid={testId} variant="outlined">
+    <SurfaceCard data-testid={testId} flush>
       <CardActionArea onClick={onClick} sx={{ height: '100%', p: 2 }}>
         <Stack direction="row" spacing={1.75} sx={{ alignItems: 'flex-start', minHeight: 88 }}>
           <Box sx={{ pt: 0.25 }}>
@@ -38,24 +64,24 @@ export function OptionActionCard({
               sx={{
                 width: 36,
                 height: 36,
-                borderRadius: 2,
-                backgroundColor: toneColors[iconTone],
-                color: 'text.primary',
+                borderRadius: 2.5,
+                border: '1px solid',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 '& svg': { fontSize: 20 },
+                ...toneStyles[iconTone],
               }}
             >
               {icon}
             </Box>
           </Box>
           <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25 }}>{title}</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 750, lineHeight: 1.25 }}>{title}</Typography>
             <Typography variant="body2" color="text.secondary">{description}</Typography>
           </Stack>
         </Stack>
       </CardActionArea>
-    </Card>
+    </SurfaceCard>
   );
 }

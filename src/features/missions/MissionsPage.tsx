@@ -20,10 +20,12 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BackHomeButton } from '../../components/BackHomeButton';
 import { FadeIn } from '../../components/FadeIn';
 import { LoadingButton } from '../../components/LoadingButton';
 import { useNotifications } from '../../components/NotificationSystem';
+import { PageHeader } from '../../components/PageHeader';
+import { PageSection } from '../../components/PageSection';
+import { SurfaceCard } from '../../components/SurfaceCard';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
 import { createId } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
@@ -333,40 +335,52 @@ export function MissionsPage() {
   }
 
   return (
-    <Stack id="main-content" component="main" tabIndex={-1} spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto', px: { xs: 2, md: 4 }, py: 4 }}>
-      <Stack spacing={2}>
-        <BackHomeButton to="/activity" label="Accueil" data-testid="missions-back-button" />
-        <Stack spacing={1}>
-          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
-            Missions
-          </Typography>
-          <Typography variant="h2">Pilotage des missions</Typography>
-        </Stack>
-      </Stack>
-
-      {/* Filtres */}
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        {missionFilterOptions.map((option) => (
+    <Stack spacing={{ xs: 3, md: 4 }} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
+      <PageHeader
+        eyebrow="Missions"
+        title="Pilotage des missions"
+        description="Suivez les mandats, générez les factures et gardez les statuts opérationnels au même endroit."
+        actions={
           <Button
-            key={option.value}
-            variant={statusFilter === option.value ? 'contained' : 'outlined'}
-            onClick={() => setStatusFilter(option.value)}
+            variant="contained"
+            onClick={() => navigate('/mission/new')}
             sx={{
-              borderRadius: '999px',
-              minHeight: '36px',
-              padding: '8px 14px',
-              fontWeight: 700,
+              bgcolor: 'common.white',
+              color: 'primary.dark',
+              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.9)' },
             }}
           >
-            {option.label}
+            Créer une mission
           </Button>
-        ))}
-      </Stack>
+        }
+        data-testid="missions-page-header"
+      />
 
-      {/* Liste des missions */}
+      <PageSection
+        title="File de missions"
+        description={`${missions.length} mission${missions.length > 1 ? 's' : ''} affichée${missions.length > 1 ? 's' : ''}. Filtrez par état pour prioriser le suivi.`}
+      >
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+          {missionFilterOptions.map((option) => (
+            <Button
+              key={option.value}
+              variant={statusFilter === option.value ? 'contained' : 'outlined'}
+              onClick={() => setStatusFilter(option.value)}
+              sx={{
+                borderRadius: '999px',
+                minHeight: '36px',
+                padding: '8px 14px',
+                fontWeight: 700,
+              }}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </Stack>
+      </PageSection>
+
       <FadeIn>
-        <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
-          <CardContent sx={{ p: 0 }}>
+        <SurfaceCard flush>
           {missions.length ? (
             <Stack spacing={0}>
               {missions.map((mission) => (
@@ -392,8 +406,7 @@ export function MissionsPage() {
               </Button>
             </Stack>
           )}
-          </CardContent>
-        </Card>
+        </SurfaceCard>
       </FadeIn>
 
       {/* Modal de détail mission */}

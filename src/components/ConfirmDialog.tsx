@@ -1,4 +1,5 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { spacingScale } from '../design-system';
 
 type Props = {
   open: boolean;
@@ -27,11 +28,13 @@ export function ConfirmDialog({ open, title, description, confirmLabel, onClose,
         },
       }}
     >
-      <DialogTitle id={titleId}>{title}</DialogTitle>
-      <DialogContent>
+      <DialogTitle id={titleId} sx={{ pb: 1, fontWeight: 750 }}>
+        {title}
+      </DialogTitle>
+      <DialogContent sx={{ pt: 0 }}>
         <DialogContentText id={descriptionId}>{description}</DialogContentText>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ px: spacingScale.lg, pb: spacingScale.lg, gap: 1 }}>
         <Button onClick={onClose}>Annuler</Button>
         <Button variant="contained" onClick={onConfirm}>{confirmLabel}</Button>
       </DialogActions>

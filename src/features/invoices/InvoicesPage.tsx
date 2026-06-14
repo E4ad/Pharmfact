@@ -7,11 +7,13 @@ import { Button, Card, CardContent, Dialog, DialogContent, DialogTitle, Stack, T
 import { useState } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { MoneyValue } from '../../components/MoneyValue';
-import { BackHomeButton } from '../../components/BackHomeButton';
 import { StatusChip } from '../../components/StatusChip';
 import { LoadingButton } from '../../components/LoadingButton';
 import { FadeIn } from '../../components/FadeIn';
 import { useNotifications } from '../../components/NotificationSystem';
+import { PageHeader } from '../../components/PageHeader';
+import { PageSection } from '../../components/PageSection';
+import { SurfaceCard } from '../../components/SurfaceCard';
 import { invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Invoice, InvoiceStatus } from '../../storage/schema';
@@ -76,21 +78,22 @@ export function InvoicesPage() {
   }
 
   return (
-    <Stack spacing={4}>
-      <Stack spacing={2}>
-        <BackHomeButton to="/activity" data-testid="invoices-back-button" />
-        <Stack spacing={1}>
-          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Factures</Typography>
-          <Typography variant="h2">Vue d’ensemble</Typography>
-          <Typography color="text.secondary">Aperçu clair des factures générées.</Typography>
-        </Stack>
-      </Stack>
+    <Stack spacing={{ xs: 3, md: 4 }}>
+      <PageHeader
+        eyebrow="Factures"
+        title="Vue d’ensemble"
+        description="Contrôlez les statuts, les montants et les téléchargements PDF depuis une vue unique."
+        data-testid="invoices-page-header"
+      />
       {!state.invoices.length ? (
         <EmptyState title="Aucune facture" description="Les factures apparaîtront ici après génération depuis une mission." />
       ) : (
-        <FadeIn>
-          <Card>
-            <CardContent sx={{ overflowX: 'auto' }}>
+        <PageSection
+          title="Factures générées"
+          description={`${state.invoices.length} facture${state.invoices.length > 1 ? 's' : ''} disponible${state.invoices.length > 1 ? 's' : ''}. Les actions rapides restent groupées par facture.`}
+        >
+          <FadeIn>
+            <SurfaceCard contentSx={{ overflowX: 'auto' }}>
             <Table aria-label="Liste des factures">
               <TableHead>
                 <TableRow>
@@ -137,9 +140,9 @@ export function InvoicesPage() {
                 })}
               </TableBody>
             </Table>
-            </CardContent>
-          </Card>
-        </FadeIn>
+            </SurfaceCard>
+          </FadeIn>
+        </PageSection>
       )}
       <Dialog
         open={Boolean(selected)}
