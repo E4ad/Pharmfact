@@ -53,9 +53,8 @@ export function FinancialPeriodCard({
   );
 
   return (
-    <SurfaceCard>
-      <CardContent sx={{ p: 3 }}>
-        <Stack spacing={2}>
+    <SurfaceCard contentSx={{ p: 3 }}>
+      <Stack spacing={2}>
           <Typography variant="h5">
             {periodLabels[periodType]}{periodLabel}
           </Typography>
@@ -74,7 +73,6 @@ export function FinancialPeriodCard({
             </Button>
           </Stack>
         </Stack>
-      </CardContent>
     </SurfaceCard>
   );
 }

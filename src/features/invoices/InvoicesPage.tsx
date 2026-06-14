@@ -3,7 +3,7 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
-import { Button, Card, CardContent, Dialog, DialogContent, DialogTitle, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Button, Dialog, DialogContent, DialogTitle, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useState } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { MoneyValue } from '../../components/MoneyValue';

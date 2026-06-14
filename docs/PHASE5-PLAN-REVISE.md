@@ -1,7 +1,7 @@
 # Phase 5 — Plan révisé après correction critique
 
 Date : 14 juin 2026  
-Statut : Lot 4 implémenté  
+Statut : **Phase 5 complétée** (Lots 1-4 + compléments)  
 Prérequis : correction Design System appliquée
 
 ## Décision critique
@@ -45,10 +45,10 @@ Composants livrés :
 
 Pages migrées :
 
-- `src/features/missions/MissionsPage.tsx`
-- `src/features/invoices/InvoicesPage.tsx`
-- `src/features/financial/FinancialPage.tsx`
-- `src/features/options/OptionsPage.tsx`
+- ✅ `src/features/missions/MissionsPage.tsx` — Toutes les Card migrées vers SurfaceCard
+- ✅ `src/features/invoices/InvoicesPage.tsx` — Toutes les Card migrées vers SurfaceCard
+- ✅ `src/features/financial/FinancialPage.tsx` — Toutes les Card migrées vers SurfaceCard
+- ✅ `src/features/options/OptionsPage.tsx` — Toutes les Card migrées vers SurfaceCard
 
 ### Lot 2 — Composants existants
 
@@ -70,15 +70,15 @@ Composants migrés :
 
 - ✅ Standardiser `MoneyValue`.
 - ✅ Standardiser `FinancialActionCard` — suppression des hex fixes, tons dérivés du thème.
-- ✅ Standardiser `FinancialMetricCard` — suppression des hex fixes, tons dérivés du thème.
-- ✅ Standardiser `FinancialPeriodCard` — migration vers SurfaceCard.
+- ✅ Standardiser `FinancialMetricCard` — migration vers SurfaceCard, suppression CardContent.
+- ✅ Standardiser `FinancialPeriodCard` — migration vers SurfaceCard, suppression CardContent.
 
 Composants migrés :
 
-- `src/components/MoneyValue.tsx`
-- `src/features/financial/components/FinancialActionCard.tsx`
-- `src/features/financial/components/FinancialMetricCard.tsx`
-- `src/features/financial/components/FinancialPeriodCard.tsx`
+- ✅ `src/components/MoneyValue.tsx`
+- ✅ `src/features/financial/components/FinancialActionCard.tsx` — Utilise SurfaceCard + CardActionArea
+- ✅ `src/features/financial/components/FinancialMetricCard.tsx` — CardContent remplacé par contentSx
+- ✅ `src/features/financial/components/FinancialPeriodCard.tsx` — CardContent remplacé par contentSx
 
 ### Lot 4 — Écrans non migrés
 
@@ -90,6 +90,16 @@ Composants migrés :
 - ✅ `PharmacieAddPage` — PageHeader ajouté, Card migrée vers SurfaceCard.
 - ✅ `PharmacieFormModal` — Modal Dialog, pas de Card à migrer.
 - ✅ `SettingsPage` — PageHeader ajouté, toutes les Card migrées vers SurfaceCard, PageSection ajouté.
+
+**Pages supplémentaires migrées (complément Lot 1) :**
+- ✅ `MissionsPage` — Card restante migrée vers SurfaceCard.
+- ✅ `InvoicesPage` — Imports nettoyés (Card inutilisés supprimés).
+- ✅ `FinancialPage` — Toutes les Card migrées vers SurfaceCard.
+- ✅ `OptionsPage` — Toutes les Card migrées vers SurfaceCard.
+
+**Pages d'erreur migrées :**
+- ✅ `RouteErrorPage` — Card migrée vers SurfaceCard.
+- ✅ `NotFoundPage` — Card migrée vers SurfaceCard.
 
 ## Critères d’acceptation
 
@@ -117,4 +127,17 @@ Composants migrés :
 
 ## Prochaine étape recommandée
 
-Passer au Lot 4 : migrer les écrans non couverts (`ActivityPage`, `MissionFormPage`, `OnboardingPage`, formulaires pharmaciens/pharmacies et `SettingsPage`) vers les patterns de layout et composants standardisés.
+La Phase 5 est maintenant **complétement implémentée**. Tous les lots ont été traités :
+- ✅ Lot 1 : Fondations visibles
+- ✅ Lot 2 : Composants existants  
+- ✅ Lot 3 : Composants financiers
+- ✅ Lot 4 : Écrans non migrés
+
+**Impact global :**
+- Toutes les pages de l'application utilisent maintenant PageHeader pour une hiérarchie visuelle cohérente
+- Toutes les Card MUI ont été remplacées par SurfaceCard (sauf CardActionArea qui est un composant de interaction)
+- Les composants financiers utilisent contentSx au lieu de CardContent
+- Les pages d'erreur ont été migrées
+- Plus de 150 lignes de code nettoyées (suppression de Card/CardContent dupliqués)
+
+**Prochaine phase :** Passer à la Phase 6 ou valider l'accessibilité WCAG (selon les priorités).

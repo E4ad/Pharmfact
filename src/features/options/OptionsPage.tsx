@@ -1,5 +1,5 @@
 import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import { Box, Button, Card, CardContent, Stack, Typography, Alert, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton, CircularProgress } from '@mui/material';
+import { Box, Button, Stack, Typography, Alert, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton, CircularProgress } from '@mui/material';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
 import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { OptionActionCard } from '../../components/OptionActionCard';
 import { PageHeader } from '../../components/PageHeader';
 import { PageSection } from '../../components/PageSection';
+import { SurfaceCard } from '../../components/SurfaceCard';
 import { resetAppState, useAppState, updateAppState } from '../../storage/localStore';
 import { activePharmacien, selectAppOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions } from '../../storage/selectors';
 import type { AppOptions, TaxStatus, UiSettings, LocalDataSettings, Pharmacie, Pharmacien } from '../../storage/schema';
@@ -737,17 +738,15 @@ export function OptionsPage() {
               action={<Button variant="outlined" color="error" startIcon={<RestartAltRoundedIcon />} onClick={() => setResetOpen(true)}>Réinitialiser</Button>}
             />
           </Box>
-          <Card variant="outlined">
-            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(5, 1fr)' }, gap: 2 }}>
-                <DataCount label="Pharmaciens" value={state.pharmaciens.length} />
-                <DataCount label="Pharmacies" value={state.pharmacies.length} />
-                <DataCount label="Missions" value={state.missions.length} />
-                <DataCount label="Factures" value={state.invoices.length} />
-                <DataCount label="Acomptes" value={state.taxPayments.length} />
-              </Box>
-            </CardContent>
-          </Card>
+          <SurfaceCard contentSx={{ p: 2.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(5, 1fr)' }, gap: 2 }}>
+              <DataCount label="Pharmaciens" value={state.pharmaciens.length} />
+              <DataCount label="Pharmacies" value={state.pharmacies.length} />
+              <DataCount label="Missions" value={state.missions.length} />
+              <DataCount label="Factures" value={state.invoices.length} />
+              <DataCount label="Acomptes" value={state.taxPayments.length} />
+            </Box>
+          </SurfaceCard>
           <DataAction
             title="Référentiel OPQ"
             description={
@@ -816,28 +815,26 @@ export function OptionsPage() {
             {state.pharmacies.length > 0 ? (
               <Stack spacing={1}>
                 {state.pharmacies.map((pharmacie) => (
-                  <Card key={pharmacie.id} variant="outlined">
-                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="body1">{pharmacie.nom}</Typography>
-                        <Button
-                          variant="text"
-                          size="small"
-                          onClick={() => {
-                            setPharmacieModalId(pharmacie.id);
-                            setPharmacieModalOpen(true);
-                          }}
-                          startIcon={<LocalPharmacyRoundedIcon />}
-                          data-testid={`options-edit-pharmacy-${pharmacie.id}`}
-                        >
-                          Modifier
-                        </Button>
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary">
-                        {pharmacie.adresse}
-                      </Typography>
-                    </CardContent>
-                  </Card>
+                  <SurfaceCard key={pharmacie.id} contentSx={{ p: 2 }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="body1">{pharmacie.nom}</Typography>
+                      <Button
+                        variant="text"
+                        size="small"
+                        onClick={() => {
+                          setPharmacieModalId(pharmacie.id);
+                          setPharmacieModalOpen(true);
+                        }}
+                        startIcon={<LocalPharmacyRoundedIcon />}
+                        data-testid={`options-edit-pharmacy-${pharmacie.id}`}
+                      >
+                        Modifier
+                      </Button>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {pharmacie.adresse}
+                    </Typography>
+                  </SurfaceCard>
                 ))}
               </Stack>
             ) : (
@@ -867,28 +864,26 @@ export function OptionsPage() {
             {state.pharmaciens.length > 0 ? (
               <Stack spacing={1}>
                 {state.pharmaciens.map((pharmacien) => (
-                  <Card key={pharmacien.id} variant="outlined">
-                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="body1">{pharmacien.nom}</Typography>
-                        <Button
-                          variant="text"
-                          size="small"
-                          onClick={() => {
-                            setPharmacienModalId(pharmacien.id);
-                            setPharmacienModalOpen(true);
-                          }}
-                          startIcon={<PersonAddAltRoundedIcon />}
-                          data-testid={`options-edit-pharmacien-${pharmacien.id}`}
-                        >
-                          Modifier
-                        </Button>
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary">
-                        {pharmacien.adresse}
-                      </Typography>
-                    </CardContent>
-                  </Card>
+                  <SurfaceCard key={pharmacien.id} contentSx={{ p: 2 }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="body1">{pharmacien.nom}</Typography>
+                      <Button
+                        variant="text"
+                        size="small"
+                        onClick={() => {
+                          setPharmacienModalId(pharmacien.id);
+                          setPharmacienModalOpen(true);
+                        }}
+                        startIcon={<PersonAddAltRoundedIcon />}
+                        data-testid={`options-edit-pharmacien-${pharmacien.id}`}
+                      >
+                        Modifier
+                      </Button>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {pharmacien.adresse}
+                    </Typography>
+                  </SurfaceCard>
                 ))}
               </Stack>
             ) : (
@@ -998,17 +993,15 @@ function SettingsModal({
 
 function DataAction({ title, description, action }: { title: string; description: string; action: ReactNode }) {
   return (
-    <Card variant="outlined">
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Stack spacing={2} sx={{ height: '100%', justifyContent: 'space-between' }}>
-          <Stack spacing={0.75}>
-            <Typography variant="h6">{title}</Typography>
-            <Typography color="text.secondary">{description}</Typography>
-          </Stack>
-          {action}
+    <SurfaceCard contentSx={{ p: 2.5 }}>
+      <Stack spacing={2} sx={{ height: '100%', justifyContent: 'space-between' }}>
+        <Stack spacing={0.75}>
+          <Typography variant="h6">{title}</Typography>
+          <Typography color="text.secondary">{description}</Typography>
         </Stack>
-      </CardContent>
-    </Card>
+        {action}
+      </Stack>
+    </SurfaceCard>
   );
 }
 

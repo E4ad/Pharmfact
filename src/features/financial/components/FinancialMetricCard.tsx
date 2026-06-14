@@ -50,9 +50,8 @@ export function FinancialMetricCard({
   compact = false,
 }: FinancialMetricCardProps) {
   return (
-    <SurfaceCard>
-      <CardContent sx={{ p: compact ? 2 : 3 }}>
-        <Stack spacing={1}>
+    <SurfaceCard contentSx={{ p: compact ? 2 : 3 }}>
+      <Stack spacing={1}>
            <Box
             sx={{ 
               width: 32,
@@ -78,7 +77,6 @@ export function FinancialMetricCard({
             {helperText}
           </Typography>
         </Stack>
-      </CardContent>
     </SurfaceCard>
   );
 }

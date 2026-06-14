@@ -5,8 +5,6 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Dialog,
   DialogTitle,
@@ -816,7 +814,7 @@ function MissionFinancialSection({ mission, invoice }: { mission: Mission; invoi
 
   return (
     <Section title="Financier">
-      <Card variant="outlined" sx={{ p: 2, bgcolor: 'background.paper' }}>
+      <SurfaceCard contentSx={{ p: 2 }}>
         <Stack spacing={1.25}>
           {rows.map((row) => (
             <Stack key={row.label} direction="row" spacing={2} sx={{ justifyContent: 'space-between' }}>
@@ -839,7 +837,7 @@ function MissionFinancialSection({ mission, invoice }: { mission: Mission; invoi
             />
           </Stack>
         </Stack>
-      </Card>
+      </SurfaceCard>
     </Section>
   );
 }

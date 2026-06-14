@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Button, Card, CardContent, Stack, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
+import { Box, Button, Stack, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
 import { MoneyValue } from '../../components/MoneyValue';
 import { FadeIn } from '../../components/FadeIn';
 import { PageHeader } from '../../components/PageHeader';
 import { PageSection } from '../../components/PageSection';
+import { SurfaceCard } from '../../components/SurfaceCard';
 import { useNotifications } from '../../components/NotificationSystem';
 import { useFinancialSettings } from '../../hooks/useFinancialSettings';
 import { selectFinancialOptions } from '../../storage/selectors';
@@ -343,40 +344,38 @@ export function MonthlyFinancialView({
       </Box>
 
       {missionRowsForMonth.length > 0 ? (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>Dépenses issues des missions</Typography>
-            <Table size="small" aria-label="Dépenses déductibles">
-              <TableHead>
-                <TableRow>
-                  <TableCell component="th" scope="col">Date</TableCell>
-                  <TableCell component="th" scope="col">Mission</TableCell>
-                  <TableCell component="th" scope="col">Type</TableCell>
-                  <TableCell component="th" scope="col" align="right">Montant facturé</TableCell>
-                  <TableCell component="th" scope="col" align="right">Montant déductible</TableCell>
-                  <TableCell component="th" scope="col">Justificatif</TableCell>
+        <SurfaceCard contentSx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Dépenses issues des missions</Typography>
+          <Table size="small" aria-label="Dépenses déductibles">
+            <TableHead>
+              <TableRow>
+                <TableCell component="th" scope="col">Date</TableCell>
+                <TableCell component="th" scope="col">Mission</TableCell>
+                <TableCell component="th" scope="col">Type</TableCell>
+                <TableCell component="th" scope="col" align="right">Montant facturé</TableCell>
+                <TableCell component="th" scope="col" align="right">Montant déductible</TableCell>
+                <TableCell component="th" scope="col">Justificatif</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {missionRowsForMonth.map((row) => (
+                <TableRow key={row.id} hover>
+                  <TableCell>{row.date}</TableCell>
+                  <TableCell>{row.missionCode ?? row.missionId.slice(0, 8)}</TableCell>
+                  <TableCell>{row.category || row.label}</TableCell>
+                  <TableCell align="right"><MoneyValue cents={row.amountCents} /></TableCell>
+                  <TableCell align="right"><MoneyValue cents={row.deductibleAmountCents ?? 0} /></TableCell>
+                  <TableCell>{row.hasReceipt ? '✓' : '—'}</TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {missionRowsForMonth.map((row) => (
-                  <TableRow key={row.id} hover>
-                    <TableCell>{row.date}</TableCell>
-                    <TableCell>{row.missionCode ?? row.missionId.slice(0, 8)}</TableCell>
-                    <TableCell>{row.category || row.label}</TableCell>
-                    <TableCell align="right"><MoneyValue cents={row.amountCents} /></TableCell>
-                    <TableCell align="right"><MoneyValue cents={row.deductibleAmountCents ?? 0} /></TableCell>
-                    <TableCell>{row.hasReceipt ? '✓' : '—'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Box sx={{ mt: 2, textAlign: 'right' }}>
-              <Button variant="outlined" size="small" onClick={onViewMissionExpenses}>
-                Voir tout le détail
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
+              ))}
+            </TableBody>
+          </Table>
+          <Box sx={{ mt: 2, textAlign: 'right' }}>
+            <Button variant="outlined" size="small" onClick={onViewMissionExpenses}>
+              Voir tout le détail
+            </Button>
+          </Box>
+        </SurfaceCard>
       ) : null}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
@@ -410,52 +409,50 @@ export function QuarterlyFinancialView({
     <Stack spacing={3}>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
         {annual.quarters.map((quarter) => (
-          <Card key={quarter.label}>
-            <CardContent sx={{ p: 3 }}>
-              <Stack spacing={2}>
-                <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
-                  <Typography variant="h5">{quarter.label}</Typography>
-                  <Button size="small" onClick={() => onExport(quarter)}>
-                    Exporter
-                  </Button>
-                </Stack>
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
-                  <FinancialMetricCard
-                    iconTone="green"
-                    icon={<AttachMoneyRoundedIcon fontSize="small" />}
-                    label="Encaissé"
-                    valueCents={quarter.collectedCents}
-                    helperText=""
-                    compact
-                  />
-                  <FinancialMetricCard
-                    iconTone="blue"
-                    icon={<SavingsRoundedIcon fontSize="small" />}
-                    label="Bénéfice net"
-                    valueCents={quarter.estimatedNetProfitCents}
-                    helperText=""
-                    compact
-                  />
-                  <FinancialMetricCard
-                    iconTone="amber"
-                    icon={<AccountBalanceWalletRoundedIcon fontSize="small" />}
-                    label="Réserve"
-                    valueCents={quarter.targetReserveCents}
-                    helperText=""
-                    compact
-                  />
-                  <FinancialMetricCard
-                    iconTone="purple"
-                    icon={<WarningRoundedIcon fontSize="small" />}
-                    label="Reste"
-                    valueCents={quarter.remainingProvisionCents}
-                    helperText=""
-                    compact
-                  />
-                </Box>
+          <SurfaceCard key={quarter.label} contentSx={{ p: 3 }}>
+            <Stack spacing={2}>
+              <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
+                <Typography variant="h5">{quarter.label}</Typography>
+                <Button size="small" onClick={() => onExport(quarter)}>
+                  Exporter
+                </Button>
               </Stack>
-            </CardContent>
-          </Card>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+                <FinancialMetricCard
+                  iconTone="green"
+                  icon={<AttachMoneyRoundedIcon fontSize="small" />}
+                  label="Encaissé"
+                  valueCents={quarter.collectedCents}
+                  helperText=""
+                  compact
+                />
+                <FinancialMetricCard
+                  iconTone="blue"
+                  icon={<SavingsRoundedIcon fontSize="small" />}
+                  label="Bénéfice net"
+                  valueCents={quarter.estimatedNetProfitCents}
+                  helperText=""
+                  compact
+                />
+                <FinancialMetricCard
+                  iconTone="amber"
+                  icon={<AccountBalanceWalletRoundedIcon fontSize="small" />}
+                  label="Réserve"
+                  valueCents={quarter.targetReserveCents}
+                  helperText=""
+                  compact
+                />
+                <FinancialMetricCard
+                  iconTone="purple"
+                  icon={<WarningRoundedIcon fontSize="small" />}
+                  label="Reste"
+                  valueCents={quarter.remainingProvisionCents}
+                  helperText=""
+                  compact
+                />
+              </Box>
+            </Stack>
+          </SurfaceCard>
         ))}
       </Box>
     </Stack>
@@ -524,56 +521,54 @@ export function InstalmentSummaryCard({
   const nextQuarter = annual.quarters.find((quarter) => quarter.nextInstalmentDate) ?? annual.quarters[0];
 
   return (
-    <Card>
-      <CardContent sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                backgroundColor: '#BBDEFB',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <AccountBalanceWalletRoundedIcon color="primary" fontSize="small" />
-            </Box>
-            <Typography variant="h5">Acomptes provisionnels</Typography>
-          </Stack>
-          <Typography variant="h4" color="primary.main" sx={{ fontWeight: 600 }}>
-            {formatMoney(nextQuarter.suggestedInstalmentCents ?? 0)}
-          </Typography>
-          <Stack spacing={1}>
-            <Typography variant="body2" color="text.secondary">
-              Prochain : {nextQuarter.nextInstalmentDate ?? 'À déterminer'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Déjà versé : {formatMoney(nextQuarter.incomeTaxInstalmentsPaidCents ?? 0)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Écart : {formatMoney(nextQuarter.instalmentGapCents ?? 0)}
-            </Typography>
-          </Stack>
-          <Button
-            variant="contained"
-            startIcon={<AddRoundedIcon />}
-            onClick={onAddTaxPayment}
+    <SurfaceCard contentSx={{ p: 3 }}>
+      <Stack spacing={2}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+          <Box
             sx={{
-              borderRadius: 999, 
-              alignSelf: 'flex-start',
-              mt: 1,
-              boxShadow: 2,
-              '&:hover': { boxShadow: 4 }
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              backgroundColor: '#BBDEFB',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            Ajouter un acompte
-          </Button>
+            <AccountBalanceWalletRoundedIcon color="primary" fontSize="small" />
+          </Box>
+          <Typography variant="h5">Acomptes provisionnels</Typography>
         </Stack>
-      </CardContent>
-    </Card>
+        <Typography variant="h4" color="primary.main" sx={{ fontWeight: 600 }}>
+          {formatMoney(nextQuarter.suggestedInstalmentCents ?? 0)}
+        </Typography>
+        <Stack spacing={1}>
+          <Typography variant="body2" color="text.secondary">
+            Prochain : {nextQuarter.nextInstalmentDate ?? 'À déterminer'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Déjà versé : {formatMoney(nextQuarter.incomeTaxInstalmentsPaidCents ?? 0)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Écart : {formatMoney(nextQuarter.instalmentGapCents ?? 0)}
+          </Typography>
+        </Stack>
+        <Button
+          variant="contained"
+          startIcon={<AddRoundedIcon />}
+          onClick={onAddTaxPayment}
+          sx={{
+            borderRadius: 999, 
+            alignSelf: 'flex-start',
+            mt: 1,
+            boxShadow: 2,
+            '&:hover': { boxShadow: 4 }
+          }}
+        >
+          Ajouter un acompte
+        </Button>
+      </Stack>
+    </SurfaceCard>
   );
 }
 
@@ -585,45 +580,43 @@ export function DeductibleExpensesSummaryCard({
   onAddDeductibleExpense: () => void;
 }) {
   return (
-    <Card>
-      <CardContent sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                backgroundColor: '#FFE0B2',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ReceiptRoundedIcon color="warning" fontSize="small" />
-            </Box>
-            <Typography variant="h5">Dépenses déductibles</Typography>
-          </Stack>
-          <Typography variant="h4" color="success.main" sx={{ fontWeight: 600 }}>
-            <MoneyValue cents={annual.deductibleExpensesCents} />
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddRoundedIcon />}
-            onClick={onAddDeductibleExpense}
+    <SurfaceCard contentSx={{ p: 3 }}>
+      <Stack spacing={2}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+          <Box
             sx={{
-              borderRadius: 999, 
-              alignSelf: 'flex-start',
-              mt: 1,
-              boxShadow: 2,
-              '&:hover': { boxShadow: 4 }
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              backgroundColor: '#FFE0B2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            Ajouter une dépense
-          </Button>
+            <ReceiptRoundedIcon color="warning" fontSize="small" />
+          </Box>
+          <Typography variant="h5">Dépenses déductibles</Typography>
         </Stack>
-      </CardContent>
-    </Card>
+        <Typography variant="h4" color="success.main" sx={{ fontWeight: 600 }}>
+          <MoneyValue cents={annual.deductibleExpensesCents} />
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddRoundedIcon />}
+          onClick={onAddDeductibleExpense}
+          sx={{
+            borderRadius: 999, 
+            alignSelf: 'flex-start',
+            mt: 1,
+            boxShadow: 2,
+            '&:hover': { boxShadow: 4 }
+          }}
+        >
+          Ajouter une dépense
+        </Button>
+      </Stack>
+    </SurfaceCard>
   );
 }
 
@@ -637,25 +630,23 @@ export function MissionGeneratedExpensesSummaryCard({
   const totalDeductible = rows.reduce((sum, row) => sum + (row.deductibleAmountCents ?? 0), 0);
 
   return (
-    <Card>
-      <CardContent sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <Typography variant="h5">Dépenses issues des missions</Typography>
-          <Typography variant="h4">
-            <MoneyValue cents={totalDeductible} />
-          </Typography>
-          <Typography color="text.secondary">
-            {rows.length} frais de mission déductibles.
-          </Typography>
-          <Button
-            variant="outlined"
-            onClick={onViewDetail}
-          >
-            Voir détail
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
+    <SurfaceCard contentSx={{ p: 3 }}>
+      <Stack spacing={2}>
+        <Typography variant="h5">Dépenses issues des missions</Typography>
+        <Typography variant="h4">
+          <MoneyValue cents={totalDeductible} />
+        </Typography>
+        <Typography color="text.secondary">
+          {rows.length} frais de mission déductibles.
+        </Typography>
+        <Button
+          variant="outlined"
+          onClick={onViewDetail}
+        >
+          Voir détail
+        </Button>
+      </Stack>
+    </SurfaceCard>
   );
 }
 
@@ -667,21 +658,19 @@ export function ReceivablesSummaryCard({
   onViewDetail: () => void;
 }) {
   return (
-    <Card>
-      <CardContent sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <Typography variant="h5">Factures à encaisser</Typography>
-          <Typography variant="h4">
-            <MoneyValue cents={receivableCents} />
-          </Typography>
-          <Button
-            variant="outlined"
-            onClick={onViewDetail}
-          >
-            Voir les factures
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
+    <SurfaceCard contentSx={{ p: 3 }}>
+      <Stack spacing={2}>
+        <Typography variant="h5">Factures à encaisser</Typography>
+        <Typography variant="h4">
+          <MoneyValue cents={receivableCents} />
+        </Typography>
+        <Button
+          variant="outlined"
+          onClick={onViewDetail}
+        >
+          Voir les factures
+        </Button>
+      </Stack>
+    </SurfaceCard>
   );
 }

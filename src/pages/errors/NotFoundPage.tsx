@@ -1,6 +1,7 @@
-import { Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { SurfaceCard } from '../../components/SurfaceCard';
 
 export function NotFoundPage() {
   useEffect(() => {
@@ -9,9 +10,8 @@ export function NotFoundPage() {
 
   return (
     <Box id="main-content" component="main" tabIndex={-1} sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3, bgcolor: 'background.default' }}>
-      <Card sx={{ maxWidth: 520, width: '100%' }}>
-        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-          <Stack spacing={2}>
+      <SurfaceCard contentSx={{ p: { xs: 3, md: 4 } }} sx={{ maxWidth: 520, width: '100%' }}>
+        <Stack spacing={2}>
             <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
               Page introuvable
             </Typography>
@@ -23,8 +23,7 @@ export function NotFoundPage() {
               Retour à l’accueil
             </Button>
           </Stack>
-        </CardContent>
-      </Card>
+        </SurfaceCard>
     </Box>
   );
 }
