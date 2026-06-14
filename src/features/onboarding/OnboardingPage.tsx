@@ -3,8 +3,9 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import LocalPharmacyRoundedIcon from '@mui/icons-material/LocalPharmacyRounded';
 import WorkRoundedIcon from '@mui/icons-material/WorkRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import { Box, Button, Card, CardActionArea, Stack, Typography, Stepper, Step, StepLabel, Paper } from '@mui/material';
+import { Box, Button, CardActionArea, Stack, Typography, Stepper, Step, StepLabel, Paper } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { SurfaceCard } from '../../components/SurfaceCard';
 import { updateAppState, useAppState } from '../../storage/localStore';
 
 // Clé pour stocker la progression dans localStorage
@@ -42,7 +43,7 @@ function needsOnboarding(state: any): boolean {
  */
 function Step1CreatePharmacien({ onNext }: { onNext: () => void }) {
   return (
-    <Card sx={{ width: '100%', p: 4 }}>
+    <SurfaceCard contentSx={{ p: 4 }} sx={{ width: "100%" }}>
       <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
         <PersonRoundedIcon color="primary" sx={{ fontSize: 60 }} />
         <Typography variant="h4">Créer votre profil pharmacien</Typography>
@@ -60,7 +61,7 @@ function Step1CreatePharmacien({ onNext }: { onNext: () => void }) {
           Créer un pharmacien
         </Button>
       </Stack>
-    </Card>
+    </SurfaceCard>
   );
 }
 
@@ -69,7 +70,7 @@ function Step1CreatePharmacien({ onNext }: { onNext: () => void }) {
  */
 function Step2CreatePharmacie({ onNext }: { onNext: () => void }) {
   return (
-    <Card sx={{ width: '100%', p: 4 }}>
+    <SurfaceCard contentSx={{ p: 4 }} sx={{ width: "100%" }}>
       <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
         <LocalPharmacyRoundedIcon color="primary" sx={{ fontSize: 60 }} />
         <Typography variant="h4">Ajouter une pharmacie</Typography>
@@ -87,7 +88,7 @@ function Step2CreatePharmacie({ onNext }: { onNext: () => void }) {
           Ajouter une pharmacie
         </Button>
       </Stack>
-    </Card>
+    </SurfaceCard>
   );
 }
 
@@ -96,7 +97,7 @@ function Step2CreatePharmacie({ onNext }: { onNext: () => void }) {
  */
 function Step3CreateMission({ onNext }: { onNext: () => void }) {
   return (
-    <Card sx={{ width: '100%', p: 4 }}>
+    <SurfaceCard contentSx={{ p: 4 }} sx={{ width: "100%" }}>
       <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
         <WorkRoundedIcon color="primary" sx={{ fontSize: 60 }} />
         <Typography variant="h4">Créer votre première mission</Typography>
@@ -114,7 +115,7 @@ function Step3CreateMission({ onNext }: { onNext: () => void }) {
           Créer une mission
         </Button>
       </Stack>
-    </Card>
+    </SurfaceCard>
   );
 }
 
@@ -123,7 +124,7 @@ function Step3CreateMission({ onNext }: { onNext: () => void }) {
  */
 function Step4Complete({ onComplete }: { onComplete: () => void }) {
   return (
-    <Card sx={{ width: '100%', p: 4 }}>
+    <SurfaceCard contentSx={{ p: 4 }} sx={{ width: "100%" }}>
       <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
         <CheckCircleRoundedIcon color="success" sx={{ fontSize: 60 }} />
         <Typography variant="h4">Félicitations !</Typography>
@@ -140,7 +141,7 @@ function Step4Complete({ onComplete }: { onComplete: () => void }) {
           Commencer à gérer mes missions
         </Button>
       </Stack>
-    </Card>
+    </SurfaceCard>
   );
 }
 
@@ -168,7 +169,7 @@ function ProfileSelection() {
           </Stack>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2, width: '100%' }}>
             {state.pharmaciens.map((pharmacien) => (
-              <Card key={pharmacien.id}>
+              <SurfaceCard key={pharmacien.id}>
                 <CardActionArea data-testid="user-card" onClick={() => selectProfile(pharmacien.id)} sx={{ p: 3, minHeight: 160 }}>
                   <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
                     <PersonRoundedIcon fontSize="large" />
@@ -176,9 +177,9 @@ function ProfileSelection() {
                     <Typography color="text.secondary">Entrer avec ce profil</Typography>
                   </Stack>
                 </CardActionArea>
-              </Card>
+              </SurfaceCard>
             ))}
-            <Card>
+            <SurfaceCard>
               <CardActionArea onClick={() => navigate('/pharmacien/new')} sx={{ p: 3, minHeight: 160 }}>
                 <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
                   <AddRoundedIcon fontSize="large" />
@@ -186,7 +187,7 @@ function ProfileSelection() {
                   <Typography color="text.secondary">Créer un profil et commencer</Typography>
                 </Stack>
               </CardActionArea>
-            </Card>
+            </SurfaceCard>
           </Box>
           {!state.pharmaciens.length ? (
             <Button variant="contained" size="large" onClick={() => navigate('/pharmacien/new')} data-testid="create-pharmacien-cta">

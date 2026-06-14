@@ -3,9 +3,11 @@ import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
 import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded';
 import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import { Box, Card, CardActionArea, CardContent, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, CardActionArea, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../components/PageHeader';
+import { SurfaceCard } from '../../components/SurfaceCard';
 import { useAppState } from '../../storage/localStore';
 import { activePharmacien } from '../../storage/selectors';
 
@@ -16,34 +18,29 @@ export function ActivityPage() {
 
   return (
     <Stack spacing={4} sx={{ width: 'min(1160px, 100%)', mx: 'auto' }}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={3}
-        sx={{ alignItems: { xs: 'stretch', md: 'flex-end' }, justifyContent: 'space-between' }}
-      >
-        <Stack spacing={1} sx={{ maxWidth: 680 }}>
-          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Accueil</Typography>
-          <Typography variant="h2">{pharmacien ? `Bonjour ${pharmacien.nom.split(' ')[0]}` : 'Bonjour'}</Typography>
-        </Stack>
-        <Tooltip title="Options">
-          <IconButton
-            color="primary"
-            size="large"
-            aria-label="Options"
-            data-testid="activity-options-icon"
-            onClick={() => navigate('/options')}
-            sx={{
-              alignSelf: { xs: 'flex-end', md: 'auto' },
-              border: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'background.paper',
-              '&:hover': { bgcolor: 'action.hover' },
-            }}
-          >
-            <SettingsRoundedIcon />
-          </IconButton>
-        </Tooltip>
-      </Stack>
+      <PageHeader
+        eyebrow="Accueil"
+        title={pharmacien ? `Bonjour ${pharmacien.nom.split(' ')[0]}` : 'Bonjour'}
+        actions={
+          <Tooltip title="Options">
+            <IconButton
+              color="primary"
+              size="large"
+              aria-label="Options"
+              data-testid="activity-options-icon"
+              onClick={() => navigate('/options')}
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <SettingsRoundedIcon />
+            </IconButton>
+          </Tooltip>
+        }
+      />
 
       <Stack spacing={2}>
         <Typography variant="h4">Travailler</Typography>
@@ -109,33 +106,31 @@ function HomeActionCard({
   'data-testid'?: string;
 }) {
   return (
-    <Card data-testid={testId} variant={emphasized ? 'elevation' : 'outlined'} sx={{ height: '100%' }}>
+    <SurfaceCard data-testid={testId} sx={{ height: '100%' }}>
       <CardActionArea onClick={onClick} sx={{ height: '100%' }}>
-        <CardContent sx={{ p: { xs: 3, md: 3.5 }, '&:last-child': { pb: { xs: 3, md: 3.5 } } }}>
-          <Stack spacing={2.5} sx={{ minHeight: emphasized ? 210 : 178 }}>
-            <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <Stack
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 2,
-                  bgcolor: emphasized ? 'primary.main' : 'action.hover',
-                  color: emphasized ? 'primary.contrastText' : 'text.primary',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {icon}
-              </Stack>
-              {badge ? <Chip label={badge} size="small" /> : null}
+        <Stack spacing={2.5} sx={{ minHeight: emphasized ? 210 : 178, p: { xs: 3, md: 3.5 } }}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <Stack
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: 2,
+                bgcolor: emphasized ? 'primary.main' : 'action.hover',
+                color: emphasized ? 'primary.contrastText' : 'text.primary',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {icon}
             </Stack>
-            <Stack spacing={1}>
-              <Typography variant="h5">{title}</Typography>
-              <Typography color="text.secondary">{description}</Typography>
-            </Stack>
+            {badge ? <Chip label={badge} size="small" /> : null}
           </Stack>
-        </CardContent>
+          <Stack spacing={1}>
+            <Typography variant="h5">{title}</Typography>
+            <Typography color="text.secondary">{description}</Typography>
+          </Stack>
+        </Stack>
       </CardActionArea>
-    </Card>
+    </SurfaceCard>
   );
 }

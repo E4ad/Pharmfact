@@ -1,11 +1,12 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
-import { Box, Button, Card, CardContent, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography, Alert, IconButton, Tooltip } from '@mui/material';
+import { Box, Button, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography, Alert, IconButton, Tooltip } from '@mui/material';
 import { FormEvent, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
-import { BackHomeButton } from '../../components/BackHomeButton';
+import { PageHeader } from '../../components/PageHeader';
+import { SurfaceCard } from '../../components/SurfaceCard';
 import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
 import { eurosToCents } from '../../services/money';
 import { updateAppState, useAppState } from '../../storage/localStore';
@@ -136,27 +137,27 @@ export function PharmacienNewPage() {
 
   return (
     <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
-      <Stack direction="row" sx={{ alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
-        <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
-          <BackHomeButton to="/settings" label="Paramètres" data-testid="pharmacien-back-button" />
-          <Typography variant="h2">{existingPharmacien ? 'Modifier le pharmacien' : 'Nouveau pharmacien'}</Typography>
-        </Stack>
-        {existingPharmacien && (
+      <PageHeader
+        eyebrow="Paramètres"
+        title={existingPharmacien ? 'Modifier le pharmacien' : 'Nouveau pharmacien'}
+        backTo="/settings"
+        backLabel="Paramètres"
+        actions={existingPharmacien ? (
           <Tooltip title="Supprimer ce pharmacien">
             <IconButton aria-label="Supprimer ce pharmacien" onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacien-delete-button">
               <DeleteRoundedIcon />
             </IconButton>
           </Tooltip>
-        )}
-      </Stack>
+        ) : undefined}
+        data-testid="pharmacien-back-button"
+      />
       {existingPharmacien && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Modification de : {existingPharmacien.nom}
         </Alert>
       )}
-      <Card sx={{ width: '100%' }}>
-        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-          <Stack component="form" onSubmit={submit} spacing={4}>
+      <SurfaceCard contentSx={{ p: { xs: 3, md: 4 } }}>
+        <Stack component="form" onSubmit={submit} spacing={4}>
             <Typography variant="h4">Profil professionnel</Typography>
             <Stack sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
               <TextField label="Nom complet *" value={form.nom} onChange={(e) => update('nom', e.target.value)} required />
@@ -208,8 +209,7 @@ export function PharmacienNewPage() {
               </Button>
             </Stack>
           </Stack>
-        </CardContent>
-      </Card>
+        </SurfaceCard>
     </Stack>
   );
 }

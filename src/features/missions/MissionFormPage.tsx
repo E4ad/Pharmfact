@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { BackHomeButton } from '../../components/BackHomeButton';
+import { PageHeader } from '../../components/PageHeader';
 import { createId } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels } from '../../services/invoiceWorkflow';
 import { formatMoney } from '../../services/money';
@@ -258,12 +259,14 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   if (mode === 'edit' && !existing) return <div className="mission-form-page"><BackHomeButton to={returnPath} label="Missions" data-testid="mission-form-back-button" /><p>Mission introuvable.</p></div>;
 
   return <main className="mission-form-page">
-    <div className="mission-form-heading">
-      <BackHomeButton to={mode === 'edit' ? returnPath : '/activity'} label={mode === 'edit' ? 'Missions' : 'Accueil'} data-testid="mission-form-back-button" />
-      <h1>{mode === 'edit' ? 'Modifier mission' : 'Nouvelle mission'}</h1>
-      <p>Créez une mission de remplacement. La facture sera générée automatiquement à partir des horaires, frais et informations saisies.</p>
-      <div className="mission-heading-summary">{[pharmacien?.nom, pharmacie ? pharmacieDisplayName(pharmacie) : undefined, values.dateDebut].filter(Boolean).join(' · ')}</div>
-    </div>
+    <PageHeader
+      eyebrow="Missions"
+      title={mode === 'edit' ? 'Modifier mission' : 'Nouvelle mission'}
+      description="Créez une mission de remplacement. La facture sera générée automatiquement à partir des horaires, frais et informations saisies."
+      backTo={mode === 'edit' ? returnPath : '/activity'}
+      backLabel={mode === 'edit' ? 'Missions' : 'Accueil'}
+      data-testid="mission-form-back-button"
+    />
     {mode === 'edit' ? <MissionWarning invoice={invoice} /> : null}
     <div className="mission-form-grid">
       <div className="mission-pharmacien-strip">

@@ -1,7 +1,7 @@
 # Phase 5 — Plan révisé après correction critique
 
 Date : 14 juin 2026  
-Statut : Lot 3 implémenté  
+Statut : Lot 4 implémenté  
 Prérequis : correction Design System appliquée
 
 ## Décision critique
@@ -82,14 +82,14 @@ Composants migrés :
 
 ### Lot 4 — Écrans non migrés
 
-- `ActivityPage`
-- `MissionFormPage`
-- `OnboardingPage`
-- `PharmacienNewPage`
-- `PharmacienFormModal`
-- `PharmacieAddPage`
-- `PharmacieFormModal`
-- `SettingsPage`
+- ✅ `ActivityPage` — PageHeader ajouté, HomeActionCard migré vers SurfaceCard.
+- ✅ `MissionFormPage` — PageHeader ajouté, en-tête manuel remplacé.
+- ✅ `OnboardingPage` — Toutes les Card migrées vers SurfaceCard.
+- ✅ `PharmacienNewPage` — PageHeader ajouté, Card migrée vers SurfaceCard.
+- ✅ `PharmacienFormModal` — Modal Dialog, pas de Card à migrer.
+- ✅ `PharmacieAddPage` — PageHeader ajouté, Card migrée vers SurfaceCard.
+- ✅ `PharmacieFormModal` — Modal Dialog, pas de Card à migrer.
+- ✅ `SettingsPage` — PageHeader ajouté, toutes les Card migrées vers SurfaceCard, PageSection ajouté.
 
 ## Critères d’acceptation
 

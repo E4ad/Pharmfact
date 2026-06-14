@@ -1,11 +1,12 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
-import { Box, Button, Card, CardContent, Stack, TextField, Typography, Alert, IconButton, Tooltip } from '@mui/material';
+import { Box, Button, Stack, TextField, Typography, Alert, IconButton, Tooltip } from '@mui/material';
 import { FormEvent, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { PharmacyRegistryAutocompleteInput } from '../../components/PharmacyRegistryAutocompleteInput';
-import { BackHomeButton } from '../../components/BackHomeButton';
+import { PageHeader } from '../../components/PageHeader';
+import { SurfaceCard } from '../../components/SurfaceCard';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacie } from '../../storage/schema';
 import { getPlatform } from '../../services/platformService';
@@ -139,27 +140,27 @@ export function PharmacieAddPage() {
 
   return (
     <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
-      <Stack direction="row" sx={{ alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
-        <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
-          <BackHomeButton to="/activity" label="Accueil" data-testid="pharmacy-back-button" />
-          <Typography variant="h2">{existingPharmacie ? 'Modifier la pharmacie' : 'Ajouter une pharmacie'}</Typography>
-        </Stack>
-        {existingPharmacie && (
+      <PageHeader
+        eyebrow="Accueil"
+        title={existingPharmacie ? 'Modifier la pharmacie' : 'Ajouter une pharmacie'}
+        backTo="/activity"
+        backLabel="Accueil"
+        actions={existingPharmacie ? (
           <Tooltip title="Supprimer cette pharmacie">
             <IconButton aria-label="Supprimer cette pharmacie" onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacy-delete-button">
               <DeleteRoundedIcon />
             </IconButton>
           </Tooltip>
-        )}
-      </Stack>
+        ) : undefined}
+        data-testid="pharmacy-back-button"
+      />
       {existingPharmacie && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Modification de : {existingPharmacie.nom}
         </Alert>
       )}
-      <Card sx={{ width: '100%' }}>
-        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-          <Stack component="form" onSubmit={submit} spacing={4}>
+      <SurfaceCard contentSx={{ p: { xs: 3, md: 4 } }}>
+        <Stack component="form" onSubmit={submit} spacing={4}>
             <Typography variant="h4">Informations générales</Typography>
             <Stack sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
               <PharmacyRegistryAutocompleteInput
@@ -203,8 +204,7 @@ export function PharmacieAddPage() {
               </Button>
             </Stack>
           </Stack>
-        </CardContent>
-      </Card>
+        </SurfaceCard>
     </Stack>
   );
 }
