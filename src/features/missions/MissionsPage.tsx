@@ -3,7 +3,6 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -14,7 +13,7 @@ import {
   DialogContent,
   Divider,
   IconButton,
-  Snackbar,
+  CircularProgress,
   Stack,
   Tooltip,
   Typography,
@@ -22,6 +21,9 @@ import {
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BackHomeButton } from '../../components/BackHomeButton';
+import { FadeIn } from '../../components/FadeIn';
+import { LoadingButton } from '../../components/LoadingButton';
+import { useNotifications } from '../../components/NotificationSystem';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
 import { createId } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
@@ -32,6 +34,7 @@ import type { Invoice, InvoiceStatus, Mission, MissionStatus, Pharmacie } from '
 import { getPlatformAsync } from '../../services/platformService';
 import { logMappedError, mapError } from '../../services/errorMapper';
 import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
+import { undoManager } from '../../services/undoManager';
 
 const missionStatusOptions: MissionStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'ARCHIVED'];
 const missionFilterOptions: Array<{ value: MissionStatus | 'ALL'; label: string }> = [
@@ -125,11 +128,11 @@ const statusPillSx = {
 export function MissionsPage() {
   const state = useAppState();
   const navigate = useNavigate();
+  const { notify } = useNotifications();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get('selected'));
   const [historyOpen, setHistoryOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<MissionStatus | 'ALL'>('ALL');
-  const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
 
   const missions = useMemo(
@@ -187,6 +190,9 @@ export function MissionsPage() {
   }
 
   function transitionMission(mission: Mission, status: MissionStatus) {
+    if (mission.status === status) return;
+    const previousMission = mission;
+
     updateAppState((current) => ({
       ...current,
       missions: current.missions.map((item) =>
@@ -208,14 +214,30 @@ export function MissionsPage() {
           : item,
       ),
     }));
-    setToast({ severity: 'success', message: `Mission marquée ${missionStatusLabels[status].toLowerCase()}` });
+
+    const undoId = undoManager.add({
+      description: `Restaurer la mission ${previousMission.missionCode}`,
+      undo: () => {
+        updateAppState((current) => ({
+          ...current,
+          missions: current.missions.map((item) => (item.id === previousMission.id ? previousMission : item)),
+        }));
+      },
+    });
+
+    notify({
+      severity: 'success',
+      message: `Mission marquée ${missionStatusLabels[status].toLowerCase()}.`,
+      onUndo: () => undoManager.undo(undoId),
+    });
   }
 
   function generateInvoice(mission: Mission) {
+    const currentMission = state.missions.find((item) => item.id === mission.id);
+    if (!currentMission || currentMission.invoiceId) return;
+    const invoice = createInvoiceFromMission(currentMission, state);
+
     updateAppState((current) => {
-      const currentMission = current.missions.find((item) => item.id === mission.id);
-      if (!currentMission || currentMission.invoiceId) return current;
-      const invoice = createInvoiceFromMission(currentMission, current);
       return {
         ...current,
         invoices: [...current.invoices, invoice],
@@ -233,22 +255,56 @@ export function MissionsPage() {
         ),
       };
     });
-    setToast({ severity: 'success', message: 'Facture générée' });
+
+    const undoId = undoManager.add({
+      description: `Supprimer la facture ${invoice.numero}`,
+      undo: () => {
+        updateAppState((current) => ({
+          ...current,
+          invoices: current.invoices.filter((item) => item.id !== invoice.id),
+          missions: current.missions.map((item) => (item.id === currentMission.id ? currentMission : item)),
+        }));
+      },
+    });
+
+    notify({
+      severity: 'success',
+      message: `Facture ${invoice.numero} générée.`,
+      onUndo: () => undoManager.undo(undoId),
+    });
   }
 
   function updateInvoiceStatus(invoiceId: string, status: InvoiceStatus) {
+    const previousInvoice = state.invoices.find((invoice) => invoice.id === invoiceId);
+    if (!previousInvoice || previousInvoice.status === status) return;
+
     updateAppState((current) => ({
       ...current,
       invoices: current.invoices.map((invoice) => (invoice.id === invoiceId ? transitionInvoice(invoice, status) : invoice)),
     }));
-    setToast({ severity: 'success', message: `Facture ${invoiceStatusLabels[status].toLowerCase()}` });
+
+    const undoId = undoManager.add({
+      description: `Restaurer la facture ${previousInvoice.numero}`,
+      undo: () => {
+        updateAppState((current) => ({
+          ...current,
+          invoices: current.invoices.map((invoice) => (invoice.id === invoiceId ? previousInvoice : invoice)),
+        }));
+      },
+    });
+
+    notify({
+      severity: 'success',
+      message: `Facture ${invoiceStatusLabels[status].toLowerCase()}.`,
+      onUndo: () => undoManager.undo(undoId),
+    });
   }
 
   function downloadCalendar(mission: Mission) {
     const pharmacien = findPharmacien(state, mission.pharmacienId);
     const pharmacie = findPharmacie(state, mission.pharmacieId);
     downloadIcs(`${mission.missionCode}.ics`, buildMissionIcs(mission, pharmacien, pharmacie));
-    setToast({ severity: 'success', message: 'Invitation calendrier téléchargée' });
+    notify({ severity: 'success', message: 'Invitation calendrier téléchargée.' });
   }
 
   async function downloadPdf(invoiceId: string) {
@@ -263,13 +319,13 @@ export function MissionsPage() {
       console.log('[PDF] Blob reçu, taille:', blob.size);
       const saved = await platform.pdf.downloadPdf(blob, invoice.numero);
       if (saved) {
-        setToast({ severity: 'success', message: 'PDF téléchargé' });
+        notify({ severity: 'success', message: 'PDF téléchargé.' });
       }
     } catch (error) {
       const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
       logMappedError(mapped, error);
       if (mapped.shouldDisplay) {
-        setToast({ severity: 'error', message: mapped.message });
+        notify({ severity: mapped.severity, message: mapped.message, persist: mapped.severity === 'error' });
       }
     } finally {
       setDownloadingInvoiceId(null);
@@ -308,8 +364,9 @@ export function MissionsPage() {
       </Stack>
 
       {/* Liste des missions */}
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
-        <CardContent sx={{ p: 0 }}>
+      <FadeIn>
+        <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
+          <CardContent sx={{ p: 0 }}>
           {missions.length ? (
             <Stack spacing={0}>
               {missions.map((mission) => (
@@ -335,8 +392,9 @@ export function MissionsPage() {
               </Button>
             </Stack>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </FadeIn>
 
       {/* Modal de détail mission */}
       {selected ? (
@@ -358,19 +416,6 @@ export function MissionsPage() {
         />
       ) : null}
 
-      {/* Notifications */}
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={2600}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>
-            {toast.message}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
     </Stack>
   );
 }
@@ -484,7 +529,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
               }}
               sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
             >
-              <PictureAsPdfRoundedIcon />
+              {pdfBusy ? <CircularProgress color="inherit" size={20} /> : <PictureAsPdfRoundedIcon />}
             </IconButton>
           </span>
         </Tooltip>
@@ -815,14 +860,15 @@ function MissionActionsSection({ invoice, mission, downloadingInvoiceId, onCalen
             </Button>
           ) : null}
           {invoice ? (
-            <Button
+            <LoadingButton
               variant="outlined"
               startIcon={<PictureAsPdfRoundedIcon fontSize="small" />}
-              disabled={downloadingInvoiceId === invoice.id}
+              loading={downloadingInvoiceId === invoice.id}
+              loadingLabel="Génération PDF..."
               onClick={() => onOpenPdf(invoice.id)}
             >
-              {downloadingInvoiceId === invoice.id ? 'Génération PDF...' : 'Télécharger PDF'}
-            </Button>
+              Télécharger PDF
+            </LoadingButton>
           ) : null}
           {invoice?.status === 'GENERATED' ? (
             <Button variant="contained" onClick={() => onInvoiceStatus(invoice.id, 'SENT')}>

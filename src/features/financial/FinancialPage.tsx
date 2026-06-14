@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState, FormEvent } from 'react';
-import { Box, Button, Card, CardContent, Stack, Typography, Alert, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
+import { useEffect, useMemo, useState } from 'react';
+import { Box, Button, Card, CardContent, Stack, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { MoneyValue } from '../../components/MoneyValue';
+import { FadeIn } from '../../components/FadeIn';
+import { useNotifications } from '../../components/NotificationSystem';
 import { useFinancialSettings } from '../../hooks/useFinancialSettings';
 import { selectFinancialOptions } from '../../storage/selectors';
 import { buildFinancialMetrics, collectMissionDeductibleExpenseRows, type AnnualFinancialSnapshot, type FinancialWarning, type MissionDeductibleExpenseRow, type MonthlyFinancialSnapshot, type QuarterlyFinancialSnapshot } from '../../services/financialMetrics';
@@ -34,6 +36,7 @@ export function FinancialPage() {
 
 export function FinancialDashboardPage() {
   const state = useAppState();
+  const { notify } = useNotifications();
   const financialSettings = useFinancialSettings();
   const today = todayIso();
   const availableViews = useMemo(() => enabledViews(financialSettings), [financialSettings]);
@@ -53,9 +56,6 @@ export function FinancialDashboardPage() {
   const [view, setView] = useState<ViewMode>(availableViews[0]);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => annual.months?.find((month: MonthlyFinancialSnapshot) => month.month === today.slice(0, 7))?.month ?? annual.months?.[0]?.month ?? today.slice(0, 7));
   const selectedMonthly = annual.months?.find((month: MonthlyFinancialSnapshot) => month.month === selectedMonth) ?? annual.months?.[0];
-
-  // Toast state
-  const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
 
   // Drawers state
   const [taxPaymentDrawerOpen, setTaxPaymentDrawerOpen] = useState(false);
@@ -99,7 +99,8 @@ export function FinancialDashboardPage() {
   }, [view, annual]);
 
   return (
-    <Stack spacing={4} sx={{ width: 'min(1180px, 100%)', mx: 'auto' }}>
+    <FadeIn>
+      <Stack spacing={4} sx={{ width: 'min(1180px, 100%)', mx: 'auto' }}>
       <Stack spacing={2}>
         <BackHomeButton to="/activity" label="Accueil" data-testid="financial-back-button" />
         <Stack spacing={1}>
@@ -175,14 +176,14 @@ export function FinancialDashboardPage() {
       <TaxPaymentFormDrawer
         open={taxPaymentDrawerOpen}
         onClose={() => setTaxPaymentDrawerOpen(false)}
-        onAdded={() => setToast({ severity: 'success', message: 'Acompte ajouté avec succès.' })}
+        onAdded={() => notify({ severity: 'success', message: 'Acompte ajouté avec succès.' })}
         periodLabel={periodLabel}
       />
 
       <DeductibleExpenseFormDrawer
         open={deductibleExpenseDrawerOpen}
         onClose={() => setDeductibleExpenseDrawerOpen(false)}
-        onSubmit={() => setToast({ severity: 'success', message: 'Dépense ajoutée avec succès.' })}
+        onSubmit={() => notify({ severity: 'success', message: 'Dépense ajoutée avec succès.' })}
       />
 
       <MissionGeneratedExpensesDrawer
@@ -204,15 +205,8 @@ export function FinancialDashboardPage() {
         gstQstCollectedCents={selectedMonthly?.gstQstCollectedCents ?? 0}
         gstQstRemittedCents={selectedMonthly?.gstQstRemittedCents ?? 0}
       />
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={3200}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {toast ? <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>{toast.message}</Alert> : undefined}
-      </Snackbar>
-    </Stack>
+      </Stack>
+    </FadeIn>
   );
 }
 

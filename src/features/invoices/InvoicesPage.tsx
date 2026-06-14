@@ -3,30 +3,53 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
-import { Alert, Button, Card, CardContent, Dialog, DialogContent, DialogTitle, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Button, Card, CardContent, Dialog, DialogContent, DialogTitle, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useState } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { MoneyValue } from '../../components/MoneyValue';
 import { BackHomeButton } from '../../components/BackHomeButton';
 import { StatusChip } from '../../components/StatusChip';
+import { LoadingButton } from '../../components/LoadingButton';
+import { FadeIn } from '../../components/FadeIn';
+import { useNotifications } from '../../components/NotificationSystem';
 import { invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
-import { exportAppState, updateAppState, useAppState } from '../../storage/localStore';
+import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Invoice, InvoiceStatus } from '../../storage/schema';
 import { findPharmacie, pharmacieDisplayName } from '../../storage/selectors';
 import { getPlatformAsync } from '../../services/platformService';
 import { logMappedError, mapError } from '../../services/errorMapper';
+import { undoManager } from '../../services/undoManager';
 
 export function InvoicesPage() {
   const state = useAppState();
+  const { notify } = useNotifications();
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
 
   function setStatus(invoiceId: string, status: InvoiceStatus) {
+    const previousInvoice = state.invoices.find((invoice) => invoice.id === invoiceId);
+    if (!previousInvoice) return;
+
     updateAppState((current) => ({
       ...current,
       invoices: current.invoices.map((invoice) => invoice.id === invoiceId ? transitionInvoice(invoice, status) : invoice),
     }));
+
+    const undoId = undoManager.add({
+      description: `Restaurer la facture ${previousInvoice.numero}`,
+      undo: () => {
+        updateAppState((current) => ({
+          ...current,
+          invoices: current.invoices.map((invoice) => (invoice.id === invoiceId ? previousInvoice : invoice)),
+        }));
+      },
+    });
+
+    notify({
+      severity: 'success',
+      message: `Facture ${invoiceStatusLabels[status].toLowerCase()}.`,
+      onUndo: () => undoManager.undo(undoId),
+    });
   }
 
   async function downloadPdf(invoice: Invoice) {
@@ -39,13 +62,13 @@ export function InvoicesPage() {
       console.log('[PDF] Blob reçu, taille:', blob.size);
       const saved = await platform.pdf.downloadPdf(blob, invoice.numero);
       if (saved) {
-        setToast({ severity: 'success', message: 'PDF téléchargé.' });
+        notify({ severity: 'success', message: 'PDF téléchargé.' });
       }
     } catch (error) {
       const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
       logMappedError(mapped, error);
       if (mapped.shouldDisplay) {
-        setToast({ severity: 'error', message: mapped.message });
+        notify({ severity: mapped.severity, message: mapped.message, persist: mapped.severity === 'error' });
       }
     } finally {
       setDownloadingId(null);
@@ -65,8 +88,9 @@ export function InvoicesPage() {
       {!state.invoices.length ? (
         <EmptyState title="Aucune facture" description="Les factures apparaîtront ici après génération depuis une mission." />
       ) : (
-        <Card>
-          <CardContent sx={{ overflowX: 'auto' }}>
+        <FadeIn>
+          <Card>
+            <CardContent sx={{ overflowX: 'auto' }}>
             <Table aria-label="Liste des factures">
               <TableHead>
                 <TableRow>
@@ -95,7 +119,16 @@ export function InvoicesPage() {
                           <Button size="small" startIcon={<VisibilityRoundedIcon />} onClick={() => setSelected(invoice)}>Détail</Button>
                           {invoice.status === 'GENERATED' ? <Button size="small" startIcon={<SendRoundedIcon />} onClick={() => setStatus(invoice.id, 'SENT')}>Envoyer</Button> : null}
                           {invoice.status !== 'PAID' && invoice.status !== 'ARCHIVED' && invoice.status !== 'VOIDED' ? <Button size="small" startIcon={<PaidRoundedIcon />} onClick={() => setStatus(invoice.id, 'PAID')}>Payée</Button> : null}
-                          <Button size="small" variant="contained" startIcon={<DownloadRoundedIcon />} disabled={downloadingId === invoice.id} onClick={() => downloadPdf(invoice)}>{downloadingId === invoice.id ? 'Génération...' : 'Télécharger PDF'}</Button>
+                          <LoadingButton
+                            size="small"
+                            variant="contained"
+                            startIcon={<DownloadRoundedIcon />}
+                            loading={downloadingId === invoice.id}
+                            loadingLabel="Génération..."
+                            onClick={() => downloadPdf(invoice)}
+                          >
+                            Télécharger PDF
+                          </LoadingButton>
                           {invoice.status !== 'ARCHIVED' ? <Button size="small" color="inherit" startIcon={<ArchiveRoundedIcon />} onClick={() => setStatus(invoice.id, 'ARCHIVED')}>Archiver</Button> : null}
                         </Stack>
                       </TableCell>
@@ -104,8 +137,9 @@ export function InvoicesPage() {
                 })}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </FadeIn>
       )}
       <Dialog
         open={Boolean(selected)}
@@ -133,9 +167,6 @@ export function InvoicesPage() {
           ) : null}
         </DialogContent>
       </Dialog>
-      <Snackbar open={Boolean(toast)} autoHideDuration={3200} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        {toast ? <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>{toast.message}</Alert> : undefined}
-      </Snackbar>
     </Stack>
   );
 }

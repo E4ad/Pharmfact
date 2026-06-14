@@ -1,5 +1,5 @@
 import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import { Box, Button, Card, CardContent, Stack, Typography, Snackbar, Alert, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton, CircularProgress } from '@mui/material';
+import { Box, Button, Card, CardContent, Stack, Typography, Alert, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup, IconButton, CircularProgress } from '@mui/material';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
 import AddBusinessRoundedIcon from '@mui/icons-material/AddBusinessRounded';
@@ -21,6 +21,7 @@ import { PharmacienFormModal } from '../pharmaciens/PharmacienFormModal';
 import { getPlatformAsync } from '../../services/platformService';
 import { createBackup, downloadBackup, importBackup, loadBackupFromFile, type BackupResult } from '../../services/backupService';
 import { formatBytes } from '../../services/formatting';
+import { useNotifications } from '../../components/NotificationSystem';
 
 const missionTypes = [
   ['REMPLACEMENT_OFFICINE', 'Remplacement officine'],
@@ -33,6 +34,7 @@ type SettingsCategory = 'general' | 'missions' | 'invoicing' | 'financial' | 'ap
 export function OptionsPage() {
   const [searchParams] = useSearchParams();
   const state = useAppState();
+  const { notify } = useNotifications();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const currentActive = activePharmacien(state);
 
@@ -42,7 +44,6 @@ export function OptionsPage() {
   const localDataSettings = selectLocalDataOptions(state);
 
   const [form, setForm] = useState<AppOptions>(() => appOptions);
-  const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
   const [taxStatus, setTaxStatus] = useState<TaxStatus>(() => fiscalSettings.defaultTaxStatus);
   const [uiSettingsForm, setUiSettingsForm] = useState<UiSettings>(() => uiSettings);
   const [localDataSettingsForm, setLocalDataSettingsForm] = useState<LocalDataSettings>(() => localDataSettings);
@@ -71,25 +72,33 @@ export function OptionsPage() {
     }
   }, [searchParams]);
 
+  const showToast = (toast: { severity: 'success' | 'error'; message: string }) => {
+    notify({
+      severity: toast.severity,
+      message: toast.message,
+      persist: toast.severity === 'error',
+    });
+  };
+
   const validateForm = (): boolean => {
     if (form.missionDefaults.defaultBreakMinutes < 0 || form.missionDefaults.defaultBreakMinutes > 1440) {
-      setToast({ severity: 'error', message: 'La pause doit être entre 0 et 1440 minutes.' });
+      showToast({ severity: 'error', message: 'La pause doit être entre 0 et 1440 minutes.' });
       return false;
     }
     if (form.missionDefaults.mealThresholdHours < 0 || form.missionDefaults.mealThresholdHours > 24) {
-      setToast({ severity: 'error', message: 'Le seuil de repas doit être entre 0 et 24 heures.' });
+      showToast({ severity: 'error', message: 'Le seuil de repas doit être entre 0 et 24 heures.' });
       return false;
     }
     if (form.missionDefaults.mealDefaultCents < 0) {
-      setToast({ severity: 'error', message: 'Le montant de repas doit être positif.' });
+      showToast({ severity: 'error', message: 'Le montant de repas doit être positif.' });
       return false;
     }
     if (form.missionDefaults.mileageRateCents < 0) {
-      setToast({ severity: 'error', message: 'Le taux de kilométrage doit être positif.' });
+      showToast({ severity: 'error', message: 'Le taux de kilométrage doit être positif.' });
       return false;
     }
     if (form.invoiceDefaults.invoiceDueDays < 0 || form.invoiceDefaults.invoiceDueDays > 365) {
-      setToast({ severity: 'error', message: 'Le délai de paiement doit être entre 0 et 365 jours.' });
+      showToast({ severity: 'error', message: 'Le délai de paiement doit être entre 0 et 365 jours.' });
       return false;
     }
     return true;
@@ -108,10 +117,10 @@ export function OptionsPage() {
         uiSettings: uiSettingsForm,
         localDataSettings: localDataSettingsForm,
       }));
-      setToast({ severity: 'success', message: 'Paramètres enregistrés avec succès.' });
+      showToast({ severity: 'success', message: 'Paramètres enregistrés avec succès.' });
       setActiveCategory(null);
     } catch (error) {
-      setToast({ severity: 'error', message: `Erreur lors de l'enregistrement.` });
+      showToast({ severity: 'error', message: `Erreur lors de l'enregistrement.` });
     }
   };
 
@@ -122,10 +131,10 @@ export function OptionsPage() {
       const backup = createBackup(state);
       const saved = await downloadBackup(backup);
       if (saved) {
-        setToast({ severity: 'success', message: `Sauvegarde exportée (${formatBytes(backup.size)}).` });
+        showToast({ severity: 'success', message: `Sauvegarde exportée (${formatBytes(backup.size)}).` });
       }
     } catch {
-      setToast({ severity: 'error', message: 'Export impossible. Veuillez réessayer.' });
+      showToast({ severity: 'error', message: 'Export impossible. Veuillez réessayer.' });
     } finally {
       setBackupBusy(false);
     }
@@ -140,7 +149,7 @@ export function OptionsPage() {
       const parsed = await loadBackupFromFile(file);
       setImportResult(parsed);
       if (!parsed.success) {
-        setToast({ severity: 'error', message: 'Import impossible. Vérifiez le fichier JSON.' });
+        showToast({ severity: 'error', message: 'Import impossible. Vérifiez le fichier JSON.' });
         return;
       }
 
@@ -154,15 +163,15 @@ export function OptionsPage() {
       const restored = await importBackup(parsed);
       setImportResult(restored);
       if (!restored.success) {
-        setToast({ severity: 'error', message: restored.errors[0] || 'Restauration annulée.' });
+        showToast({ severity: 'error', message: restored.errors[0] || 'Restauration annulée.' });
         return;
       }
 
-      setToast({ severity: 'success', message: 'Données restaurées avec succès.' });
+      showToast({ severity: 'success', message: 'Données restaurées avec succès.' });
       setActiveCategory(null);
       window.location.reload();
     } catch {
-      setToast({ severity: 'error', message: 'Import impossible. Vérifiez que le fichier JSON provient de cette application.' });
+      showToast({ severity: 'error', message: 'Import impossible. Vérifiez que le fichier JSON provient de cette application.' });
     } finally {
       setBackupBusy(false);
     }
@@ -172,7 +181,7 @@ export function OptionsPage() {
     resetAppState();
     setResetOpen(false);
     setActiveCategory(null);
-    setToast({ severity: 'success', message: 'Données réinitialisées avec les données de démonstration.' });
+    showToast({ severity: 'success', message: 'Données réinitialisées avec les données de démonstration.' });
   }
 
   async function syncOpqRegistry() {
@@ -181,7 +190,7 @@ export function OptionsPage() {
       const platform = await getPlatformAsync();
       const entries = await platform.api.fetchOpqPharmacistRegistry();
       if (!entries.length) {
-        setToast({ severity: 'error', message: 'Référentiel indisponible pour le moment.' });
+        showToast({ severity: 'error', message: 'Référentiel indisponible pour le moment.' });
         return;
       }
 
@@ -193,9 +202,9 @@ export function OptionsPage() {
           sourceUrl: 'https://www.opq.org/trouver-un-pharmacien/',
         },
       }));
-      setToast({ severity: 'success', message: `${entries.length} pharmaciens ajoutés au référentiel local.` });
+      showToast({ severity: 'success', message: `${entries.length} pharmaciens ajoutés au référentiel local.` });
     } catch {
-      setToast({ severity: 'error', message: 'Mise à jour du référentiel impossible.' });
+      showToast({ severity: 'error', message: 'Mise à jour du référentiel impossible.' });
     } finally {
       setOpqSyncing(false);
     }
@@ -914,14 +923,6 @@ export function OptionsPage() {
         onConfirm={confirmReset}
       />
 
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={3200}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {toast ? <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>{toast.message}</Alert> : undefined}
-      </Snackbar>
     </>
   );
 }

@@ -14,6 +14,12 @@ import {
   typographyScale,
   typographyTokens,
 } from '../design-system';
+import {
+  createDarkTheme as createDSDarkTheme,
+  createDesignSystemTheme,
+  createLightTheme as createDSLightTheme,
+  mergeThemes,
+} from '../design-system/theme';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -78,14 +84,12 @@ const baseTheme = {
           borderRadius: componentBorderRadius.button.default,
           minHeight: 36,
           paddingInline: spacingScale.lg,
-          transition: `background-color ${animationTokens.transition.fast}, border-color ${animationTokens.transition.fast}, box-shadow ${animationTokens.transition.fast}, transform ${animationTokens.transition.fast}`,
+          transition: `background-color ${animationTokens.transition.fast}, border-color ${animationTokens.transition.fast}, box-shadow ${animationTokens.transition.fast}`,
           '&:hover': {
             boxShadow: componentShadows.button.light,
-            transform: 'translateY(-1px)',
           },
           '&:active': {
             boxShadow: componentShadows.button.pressed,
-            transform: 'translateY(0)',
           },
           '&.Mui-disabled': {
             cursor: 'not-allowed',
@@ -670,3 +674,13 @@ export const theme = lightTheme;
 
 // Exporter les thèmes pour les tests
 export { lightTheme, darkTheme };
+
+export function createThemeFromDesignSystem(mode: ThemeMode): Theme {
+  return createDesignSystemTheme(mode === 'dark' ? 'dark' : 'light');
+}
+
+export function getEnhancedTheme(mode: ThemeMode): Theme {
+  return getTheme(mode);
+}
+
+export { createDSLightTheme, createDSDarkTheme, createDesignSystemTheme, mergeThemes };

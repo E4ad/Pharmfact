@@ -20,7 +20,7 @@ async function initApp() {
       console.error('[Main] Échec du pré-chargement de tauriPlatform:', error);
     }
   }
-  
+
   // Démarrer React
   const rootElement = document.getElementById('root');
   if (!rootElement) {

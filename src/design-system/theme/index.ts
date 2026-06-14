@@ -1,145 +1,167 @@
-// Theme Factory
-// Phase 3 - Création et gestion des thèmes MUI
-
 import { createTheme, type Theme, type ThemeOptions } from '@mui/material/styles';
 import { deepmerge } from '@mui/utils';
 import {
-  paletteTokens,
-  typographyTokensForMUI,
-  spacingForMUI,
-  shapeTokens,
-  shadowTokens,
-  zIndexTokensForMUI,
-  animationTokensForMUI,
-} from './tokens';
+  animationDurations,
+  animationEasings,
+  brandColors,
+  componentBorderRadius,
+  darkShadows,
+  darkThemeColors,
+  fontFamilies,
+  fontWeights,
+  lightShadows,
+  lightThemeColors,
+  neutralColors,
+  typographyTokens,
+  zIndexScale,
+} from '../tokens';
 
-// ============================================================================
-// Theme Factory Base
-// ============================================================================
+export type DesignSystemThemeMode = 'light' | 'dark' | 'system';
 
-/**
- * Crée un thème de base avec les tokens du Design System
- */
-function createBaseTheme(mode: 'light' | 'dark'): ThemeOptions {
-  const palette = paletteTokens[mode];
-  const shadows = shadowTokens[mode];
+function resolveMode(mode: DesignSystemThemeMode): 'light' | 'dark' {
+  if (mode === 'light' || mode === 'dark') return mode;
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'light';
+}
+
+function createMuiShadows(mode: 'light' | 'dark'): ThemeOptions['shadows'] {
+  const shadows = mode === 'dark' ? darkShadows : lightShadows;
+  const values = [
+    shadows.none,
+    shadows.xs,
+    shadows.sm,
+    shadows.md,
+    shadows.lg,
+    shadows.xl,
+    shadows['2xl'],
+  ];
+
+  while (values.length < 25) {
+    values.push(shadows['2xl']);
+  }
+
+  return values as ThemeOptions['shadows'];
+}
+
+function createDesignSystemOptions(mode: 'light' | 'dark'): ThemeOptions {
+  const isDark = mode === 'dark';
 
   return {
     palette: {
-      ...palette,
+      mode,
+      background: {
+        default: isDark ? darkThemeColors.background.default : lightThemeColors.background.default,
+        paper: isDark ? darkThemeColors.background.paper : lightThemeColors.background.paper,
+      },
+      primary: isDark
+        ? {
+            main: '#90caf9',
+            light: '#c7d8f0',
+            dark: '#639ddb',
+            contrastText: neutralColors.black,
+          }
+        : {
+            main: brandColors.primary[600],
+            light: brandColors.primary[500],
+            dark: brandColors.primary[700],
+            contrastText: neutralColors.white,
+          },
+      secondary: {
+        main: isDark ? neutralColors.slate[400] : neutralColors.slate[600],
+        light: isDark ? neutralColors.slate[300] : neutralColors.slate[500],
+        dark: isDark ? neutralColors.slate[500] : neutralColors.slate[700],
+        contrastText: isDark ? neutralColors.black : neutralColors.white,
+      },
+      success: {
+        main: isDark ? '#4caf50' : '#059669',
+        light: isDark ? '#81c784' : brandColors.success[500],
+        dark: isDark ? '#388e3c' : '#047857',
+        contrastText: isDark ? neutralColors.black : neutralColors.white,
+      },
+      warning: {
+        main: isDark ? '#ff9800' : brandColors.warning[600],
+        light: isDark ? '#ffc947' : brandColors.warning[500],
+        dark: isDark ? '#c66900' : brandColors.warning[700],
+        contrastText: neutralColors.black,
+      },
+      error: {
+        main: isDark ? '#f44336' : brandColors.error[600],
+        light: isDark ? '#ff7961' : brandColors.error[500],
+        dark: isDark ? '#ba000d' : brandColors.error[700],
+        contrastText: isDark ? neutralColors.black : neutralColors.white,
+      },
+      text: {
+        primary: isDark ? darkThemeColors.text.primary : lightThemeColors.text.primary,
+        secondary: isDark ? darkThemeColors.text.secondary : lightThemeColors.text.secondary,
+      },
+      divider: isDark ? darkThemeColors.divider : lightThemeColors.divider,
     },
     typography: {
-      ...typographyTokensForMUI,
+      fontFamily: fontFamilies.sans,
+      fontSize: typographyTokens.fontSize,
+      h1: { ...typographyTokens.h1 },
+      h2: { ...typographyTokens.h2 },
+      h3: { ...typographyTokens.h3 },
+      h4: { ...typographyTokens.h4 },
+      h5: { ...typographyTokens.h5 },
+      h6: { ...typographyTokens.h6 },
+      body1: { ...typographyTokens.body1 },
+      body2: { ...typographyTokens.body2 },
+      button: { ...typographyTokens.button },
+      caption: { ...typographyTokens.caption },
+      overline: { ...typographyTokens.overline },
     },
     shape: {
-      borderRadius: shapeTokens.borderRadius,
+      borderRadius: componentBorderRadius.container,
     },
-    shadows: [
-      shadows.none,
-      shadows.xs,
-      shadows.sm,
-      shadows.md,
-      shadows.lg,
-      shadows.xl,
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-      shadows['2xl'],
-    ],
-    spacing: spacingForMUI.muiSpacing,
-    transitions: animationTokensForMUI.transitions,
-    zIndex: zIndexTokensForMUI.muiZIndex,
-  };
-}
-
-// ============================================================================
-// Thèmes Principaux
-// ============================================================================
-
-/**
- * Crée un thème clair basé sur le Design System
- */
-export function createDesignSystemLightTheme(overrides: ThemeOptions = {}): Theme {
-  return createTheme(deepmerge(createBaseTheme('light'), overrides));
-}
-
-/**
- * Crée un thème sombre basé sur le Design System
- */
-export function createDesignSystemDarkTheme(overrides: ThemeOptions = {}): Theme {
-  const base = createBaseTheme('dark');
-  
-  // Overrides spécifiques pour le dark mode
-  const darkOverrides: ThemeOptions = {
-    components: {
-      MuiCard: {
-        styleOverrides: {
-          root: {
-            border: '1px solid',
-            borderColor: 'rgba(255, 255, 255, 0.08)',
-            boxShadow: '0 8px 26px rgba(0, 0, 0, 0.2)',
-          },
-        },
+    shadows: createMuiShadows(mode),
+    zIndex: {
+      appBar: zIndexScale.appBar,
+      drawer: zIndexScale.drawer,
+      modal: zIndexScale.modal,
+      snackbar: zIndexScale.notification,
+      tooltip: zIndexScale.tooltip,
+    },
+    transitions: {
+      duration: {
+        shortest: Number.parseInt(animationDurations.fastest, 10),
+        shorter: Number.parseInt(animationDurations.faster, 10),
+        short: Number.parseInt(animationDurations.fast, 10),
+        standard: Number.parseInt(animationDurations.normal, 10),
+        complex: Number.parseInt(animationDurations.slow, 10),
+        enteringScreen: Number.parseInt(animationDurations.slower, 10),
+        leavingScreen: Number.parseInt(animationDurations.slower, 10),
       },
-      MuiPaper: {
-        styleOverrides: {
-          root: {
-            backgroundColor: '#171a21',
-            backgroundImage: 'none',
-          },
-        },
+      easing: {
+        easeInOut: animationEasings.standard,
+        easeOut: animationEasings.enter,
+        easeIn: animationEasings.exit,
+        sharp: animationEasings.exit,
       },
     },
   };
-
-  return createTheme(deepmerge(deepmerge(base, darkOverrides), overrides));
 }
 
-/**
- * Crée un thème personnalisé avec les tokens du Design System
- */
 export function createDesignSystemTheme(
-  mode: 'light' | 'dark',
-  overrides: ThemeOptions = {}
+  mode: DesignSystemThemeMode,
+  overrides: ThemeOptions = {},
 ): Theme {
-  const theme = mode === 'light' 
-    ? createDesignSystemLightTheme(overrides) 
-    : createDesignSystemDarkTheme(overrides);
-  return theme;
+  return createTheme(deepmerge(createDesignSystemOptions(resolveMode(mode)), overrides));
 }
 
-/**
- * Fusionne plusieurs thèmes
- */
+export function createLightTheme(overrides: ThemeOptions = {}): Theme {
+  return createDesignSystemTheme('light', overrides);
+}
+
+export function createDarkTheme(overrides: ThemeOptions = {}): Theme {
+  return createDesignSystemTheme('dark', overrides);
+}
+
 export function mergeThemes(base: Theme, ...overrides: ThemeOptions[]): Theme {
-  return createTheme(deepmerge(base, ...overrides));
+  return createTheme(overrides.reduce((current, override) => deepmerge(current, override), base));
 }
 
-// ============================================================================
-// Types étendus
-// ============================================================================
-
-declare module '@mui/material/styles' {
-  interface Theme {
-    status: {
-      danger: string;
-    };
-  }
-  interface ThemeOptions {
-    status?: {
-      danger?: string;
-    };
-  }
-}
+export const createDSLightTheme = createLightTheme;
+export const createDSDarkTheme = createDarkTheme;
