@@ -219,13 +219,11 @@ export function OptionsPage() {
         <PageHeader
           eyebrow="Paramètres"
           title="Options"
-          description="Configurez les préférences, référentiels et réglages par défaut de Pharmfact."
           data-testid="options-page-header"
         />
 
         <PageSection
           title="Catégories de paramètres"
-          description="Chaque carte ouvre un groupe de réglages cohérent pour limiter les écrans trop chargés."
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2 }}>
           <OptionActionCard
