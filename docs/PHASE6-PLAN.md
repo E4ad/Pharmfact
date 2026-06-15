@@ -30,7 +30,7 @@ La **Phase 6** doit maintenant se concentrer sur deux axes complémentaires :
 
 ### Lot 1 — Audit d'accessibilité
 
-- [ ] **Audit complet WCAG** de tous les composants et pages
+- [x] **Audit complet WCAG** de tous les composants et pages
 - [ ] **Créer un rapport d'accessibilité** avec les problèmes identifiés
 - [ ] **Prioriser** les corrections par impact utilisateur
 - [ ] **Documenter** les solutions proposées
