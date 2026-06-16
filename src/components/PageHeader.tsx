@@ -1,7 +1,7 @@
 import { Box, Stack, Typography, type SxProps, type Theme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { brandColors, neutralColors, componentBorderRadius, borderWidth, spacingScale, spacingFractional } from '../design-system/tokens';
+import { brandColors, neutralColors, componentBorderRadius, borderRadiusScale, borderWidth, spacingScale, spacingFractional } from '../design-system/tokens';
 import { BackHomeButton } from './BackHomeButton';
 
 type PageHeaderProps = {
@@ -52,7 +52,7 @@ export function PageHeader({
             top: { xs: -72, md: -58 },
             width: { xs: 190, md: 260 },
             height: { xs: 190, md: 260 },
-            borderRadius: componentBorderRadius.full,
+            borderRadius: borderRadiusScale['2xl'],
             background: alpha(theme.palette.common.white, 0.12),
           },
         }),
