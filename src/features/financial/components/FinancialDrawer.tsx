@@ -1,5 +1,6 @@
 import { Dialog, DialogTitle, DialogContent, IconButton, Typography } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import { spacingScale } from '../../../design-system/tokens';
 
 interface FinancialModalProps {
   title: string;
@@ -35,7 +36,7 @@ export function FinancialModal({ title, open, onClose, children, 'data-testid': 
         <IconButton
           aria-label="Fermer"
           onClick={onClose}
-          sx={{ position: 'absolute', top: 8, right: 8 }}
+          sx={{ position: 'absolute', top: spacingScale.md, right: spacingScale.md }}
         >
           <CloseRoundedIcon />
         </IconButton>

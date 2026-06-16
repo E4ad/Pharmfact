@@ -148,7 +148,7 @@ export function FinancialDashboardPage() {
         />
       ) : null}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: spacingScale.md }}>
         {financialSettings.enableInstalmentTracking ? (
           <InstalmentSummaryCard annual={annual} onAddTaxPayment={() => setTaxPaymentDrawerOpen(true)} />
         ) : null}
