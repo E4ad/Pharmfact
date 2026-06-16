@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { componentBorderRadius, borderRadiusScale } from '../../design-system/tokens';
 import { FadeIn } from '../../components/FadeIn';
 import { LoadingButton } from '../../components/LoadingButton';
 import { useNotifications } from '../../components/NotificationSystem';
@@ -119,7 +120,7 @@ function formatEventDate(value: string): string {
 const statusPillSx = {
   height: '30px',
   px: 1.5,
-  borderRadius: '999px',
+  borderRadius: componentBorderRadius.full,
   fontSize: '0.8rem',
   fontWeight: 700,
   whiteSpace: 'nowrap',
@@ -365,7 +366,7 @@ export function MissionsPage() {
               variant={statusFilter === option.value ? 'contained' : 'outlined'}
               onClick={() => setStatusFilter(option.value)}
               sx={{
-                borderRadius: '999px',
+                borderRadius: componentBorderRadius.full,
                 minHeight: '36px',
                 padding: '8px 14px',
                 fontWeight: 700,
@@ -473,7 +474,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
         textAlign: 'left',
         cursor: 'pointer',
         transition: 'all 180ms ease',
-        borderRadius: 0,
+        borderRadius: borderRadiusScale.none,
         outline: 'none',
         '&:hover, &:focus-visible': {
           backgroundColor: (theme) => theme.palette.action.hover,
@@ -500,7 +501,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
                 sx={{
                   width: 30,
                   height: 30,
-                  borderRadius: '999px',
+                  borderRadius: componentBorderRadius.full,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -538,7 +539,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
                 stopAction(event);
                 if (invoice) onOpenPdf(invoice.id);
               }}
-              sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
+              sx={{ border: `${borderWidth.thin}px solid`, borderColor: 'divider', bgcolor: 'background.paper' }}
             >
               {pdfBusy ? <CircularProgress color="inherit" size={20} /> : <PictureAsPdfRoundedIcon />}
             </IconButton>
@@ -552,7 +553,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
               stopAction(event);
               onCalendar(mission);
             }}
-            sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
+            sx={{ border: `${borderWidth.thin}px solid`, borderColor: 'divider', bgcolor: 'background.paper' }}
           >
             <CalendarMonthRoundedIcon />
           </IconButton>
@@ -606,7 +607,7 @@ function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, h
             right: 8,
             width: 36,
             height: 36,
-            borderRadius: '999px',
+            borderRadius: componentBorderRadius.full,
             backgroundColor: 'action.hover',
             color: 'text.primary',
           }}
@@ -679,7 +680,7 @@ function MissionSummarySection({ mission, invoice, pharmacie, isFirstMissionAtPh
                 sx={{
                   width: 30,
                   height: 30,
-                  borderRadius: '999px',
+                  borderRadius: componentBorderRadius.full,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -778,7 +779,7 @@ function MissionScheduleSection({ mission }: { mission: Mission }) {
               gap: 1.5,
               alignItems: 'center',
               p: 1.5,
-              borderRadius: 2,
+              borderRadius: componentBorderRadius.card,
               bgcolor: 'action.hover',
             }}
           >
@@ -909,7 +910,7 @@ function MissionActionsSection({ invoice, mission, downloadingInvoiceId, onCalen
               size="small"
               variant={mission.status === status ? 'contained' : 'outlined'}
               onClick={() => onTransitionMission(mission, status)}
-              sx={{ borderRadius: '999px', fontWeight: 750 }}
+              sx={{ borderRadius: componentBorderRadius.full, fontWeight: 750 }}
             >
               {missionStatusLabels[status]}
             </Button>

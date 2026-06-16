@@ -1,5 +1,6 @@
 import { Box, Stack, Typography, type SxProps, type Theme } from '@mui/material';
 import type { ReactNode } from 'react';
+import { componentBorderRadius, borderWidth } from '../design-system/tokens';
 import { BackHomeButton } from './BackHomeButton';
 
 type PageHeaderProps = {
@@ -32,7 +33,7 @@ export function PageHeader({
         (theme) => ({
           position: 'relative',
           overflow: 'hidden',
-          borderRadius: 5,
+          borderRadius: componentBorderRadius.card,
           px: { xs: 2.5, md: 4 },
           py: { xs: 2.5, md: 3.5 },
           color: 'common.white',
@@ -50,7 +51,7 @@ export function PageHeader({
             top: { xs: -72, md: -58 },
             width: { xs: 190, md: 260 },
             height: { xs: 190, md: 260 },
-            borderRadius: '999px',
+            borderRadius: componentBorderRadius.full,
             background: 'rgba(255, 255, 255, 0.12)',
           },
         }),
@@ -66,7 +67,7 @@ export function PageHeader({
             sx: {
               color: 'inherit',
               bgcolor: 'rgba(255, 255, 255, 0.12)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              border: `${borderWidth.thin}px solid rgba(255, 255, 255, 0.2)`,
               '&:hover': {
                 bgcolor: 'rgba(255, 255, 255, 0.18)',
               },

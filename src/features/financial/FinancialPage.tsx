@@ -28,6 +28,7 @@ import ReceiptRoundedIcon from '@mui/icons-material/ReceiptRounded';
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
 import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded';
 import WarningRoundedIcon from '@mui/icons-material/WarningRounded';
+import { borderRadiusScale } from '../../design-system/tokens';
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
 
 type ViewMode = 'monthly' | 'quarterly' | 'annual';
@@ -558,7 +559,7 @@ export function InstalmentSummaryCard({
           startIcon={<AddRoundedIcon />}
           onClick={onAddTaxPayment}
           sx={{
-            borderRadius: 999, 
+            borderRadius: borderRadiusScale.full, 
             alignSelf: 'flex-start',
             mt: 1,
             boxShadow: 2,
@@ -606,7 +607,7 @@ export function DeductibleExpensesSummaryCard({
           startIcon={<AddRoundedIcon />}
           onClick={onAddDeductibleExpense}
           sx={{
-            borderRadius: 999, 
+            borderRadius: borderRadiusScale.full, 
             alignSelf: 'flex-start',
             mt: 1,
             boxShadow: 2,

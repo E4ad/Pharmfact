@@ -24,6 +24,7 @@ import { getPlatformAsync } from '../../services/platformService';
 import { createBackup, downloadBackup, importBackup, loadBackupFromFile, type BackupResult } from '../../services/backupService';
 import { formatBytes } from '../../services/formatting';
 import { useNotifications } from '../../components/NotificationSystem';
+import { borderRadiusScale } from '../../design-system/tokens';
 
 const missionTypes = [
   ['REMPLACEMENT_OFFICINE', 'Remplacement officine'],
@@ -805,7 +806,7 @@ export function OptionsPage() {
                 setPharmacieModalId(undefined);
                 setPharmacieModalOpen(true);
               }}
-              sx={{ alignSelf: 'flex-start', borderRadius: 2 }}
+              sx={{ alignSelf: 'flex-start' }}
               data-testid="options-add-pharmacy-button"
             >
               Ajouter une pharmacie
@@ -854,7 +855,7 @@ export function OptionsPage() {
                 setPharmacienModalId(undefined);
                 setPharmacienModalOpen(true);
               }}
-              sx={{ alignSelf: 'flex-start', borderRadius: 2 }}
+              sx={{ alignSelf: 'flex-start' }}
               data-testid="options-add-pharmacien-button"
             >
               Ajouter un pharmacien
@@ -978,10 +979,10 @@ function SettingsModal({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ p: 3, pt: 0 }}>
-        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: 999, flex: 1 }}>
+        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: borderRadiusScale.full, flex: 1 }}>
           Annuler
         </Button>
-        <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={onSave} sx={{ borderRadius: 999, flex: 1 }}>
+        <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={onSave} sx={{ borderRadius: borderRadiusScale.full, flex: 1 }}>
           Enregistrer
         </Button>
       </DialogActions>

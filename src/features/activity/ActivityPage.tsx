@@ -6,6 +6,7 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import { Box, CardActionArea, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { componentBorderRadius, borderWidth } from '../../design-system/tokens';
 import { PageHeader } from '../../components/PageHeader';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { useAppState } from '../../storage/localStore';
@@ -30,7 +31,7 @@ export function ActivityPage() {
               data-testid="activity-options-icon"
               onClick={() => navigate('/options')}
               sx={{
-                border: '1px solid',
+                border: `${borderWidth.thin}px solid`,
                 borderColor: 'divider',
                 bgcolor: 'background.paper',
                 '&:hover': { bgcolor: 'action.hover' },
@@ -114,7 +115,7 @@ function HomeActionCard({
               sx={{
                 width: 48,
                 height: 48,
-                borderRadius: 2,
+                borderRadius: componentBorderRadius.sm,
                 bgcolor: emphasized ? 'primary.main' : 'action.hover',
                 color: emphasized ? 'primary.contrastText' : 'text.primary',
                 alignItems: 'center',

@@ -12,6 +12,7 @@ import { createId } from '../../services/ids';
 import { getPlatform } from '../../services/platformService';
 import { findOpqPharmacistByLicense, normalizeOpqLicenseNumber } from '../../services/opqRegistry';
 import { findDuplicatePharmacist } from '../../services/entityDuplicates';
+import { borderRadiusScale } from '../../design-system/tokens';
 
 interface PharmacienFormModalProps {
   open: boolean;
@@ -264,10 +265,10 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
             <DeleteRoundedIcon />
           </IconButton>
         )}
-        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: 999 }}>
+        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: borderRadiusScale.full }}>
           Annuler
         </Button>
-        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacien)} sx={{ borderRadius: 999 }}>
+        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacien)} sx={{ borderRadius: borderRadiusScale.full }}>
           {existingPharmacien ? 'Enregistrer les modifications' : 'Enregistrer'}
         </Button>
       </DialogActions>

@@ -45,6 +45,7 @@ import './MissionFormPage.css';
 import { getPlatform } from '../../services/platformService';
 import { PharmacieFormModal } from '../pharmacies/PharmacieFormModal';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { borderRadiusScale } from '../../design-system/tokens';
 
 type MissionExpenseFormValue = MissionExpense;
 type WorkflowAction = 'save_draft' | 'confirm' | 'confirm_generate' | MissionEditAction;
@@ -67,10 +68,7 @@ function FormField({ label, type, value, onChange, sx }: {
       variant="outlined"
       size="small"
       fullWidth
-      sx={{
-        borderRadius: 2,
-        ...sx
-      }}
+      sx={sx}
     />
   );
 }
@@ -83,14 +81,13 @@ function FormSelectField({ label, value, options, onChange, sx }: {
   sx?: object;
 }) {
   return (
-    <FormControl fullWidth size="small" sx={{ ...sx }}>
+    <FormControl fullWidth size="small" sx={sx}>
       <InputLabel>{label}</InputLabel>
       <Select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         label={label}
         variant="outlined"
-        sx={{ borderRadius: 2 }}
       >
         {options.map((option) => (
           <MenuItem key={option.value} value={option.value}>
@@ -130,7 +127,6 @@ function MissionWarning({ invoice }: { invoice?: Invoice }) {
   return (
     <Alert 
       severity={severity}
-      sx={{ borderRadius: 2 }}
     >
       {impact.message}
     </Alert>
@@ -333,7 +329,7 @@ function MissionLocationCard({
     <section className="mission-form-card">
       <h2>1. Lieu de mission</h2>
       <div className="mission-form-fields">
-        <FormControl fullWidth size="small" sx={{ borderRadius: 2 }}>
+        <FormControl fullWidth size="small">
           <InputLabel>Pharmacie</InputLabel>
           <Select
             value={values.pharmacieId}
@@ -347,7 +343,6 @@ function MissionLocationCard({
             }}
             label="Pharmacie"
             variant="outlined"
-            sx={{ borderRadius: 2 }}
           >
             {pharmacies.map((item) => (
               <MenuItem key={item.id} value={item.id}>
@@ -422,7 +417,7 @@ function MissionCoreCard({
           />
         ) : null}
         {values.isMultiDay ? (
-          <Button variant="outlined" size="small" onClick={() => onSetValues(regenerateDays())} sx={{ borderRadius: 999, alignSelf: 'flex-start' }}>
+          <Button variant="outlined" size="small" onClick={() => onSetValues(regenerateDays())} sx={{ borderRadius: borderRadiusScale.full, alignSelf: 'flex-start' }}>
             Mettre à jour les jours
           </Button>
         ) : null}
@@ -513,12 +508,12 @@ function MissionNotesCard({
             variant="outlined"
             size="small"
             fullWidth
-            sx={{ borderRadius: 2, gridColumn: '1 / -1' }}
+            sx={{ gridColumn: '1 / -1' }}
             placeholder="Ajoutez des notes..."
           />
         </div>
       ) : (
-        <Button variant="outlined" size="small" onClick={onShowNotes} startIcon={<EditRoundedIcon />} sx={{ borderRadius: 999 }}>
+        <Button variant="outlined" size="small" onClick={onShowNotes} startIcon={<EditRoundedIcon />} sx={{ borderRadius: borderRadiusScale.full }}>
           Ajouter une note
         </Button>
       )}
@@ -939,7 +934,7 @@ function MissionFinancialPreview({ preview, rate }: { preview: { hours: number; 
           size="small" 
           onClick={() => setOpen((value) => !value)}
           startIcon={open ? undefined : <EditRoundedIcon />}
-          sx={{ borderRadius: 999, alignSelf: 'flex-start' }}
+          sx={{ borderRadius: borderRadiusScale.full, alignSelf: 'flex-start' }}
         >
           {open ? 'Masquer le détail' : 'Voir le détail'}
         </Button>
@@ -965,7 +960,6 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
           variant="outlined" 
           type="button" 
           onClick={() => onSubmit('save_draft')}
-          sx={{ borderRadius: 2 }}
         >
           Enregistrer brouillon
         </Button>
@@ -973,7 +967,6 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
           variant="outlined" 
           type="button" 
           onClick={() => onSubmit('confirm')}
-          sx={{ borderRadius: 2 }}
         >
           Valider mission
         </Button>
@@ -981,7 +974,6 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
           variant="contained" 
           type="button" 
           onClick={() => onSubmit('confirm_generate')}
-          sx={{ borderRadius: 2 }}
         >
           Valider et générer facture
         </Button>
@@ -995,7 +987,6 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
         variant="outlined" 
         type="button" 
         onClick={onCancel}
-        sx={{ borderRadius: 2 }}
       >
         Annuler
       </Button>
@@ -1005,7 +996,6 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
           variant={definition.primary ? 'contained' : 'outlined'} 
           type="button" 
           onClick={() => onSubmit(definition.action)}
-          sx={{ borderRadius: 2 }}
         >
           {definition.label}
         </Button>

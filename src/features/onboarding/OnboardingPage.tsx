@@ -7,6 +7,7 @@ import { Box, Button, CardActionArea, Stack, Typography, Stepper, Step, StepLabe
 import { useNavigate } from 'react-router-dom';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { updateAppState, useAppState } from '../../storage/localStore';
+import { componentBorderRadius } from '../../design-system/tokens';
 
 // Clé pour stocker la progression dans localStorage
 const ONBOARDING_PROGRESS_KEY = 'onboarding_progress';
@@ -282,7 +283,7 @@ export function OnboardingPage() {
         <Typography className="welcome-hello" variant="h1">Bonjour</Typography>
         
         {/* Indicateur de progression (seulement pour le flux onboarding) */}
-        <Paper sx={{ width: '100%', p: 3, borderRadius: 2 }}>
+        <Paper sx={{ width: '100%', p: 3, borderRadius: componentBorderRadius.paper }}>
           <Stepper activeStep={currentStep - 1} alternativeLabel sx={{ width: '100%' }}>
             <Step completed={currentStep > 1} active={currentStep === 1}>
               <StepLabel>Pharmacien</StepLabel>

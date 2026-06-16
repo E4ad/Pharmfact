@@ -1,6 +1,7 @@
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { componentBorderRadius, borderWidth } from '../design-system/tokens';
 
 type Props = {
   title: string;
@@ -15,9 +16,9 @@ export function EmptyState({ title, description, actionLabel, onAction }: Props)
       sx={{
         p: { xs: 4, md: 5 },
         textAlign: 'center',
-        border: '1px dashed',
+        border: `${borderWidth.thin}px dashed`,
         borderColor: 'divider',
-        borderRadius: 5,
+        borderRadius: componentBorderRadius.card,
         bgcolor: 'background.paper',
       }}
     >
@@ -27,12 +28,12 @@ export function EmptyState({ title, description, actionLabel, onAction }: Props)
           sx={{
             width: 52,
             height: 52,
-            borderRadius: '999px',
+            borderRadius: componentBorderRadius.full,
             display: 'grid',
             placeItems: 'center',
             bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
             color: 'primary.main',
-            border: '1px solid',
+            border: `${borderWidth.thin}px solid`,
             borderColor: (theme) => alpha(theme.palette.primary.main, 0.18),
           }}
         >

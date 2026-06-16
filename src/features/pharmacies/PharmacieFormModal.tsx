@@ -9,6 +9,7 @@ import { createId } from '../../services/ids';
 import { getPlatform } from '../../services/platformService';
 import { buildSantePharmacyNotes, getSantePharmacyAddressParts, type SantePharmacyRegistryEntry } from '../../services/santePharmacyRegistry';
 import { findDuplicatePharmacy } from '../../services/entityDuplicates';
+import { borderRadiusScale } from '../../design-system/tokens';
 
 interface PharmacieFormModalProps {
   open: boolean;
@@ -234,10 +235,10 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
             Supprimer
           </Button>
         )}
-        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: 999 }}>
+        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: borderRadiusScale.full }}>
           Annuler
         </Button>
-        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacy)} sx={{ borderRadius: 999 }}>
+        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacy)} sx={{ borderRadius: borderRadiusScale.full }}>
           {existingPharmacie ? 'Enregistrer les modifications' : 'Enregistrer'}
         </Button>
       </DialogActions>

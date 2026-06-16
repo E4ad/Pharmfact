@@ -8,3 +8,4 @@ export * from './borderRadius';
 export * from './shadows';
 export * from './zIndex';
 export * from './animation';
+export * from './component';

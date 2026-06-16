@@ -1,6 +1,7 @@
 import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
+import { componentBorderRadius, borderWidth } from '../design-system/tokens';
 import { SurfaceCard } from './SurfaceCard';
 
 type IconTone = 'green' | 'blue' | 'amber' | 'purple' | 'red' | 'gray';
@@ -64,8 +65,8 @@ export function OptionActionCard({
               sx={{
                 width: 36,
                 height: 36,
-                borderRadius: 2.5,
-                border: '1px solid',
+                borderRadius: componentBorderRadius.sm,
+                border: `${borderWidth.thin}px solid`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

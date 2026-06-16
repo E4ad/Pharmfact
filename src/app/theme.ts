@@ -3,7 +3,10 @@ import { deepmerge } from '@mui/utils';
 import {
   animationTokens,
   brandColors,
+  borderWidth,
   componentBorderRadius,
+  componentBorderRadiusMap,
+  componentHeight,
   componentShadows,
   darkThemeColors,
   fontFamilies,
@@ -82,7 +85,7 @@ const baseTheme = {
       styleOverrides: {
         root: {
           borderRadius: componentBorderRadius.button.default,
-          minHeight: 36,
+          minHeight: componentHeight.md,
           paddingInline: spacingScale.lg,
           transition: `background-color ${animationTokens.transition.fast}, border-color ${animationTokens.transition.fast}, box-shadow ${animationTokens.transition.fast}`,
           '&:hover': {
@@ -101,14 +104,22 @@ const baseTheme = {
           },
         },
         sizeSmall: {
-          minHeight: 32,
+          minHeight: componentHeight.sm,
           paddingInline: spacingScale.md,
           fontSize: `${typographyScale.sm / 16}rem`,
         },
         sizeLarge: {
-          minHeight: 44,
+          minHeight: componentHeight.lg,
           paddingInline: spacingScale.xl,
           fontSize: `${typographyScale.base / 16}rem`,
+        },
+      },
+    },
+    // Button pill variant - uses full border radius
+    MuiButtonGroup: {
+      styleOverrides: {
+        root: {
+          borderRadius: componentBorderRadius.button.pill,
         },
       },
     },
@@ -116,7 +127,8 @@ const baseTheme = {
       styleOverrides: {
         root: {
           borderRadius: componentBorderRadius.card,
-          border: `1px solid ${lightThemeColors.border.light}`,
+          // Border and box-shadow are now handled by SurfaceCard component
+          // to avoid double borders when using SurfaceCard
           boxShadow: componentShadows.card.light,
           transition: `box-shadow ${animationTokens.transition.normal}`,
           '&:hover': {
@@ -294,16 +306,16 @@ const darkThemeOverrides = {
     MuiCard: {
       styleOverrides: {
         root: {
-          border: '1px solid',
-          borderColor: 'rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 8px 26px rgba(0, 0, 0, 0.2)',
+          // Border and box-shadow are now handled by SurfaceCard component
+          // to avoid double borders when using SurfaceCard
+          boxShadow: componentShadows.card.dark,
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: '#171a21',
+          backgroundColor: darkThemeColors.background.paper,
           backgroundImage: 'none',
         },
       },
@@ -311,9 +323,9 @@ const darkThemeOverrides = {
     MuiInputBase: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.04)',
+          backgroundColor: darkThemeColors.action.disabledBackground,
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backgroundColor: darkThemeColors.action.hover,
           },
         },
       },
@@ -321,85 +333,85 @@ const darkThemeOverrides = {
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          borderBottom: `${borderWidth.thin}px solid ${darkThemeColors.border.light}`,
         },
         head: {
-          backgroundColor: 'rgba(255, 255, 255, 0.04)',
-          color: '#f5f5f5',
+          backgroundColor: darkThemeColors.action.disabledBackground,
+          color: darkThemeColors.text.primary,
         },
         body: {
-          color: '#f5f5f5',
+          color: darkThemeColors.text.primary,
         },
       },
     },
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          backgroundColor: '#0f1115',
-          borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: darkThemeColors.background.default,
+          borderRight: `${borderWidth.thin}px solid ${darkThemeColors.border.light}`,
         },
       },
     },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#171a21',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: darkThemeColors.background.paper,
+          borderBottom: `${borderWidth.thin}px solid ${darkThemeColors.border.light}`,
         },
       },
     },
     MuiTooltip: {
       styleOverrides: {
         tooltip: {
-          backgroundColor: '#171a21',
-          color: '#f5f5f5',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: darkThemeColors.background.paper,
+          color: darkThemeColors.text.primary,
+          border: `${borderWidth.thin}px solid ${darkThemeColors.border.light}`,
         },
       },
     },
     MuiSnackbar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#171a21',
+          backgroundColor: darkThemeColors.background.paper,
         },
       },
     },
     MuiAlert: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.04)',
-          color: '#f5f5f5',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: darkThemeColors.action.disabledBackground,
+          color: darkThemeColors.text.primary,
+          border: `${borderWidth.thin}px solid ${darkThemeColors.border.light}`,
         },
         standardSuccess: {
-          backgroundColor: 'rgba(72, 187, 120, 0.14)',
-          color: '#4caf50',
+          backgroundColor: darkThemeColors.action.selected,
+          color: brandColors.success[600],
         },
         standardWarning: {
-          backgroundColor: 'rgba(245, 158, 11, 0.14)',
-          color: '#ff9800',
+          backgroundColor: darkThemeColors.action.selected,
+          color: brandColors.warning[600],
         },
         standardError: {
-          backgroundColor: 'rgba(244, 67, 54, 0.14)',
-          color: '#f44336',
+          backgroundColor: darkThemeColors.action.selected,
+          color: brandColors.error[600],
         },
       },
     },
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 14,
-          paddingInline: 20,
+          borderRadius: componentBorderRadius.button.default,
+          paddingInline: spacingScale.lg,
         },
         containedPrimary: {
-          color: '#000000',
+          color: neutralColors.black,
         },
         outlined: {
-          borderColor: 'rgba(255, 255, 255, 0.23)',
-          color: '#f5f5f5',
+          borderColor: darkThemeColors.border.default,
+          color: darkThemeColors.text.primary,
           '&:hover': {
-            borderColor: 'rgba(255, 255, 255, 0.4)',
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            borderColor: darkThemeColors.border.strong,
+            backgroundColor: darkThemeColors.action.hover,
           },
         },
       },
@@ -407,14 +419,14 @@ const darkThemeOverrides = {
     MuiToggleButton: {
       styleOverrides: {
         root: {
-          borderColor: 'rgba(255, 255, 255, 0.23)',
-          color: '#f5f5f5',
+          borderColor: darkThemeColors.border.default,
+          color: darkThemeColors.text.primary,
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            backgroundColor: darkThemeColors.action.hover,
           },
           '&.Mui-selected': {
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
-            borderColor: 'rgba(255, 255, 255, 0.3)',
+            backgroundColor: darkThemeColors.action.selected,
+            borderColor: darkThemeColors.border.strong,
           },
         },
       },
@@ -422,13 +434,13 @@ const darkThemeOverrides = {
     MuiSelect: {
       styleOverrides: {
         root: {
-          color: '#f5f5f5',
+          color: darkThemeColors.text.primary,
         },
         select: {
-          backgroundColor: 'rgba(255, 255, 255, 0.04)',
+          backgroundColor: darkThemeColors.action.disabledBackground,
         },
         icon: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
         },
       },
     },
@@ -436,22 +448,22 @@ const darkThemeOverrides = {
       styleOverrides: {
         root: {
           backgroundColor: 'transparent',
-          color: '#f5f5f5',
+          color: darkThemeColors.text.primary,
         },
         title: {
-          color: '#f5f5f5',
+          color: darkThemeColors.text.primary,
         },
         subheader: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
         },
       },
     },
     MuiCardContent: {
       styleOverrides: {
         root: {
-          color: '#f5f5f5',
+          color: darkThemeColors.text.primary,
           '&:last-child': {
-            paddingBottom: 16,
+            paddingBottom: spacingScale.md,
           },
         },
       },
@@ -459,26 +471,26 @@ const darkThemeOverrides = {
     MuiDialog: {
       styleOverrides: {
         paper: {
-          backgroundColor: '#171a21',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: darkThemeColors.background.paper,
+          border: `${borderWidth.thin}px solid ${darkThemeColors.border.light}`,
         },
       },
     },
     MuiMenu: {
       styleOverrides: {
         paper: {
-          backgroundColor: '#171a21',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          color: '#f5f5f5',
+          backgroundColor: darkThemeColors.background.paper,
+          border: `${borderWidth.thin}px solid ${darkThemeColors.border.light}`,
+          color: darkThemeColors.text.primary,
         },
       },
     },
     MuiListItem: {
       styleOverrides: {
         root: {
-          color: '#f5f5f5',
+          color: darkThemeColors.text.primary,
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            backgroundColor: darkThemeColors.action.hover,
           },
         },
       },
@@ -486,12 +498,12 @@ const darkThemeOverrides = {
     MuiCheckbox: {
       styleOverrides: {
         root: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
           '&.Mui-checked': {
-            color: '#90caf9',
+            color: darkThemePalette.primary.main,
           },
           '&.Mui-disabled': {
-            color: 'rgba(255, 255, 255, 0.3)',
+            color: darkThemeColors.text.disabled,
           },
         },
       },
@@ -499,9 +511,9 @@ const darkThemeOverrides = {
     MuiRadio: {
       styleOverrides: {
         root: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
           '&.Mui-checked': {
-            color: '#90caf9',
+            color: darkThemePalette.primary.main,
           },
         },
       },
@@ -509,15 +521,15 @@ const darkThemeOverrides = {
     MuiSwitch: {
       styleOverrides: {
         track: {
-          backgroundColor: 'rgba(255, 255, 255, 0.12)',
+          backgroundColor: darkThemeColors.action.disabledBackground,
           '.Mui-checked + &': {
-            backgroundColor: 'rgba(144, 202, 249, 0.3)',
+            backgroundColor: darkThemeColors.action.selected,
           },
         },
         thumb: {
-          backgroundColor: '#a0aec0',
+          backgroundColor: darkThemeColors.text.secondary,
           '.Mui-checked &': {
-            backgroundColor: '#90caf9',
+            backgroundColor: darkThemePalette.primary.main,
           },
         },
       },
@@ -525,22 +537,22 @@ const darkThemeOverrides = {
     MuiTabs: {
       styleOverrides: {
         root: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
         },
         indicator: {
-          backgroundColor: '#90caf9',
+          backgroundColor: darkThemePalette.primary.main,
         },
       },
     },
     MuiTab: {
       styleOverrides: {
         root: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
           '&.Mui-selected': {
-            color: '#f5f5f5',
+            color: darkThemeColors.text.primary,
           },
           '&.Mui-disabled': {
-            color: 'rgba(255, 255, 255, 0.3)',
+            color: darkThemeColors.text.disabled,
           },
         },
       },
@@ -548,44 +560,44 @@ const darkThemeOverrides = {
     MuiChip: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
-          color: '#f5f5f5',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          backgroundColor: darkThemeColors.action.disabledBackground,
+          color: darkThemeColors.text.primary,
+          border: `${borderWidth.thin}px solid ${darkThemeColors.border.default}`,
         },
         deleteIcon: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
           '&:hover': {
-            color: '#f5f5f5',
+            color: darkThemeColors.text.primary,
           },
         },
         label: {
-          color: '#f5f5f5',
+          color: darkThemeColors.text.primary,
         },
       },
     },
     MuiBadge: {
       styleOverrides: {
         badge: {
-          backgroundColor: '#90caf9',
-          color: '#000000',
+          backgroundColor: darkThemePalette.primary.main,
+          color: neutralColors.black,
         },
       },
     },
     MuiAvatar: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
-          color: '#f5f5f5',
+          backgroundColor: darkThemeColors.action.disabledBackground,
+          color: darkThemeColors.text.primary,
         },
       },
     },
     MuiIconButton: {
       styleOverrides: {
         root: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            color: '#f5f5f5',
+            backgroundColor: darkThemeColors.action.hover,
+            color: darkThemeColors.text.primary,
           },
         },
       },
@@ -593,9 +605,9 @@ const darkThemeOverrides = {
     MuiFormLabel: {
       styleOverrides: {
         root: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
           '&.Mui-focused': {
-            color: '#90caf9',
+            color: darkThemePalette.primary.main,
           },
         },
       },
@@ -603,9 +615,9 @@ const darkThemeOverrides = {
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          color: '#a0aec0',
+          color: darkThemeColors.text.secondary,
           '&.Mui-focused': {
-            color: '#90caf9',
+            color: darkThemePalette.primary.main,
           },
         },
       },
@@ -613,12 +625,12 @@ const darkThemeOverrides = {
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          color: '#f5f5f5',
+          color: darkThemeColors.text.primary,
         },
         notchedOutline: {
-          borderColor: 'rgba(255, 255, 255, 0.23)',
+          borderColor: darkThemeColors.border.default,
           '&:hover': {
-            borderColor: 'rgba(255, 255, 255, 0.4)',
+            borderColor: darkThemeColors.border.strong,
           },
         },
       },
@@ -626,10 +638,10 @@ const darkThemeOverrides = {
     MuiFilledInput: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.04)',
-          color: '#f5f5f5',
+          backgroundColor: darkThemeColors.action.disabledBackground,
+          color: darkThemeColors.text.primary,
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backgroundColor: darkThemeColors.action.hover,
           },
         },
       },
@@ -638,10 +650,10 @@ const darkThemeOverrides = {
       styleOverrides: {
         root: {
           '&:nth-of-type(odd)': {
-            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+            backgroundColor: darkThemeColors.action.disabledBackground,
           },
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            backgroundColor: darkThemeColors.action.hover,
           },
         },
       },
