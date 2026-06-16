@@ -1,4 +1,5 @@
 import { Box, Stack, Typography, type SxProps, type Theme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { componentBorderRadius, borderWidth, spacingScale, spacingFractional } from '../design-system/tokens';
 import { BackHomeButton } from './BackHomeButton';
@@ -42,8 +43,8 @@ export function PageHeader({
               ? 'linear-gradient(135deg, #172554 0%, #1e293b 100%)'
               : 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
           boxShadow: theme.palette.mode === 'dark'
-            ? '0 24px 70px rgba(0, 0, 0, 0.42)'
-            : '0 24px 70px rgba(37, 99, 235, 0.22)',
+            ? `0 24px 70px ${theme.palette.common.black}42`
+            : `0 24px 70px ${alpha(theme.palette.primary.main, 0.22)}`,
           '&::after': {
             content: '""',
             position: 'absolute',
@@ -52,7 +53,7 @@ export function PageHeader({
             width: { xs: 190, md: 260 },
             height: { xs: 190, md: 260 },
             borderRadius: componentBorderRadius.full,
-            background: 'rgba(255, 255, 255, 0.12)',
+            background: alpha(theme.palette.common.white, 0.12),
           },
         }),
         ...(Array.isArray(sx) ? sx : [sx]),
@@ -64,14 +65,14 @@ export function PageHeader({
           to={backTo}
           label={backLabel}
           buttonProps={{
-            sx: {
+            sx: (theme) => ({
               color: 'inherit',
-              bgcolor: 'rgba(255, 255, 255, 0.12)',
-              border: `${borderWidth.thin}px solid rgba(255, 255, 255, 0.2)`,
+              bgcolor: alpha(theme.palette.common.white, 0.12),
+              border: `${borderWidth.thin}px solid ${alpha(theme.palette.common.white, 0.2)}`,
               '&:hover': {
-                bgcolor: 'rgba(255, 255, 255, 0.18)',
+                bgcolor: alpha(theme.palette.common.white, 0.18),
               },
-            },
+            }),
           }}
         />
         <Stack
@@ -82,11 +83,11 @@ export function PageHeader({
           <Stack spacing={1} sx={{ maxWidth: 760 }}>
             <Typography
               variant="overline"
-              sx={{
-                color: 'rgba(255, 255, 255, 0.78)',
+              sx={(theme) => ({
+                color: alpha(theme.palette.common.white, 0.78),
                 fontWeight: 800,
                 letterSpacing: '0.12em',
-              }}
+              })}
             >
               {eyebrow}
             </Typography>
@@ -94,7 +95,7 @@ export function PageHeader({
               {title}
             </Typography>
             {description ? (
-              <Typography sx={{ color: 'rgba(255, 255, 255, 0.86)', maxWidth: 680 }}>
+              <Typography sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.86), maxWidth: 680 })}>
                 {description}
               </Typography>
             ) : null}

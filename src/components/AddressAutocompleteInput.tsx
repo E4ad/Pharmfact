@@ -1,7 +1,7 @@
 import { Box, CircularProgress, List, ListItemButton, Paper, TextField, Typography } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { type GeocodeSuggestion, useAddressAutocomplete } from '../hooks/useAddressAutocomplete';
-import { zIndexScale } from '../design-system/tokens';
+import { zIndexScale, spacingScale } from '../design-system/tokens';
 
 type Props = {
   label: string;
@@ -61,7 +61,7 @@ export function AddressAutocompleteInput({ label, value, onChange, onSelect }: P
               ))}
             </List>
           ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ p: spacingScale.md }}>
               {loading ? 'Recherche...' : error ?? 'Aucune suggestion.'}
             </Typography>
           )}

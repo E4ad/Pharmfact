@@ -1,7 +1,7 @@
 import { CardActionArea, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { componentBorderRadius } from '../design-system/tokens';
+import { componentBorderRadius, iconSize, cardActionHeight, spacingScale } from '../design-system/tokens';
 import { SurfaceCard } from './SurfaceCard';
 
 type Props = {
@@ -15,13 +15,13 @@ type Props = {
 export function ActionCard({ title, description, icon, onClick, 'data-testid': testId }: Props) {
   return (
     <SurfaceCard data-testid={testId} flush>
-      <CardActionArea onClick={onClick} sx={{ height: '100%', p: { xs: 3, md: 4 } }}>
-        <Stack spacing={3} sx={{ minHeight: 180, justifyContent: 'space-between' }}>
-          <Stack spacing={2}>
+      <CardActionArea onClick={onClick} sx={{ height: '100%', p: { xs: spacingScale.md, md: spacingScale.lg } }}>
+        <Stack spacing={spacingScale.md} sx={{ minHeight: cardActionHeight.lg, justifyContent: 'space-between' }}>
+          <Stack spacing={spacingScale.sm}>
             <Stack
               sx={{
-                width: 54,
-                height: 54,
+                width: iconSize.xl,
+                height: iconSize.xl,
                 borderRadius: componentBorderRadius.sm,
                 bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
                 color: 'primary.main',

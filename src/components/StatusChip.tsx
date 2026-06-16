@@ -1,5 +1,4 @@
 import { Chip } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import type { MissionStatus, InvoiceStatus } from '../storage/schema';
 import { invoiceStatusLabels, invoiceStatusTone } from '../services/invoiceWorkflow';
 import { missionStatusLabels, missionStatusTone } from '../services/missionStatus';
@@ -35,8 +34,8 @@ export function StatusChip(props: Props) {
       sx={(theme) => ({
         ...commonSx,
         color: theme.palette.text.secondary,
-        borderColor: alpha(theme.palette.primary.main, 0.28),
-        bgcolor: alpha(theme.palette.primary.main, 0.08),
+        borderColor: theme.palette.action.focus,
+        bgcolor: theme.palette.action.hover,
       })}
     />
   );

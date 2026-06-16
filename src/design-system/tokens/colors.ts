@@ -190,6 +190,14 @@ export const darkThemeColors = {
   },
 } as const;
 
+// Card background hierarchy for visual priority
+// Used in ActionCard, HomeActionCard, etc.
+export const cardBackgrounds = {
+  primary: neutralColors.white,
+  secondary: neutralColors.slate[50],
+  tertiary: neutralColors.slate[100],
+} as const;
+
 export const colors = {
   brand: brandColors,
   neutral: neutralColors,

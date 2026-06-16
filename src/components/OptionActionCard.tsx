@@ -1,7 +1,7 @@
 import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { componentBorderRadius } from '../design-system/tokens';
+import { componentBorderRadius, iconSize, cardActionHeight, spacingFractional, spacingScale } from '../design-system/tokens';
 import { SurfaceCard } from './SurfaceCard';
 
 type IconTone = 'green' | 'blue' | 'amber' | 'purple' | 'red' | 'gray';
@@ -58,13 +58,13 @@ export function OptionActionCard({
 }: OptionActionCardProps) {
   return (
     <SurfaceCard data-testid={testId} flush>
-      <CardActionArea onClick={onClick} sx={{ height: '100%', p: 2 }}>
-        <Stack direction="row" spacing={1.75} sx={{ alignItems: 'flex-start', minHeight: 88 }}>
-          <Box sx={{ pt: 0.25 }}>
+      <CardActionArea onClick={onClick} sx={{ height: '100%', p: spacingScale.sm }}>
+        <Stack direction="row" spacing={spacingFractional['1.75']} sx={{ alignItems: 'flex-start', minHeight: cardActionHeight.sm }}>
+          <Box sx={{ pt: spacingFractional['0.25'] }}>
             <Box
               sx={{
-                width: 36,
-                height: 36,
+                width: iconSize.md,
+                height: iconSize.md,
                 borderRadius: componentBorderRadius.sm,
                 // No border - visual hierarchy through bgcolor only
                 display: 'flex',
@@ -77,7 +77,7 @@ export function OptionActionCard({
               {icon}
             </Box>
           </Box>
-          <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+          <Stack spacing={spacingFractional['0.5']} sx={{ minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 750, lineHeight: 1.25 }}>{title}</Typography>
             <Typography variant="body2" color="text.secondary">{description}</Typography>
           </Stack>

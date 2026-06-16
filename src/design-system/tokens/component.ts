@@ -23,6 +23,7 @@ const BASE_UNIT = 4;
 export const spacingFractional = {
   '0.25': BASE_UNIT * 0.5,    // 2px
   '0.5': BASE_UNIT * 1,     // 4px
+  '0.75': BASE_UNIT * 1.5,  // 6px
   '1.25': BASE_UNIT * 2.5,  // 10px
   '1.5': BASE_UNIT * 3,     // 12px (same as spacingScalePx.sm)
   '1.75': BASE_UNIT * 3.5,  // 14px
@@ -34,6 +35,24 @@ export const spacingFractional = {
 export const borderWidth = {
   thin: 1,    // default for inputs, cards, dividers
   thick: 4,   // featured items, bold accents, active indicators
+} as const;
+
+// Icon container sizes for consistent icon dimensions
+// Used in ActionCard, OptionActionCard, EmptyState, etc.
+export const iconSize = {
+  xs: 24,
+  sm: 28,
+  md: 36,
+  lg: 52,
+  xl: 54,
+} as const;
+
+// Card action heights for consistent card action areas
+// Used in ActionCard, OptionActionCard, etc.
+export const cardActionHeight = {
+  sm: 88,
+  md: 140,
+  lg: 180,
 } as const;
 
 // Component-specific border radius mappings

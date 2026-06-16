@@ -1,6 +1,6 @@
 import { Card, CardContent, type CardProps, type SxProps, type Theme } from '@mui/material';
 import type { ReactNode } from 'react';
-import { componentBorderRadius, componentShadows } from '../design-system/tokens';
+import { componentBorderRadius, componentShadows, spacingScale } from '../design-system/tokens';
 
 type SurfaceCardProps = Omit<CardProps, 'children'> & {
   children: ReactNode;
@@ -34,8 +34,8 @@ export function SurfaceCard({ children, contentSx, flush = false, sx, ...props }
     >
       <CardContent
         sx={{
-          p: flush ? 0 : { xs: 2, md: 3 },
-          '&:last-child': { pb: flush ? 0 : { xs: 2, md: 3 } },
+          p: flush ? 0 : { xs: spacingScale.md, md: spacingScale.lg },
+          '&:last-child': { pb: flush ? 0 : { xs: spacingScale.md, md: spacingScale.lg } },
           ...contentSx,
         }}
       >

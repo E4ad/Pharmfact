@@ -1,7 +1,7 @@
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { componentBorderRadius, borderWidth } from '../design-system/tokens';
+import { componentBorderRadius, borderWidth, iconSize, spacingScale } from '../design-system/tokens';
 
 type Props = {
   title: string;
@@ -14,7 +14,7 @@ export function EmptyState({ title, description, actionLabel, onAction }: Props)
   return (
     <Box
       sx={{
-        p: { xs: 4, md: 5 },
+        p: { xs: spacingScale.lg, md: spacingScale.xl },
         textAlign: 'center',
         border: `${borderWidth.thin}px dashed`,
         borderColor: 'divider',
@@ -22,12 +22,12 @@ export function EmptyState({ title, description, actionLabel, onAction }: Props)
         bgcolor: 'background.paper',
       }}
     >
-      <Stack spacing={2} sx={{ alignItems: 'center' }}>
+      <Stack spacing={spacingScale.sm} sx={{ alignItems: 'center' }}>
         <Box
           aria-hidden="true"
           sx={{
-            width: 52,
-            height: 52,
+            width: iconSize.lg,
+            height: iconSize.lg,
             borderRadius: componentBorderRadius.full,
             display: 'grid',
             placeItems: 'center',

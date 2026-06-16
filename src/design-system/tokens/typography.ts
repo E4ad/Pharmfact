@@ -37,7 +37,8 @@ export const letterSpacings = {
 } as const;
 
 export const fontFamilies = {
-  sans: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  display: '"Playfair Display", Georgia, serif',
+  sans: '"Manrope", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   mono: '"Fira Code", "JetBrains Mono", Monaco, Menlo, Consolas, monospace',
 } as const;
 
@@ -48,12 +49,14 @@ export function pxToRem(px: number): string {
 export const typographyTokens = {
   fontFamily: fontFamilies.sans,
   fontFamilyMono: fontFamilies.mono,
+  fontFamilyDisplay: fontFamilies.display,
   fontSize: typographyScale.base,
   scale: typographyScale,
   weights: fontWeights,
   lineHeights,
   letterSpacings,
   h1: {
+    fontFamily: fontFamilies.display,
     fontSize: `clamp(${pxToRem(typographyScale['3xl'])}, 6vw, ${pxToRem(typographyScale['5xl'])})`,
     fontWeight: fontWeights.medium,
     letterSpacing: letterSpacings.tighter,

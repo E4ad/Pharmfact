@@ -6,7 +6,7 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import { Box, CardActionArea, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { componentBorderRadius, borderWidth } from '../../design-system/tokens';
+import { componentBorderRadius, borderWidth, iconSize, cardActionHeight, spacingScale, spacingFractional, cardBackgrounds } from '../../design-system/tokens';
 import { PageHeader } from '../../components/PageHeader';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { useAppState } from '../../storage/localStore';
@@ -18,7 +18,7 @@ export function ActivityPage() {
   const pharmacien = activePharmacien(state);
 
   return (
-    <Stack spacing={4} sx={{ width: 'min(1160px, 100%)', mx: 'auto' }}>
+    <Stack spacing={spacingScale.xl} sx={{ width: 'min(1160px, 100%)', mx: 'auto' }}>
       <PageHeader
         eyebrow="Accueil"
         title={pharmacien ? `Bonjour ${pharmacien.nom.split(' ')[0]}` : 'Bonjour'}
@@ -43,9 +43,9 @@ export function ActivityPage() {
         }
       />
 
-      <Stack spacing={2}>
+      <Stack spacing={spacingScale.md}>
         <Typography variant="h4">Travailler</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' }, gap: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' }, gap: spacingScale.md }}>
           <HomeActionCard
             data-testid="activity-card-new-mission"
             title="Créer une mission"
@@ -65,9 +65,9 @@ export function ActivityPage() {
         </Box>
       </Stack>
 
-      <Stack spacing={2}>
+      <Stack spacing={spacingScale.md}>
         <Typography variant="h4">Gérer</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: spacingScale.md }}>
           <HomeActionCard
             data-testid="activity-card-financial"
             title="État financier"
@@ -109,14 +109,14 @@ function HomeActionCard({
   return (
     <SurfaceCard data-testid={testId} sx={{ height: '100%' }}>
       <CardActionArea onClick={onClick} sx={{ height: '100%' }}>
-        <Stack spacing={2.5} sx={{ minHeight: emphasized ? 210 : 178, p: { xs: 3, md: 3.5 } }}>
-          <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <Stack spacing={spacingFractional['2.5']} sx={{ minHeight: emphasized ? cardActionHeight.lg + 32 : cardActionHeight.md, p: { xs: spacingScale.md, md: spacingFractional['3.5'] } }}>
+          <Stack direction="row" spacing={spacingScale.sm} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <Stack
               sx={{
-                width: 48,
-                height: 48,
+                width: iconSize.md,
+                height: iconSize.md,
                 borderRadius: componentBorderRadius.sm,
-                bgcolor: emphasized ? 'primary.main' : 'action.hover',
+                bgcolor: emphasized ? 'primary.main' : cardBackgrounds.secondary,
                 color: emphasized ? 'primary.contrastText' : 'text.primary',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -126,7 +126,7 @@ function HomeActionCard({
             </Stack>
             {badge ? <Chip label={badge} size="small" /> : null}
           </Stack>
-          <Stack spacing={1}>
+          <Stack spacing={spacingScale.sm}>
             <Typography variant="h5">{title}</Typography>
             <Typography color="text.secondary">{description}</Typography>
           </Stack>

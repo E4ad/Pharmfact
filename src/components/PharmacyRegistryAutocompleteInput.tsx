@@ -1,7 +1,7 @@
 import { Box, List, ListItemButton, Paper, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { searchSantePharmacies, type SantePharmacyRegistryEntry } from '../services/santePharmacyRegistry';
-import { zIndexScale } from '../design-system/tokens';
+import { zIndexScale, spacingScale } from '../design-system/tokens';
 
 type Props = {
   label: string;
@@ -63,7 +63,7 @@ export function PharmacyRegistryAutocompleteInput({ label, value, onChange, onSe
               ))}
             </List>
           ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ p: spacingScale.md }}>
               Aucune pharmacie trouvée. La saisie manuelle reste possible.
             </Typography>
           )}
