@@ -55,6 +55,19 @@ export const cardActionHeight = {
   lg: 180,
 } as const;
 
+// Home page specific tokens
+// Used in ActivityPage for consistent hero and action card sizing
+export const homePageTokens = {
+  heroHeight: {
+    mobile: 180,
+    desktop: 200,
+  },
+  actionCardHeight: {
+    mobile: 160,
+    desktop: 176,
+  },
+} as const;
+
 // Component-specific border radius mappings
 export const componentBorderRadiusMap = {
   // Form components
