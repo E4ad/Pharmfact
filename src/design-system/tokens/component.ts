@@ -1,17 +1,33 @@
 // Component-specific design tokens
 // Phase 6 - Component Family Consistency
+// Phase 7 - Spacing and Height Tokenization
 
 import { borderRadiusScale } from './borderRadius';
-import { spacingScalePx } from './spacing';
+import { spacingScalePx, spacingScale } from './spacing';
 
-// Re-export borderRadius values for convenience
-export { borderRadiusScale };
+// Re-export borderRadius and spacing values for convenience
+export { borderRadiusScale, spacingScale };
 
 // Component Heights - ensure buttons and inputs share the same height when on same form
 export const componentHeight = {
+  xs: 28,    // extra small chips, badges
   sm: 32,    // small buttons, compact inputs
   md: 40,    // default buttons, inputs, selects
   lg: 48,    // large buttons, tall inputs
+} as const;
+
+// Fractional spacing for fine adjustments (used in PageSection, ConfirmDialog, etc.)
+// MUI spacing units: 1 = 8px, so 2.5 = 20px, 3.5 = 28px
+// BASE_UNIT = 4px in our system
+const BASE_UNIT = 4;
+export const spacingFractional = {
+  '0.25': BASE_UNIT * 0.5,    // 2px
+  '0.5': BASE_UNIT * 1,     // 4px
+  '1.25': BASE_UNIT * 2.5,  // 10px
+  '1.5': BASE_UNIT * 3,     // 12px (same as spacingScalePx.sm)
+  '1.75': BASE_UNIT * 3.5,  // 14px
+  '2.5': BASE_UNIT * 5,     // 20px
+  '3.5': BASE_UNIT * 7,     // 28px
 } as const;
 
 // Border Width - 2-Step Rule: max 2 options (1px and 4px)

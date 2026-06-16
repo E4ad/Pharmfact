@@ -1,6 +1,6 @@
 import { Box, Stack, Typography, type SxProps, type Theme } from '@mui/material';
 import type { ReactNode } from 'react';
-import { componentBorderRadius, borderWidth } from '../design-system/tokens';
+import { componentBorderRadius, borderWidth, spacingScale, spacingFractional } from '../design-system/tokens';
 import { BackHomeButton } from './BackHomeButton';
 
 type PageHeaderProps = {
@@ -34,8 +34,8 @@ export function PageHeader({
           position: 'relative',
           overflow: 'hidden',
           borderRadius: componentBorderRadius.card,
-          px: { xs: 2.5, md: 4 },
-          py: { xs: 2.5, md: 3.5 },
+          px: { xs: spacingFractional['2.5'], md: spacingScale.md },
+          py: { xs: spacingFractional['2.5'], md: spacingFractional['3.5'] },
           color: 'common.white',
           background:
             theme.palette.mode === 'dark'

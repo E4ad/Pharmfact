@@ -28,13 +28,13 @@ export function ConfirmDialog({ open, title, description, confirmLabel, onClose,
         },
       }}
     >
-      <DialogTitle id={titleId} sx={{ pb: 1, fontWeight: 750 }}>
+      <DialogTitle id={titleId} sx={{ pb: spacingScale.sm, fontWeight: 750 }}>
         {title}
       </DialogTitle>
-      <DialogContent sx={{ pt: 0 }}>
+      <DialogContent sx={{ pt: spacingScale.none }}>
         <DialogContentText id={descriptionId}>{description}</DialogContentText>
       </DialogContent>
-      <DialogActions sx={{ px: spacingScale.lg, pb: spacingScale.lg, gap: 1 }}>
+      <DialogActions sx={{ px: spacingScale.lg, pb: spacingScale.lg, gap: spacingScale.sm }}>
         <Button onClick={onClose}>Annuler</Button>
         <Button variant="contained" onClick={onConfirm}>{confirmLabel}</Button>
       </DialogActions>

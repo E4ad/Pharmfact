@@ -1,6 +1,7 @@
 import { Box, CircularProgress, List, ListItemButton, Paper, TextField, Typography } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { type GeocodeSuggestion, useAddressAutocomplete } from '../hooks/useAddressAutocomplete';
+import { zIndexScale } from '../design-system/tokens';
 
 type Props = {
   label: string;
@@ -37,7 +38,7 @@ export function AddressAutocompleteInput({ label, value, onChange, onSelect }: P
         slotProps={{ input: { endAdornment: loading ? <CircularProgress size={18} /> : null } }}
       />
       {open && value.trim().length >= 3 ? (
-        <Paper elevation={6} sx={{ position: 'absolute', zIndex: 20, left: 0, right: 0, mt: 1, overflow: 'hidden' }}>
+        <Paper elevation={6} sx={{ position: 'absolute', zIndex: zIndexScale.dropdown, left: 0, right: 0, mt: 1, overflow: 'hidden' }}>
           {suggestions.length ? (
             <List dense disablePadding>
               {suggestions.map((suggestion) => (

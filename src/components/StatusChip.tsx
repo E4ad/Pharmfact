@@ -3,7 +3,7 @@ import { alpha } from '@mui/material/styles';
 import type { MissionStatus, InvoiceStatus } from '../storage/schema';
 import { invoiceStatusLabels, invoiceStatusTone } from '../services/invoiceWorkflow';
 import { missionStatusLabels, missionStatusTone } from '../services/missionStatus';
-import { borderRadiusScale } from '../design-system/tokens';
+import { borderRadiusScale, componentHeight, spacingScale } from '../design-system/tokens';
 
 type Props =
   | { kind: 'mission'; status: MissionStatus }
@@ -12,12 +12,12 @@ type Props =
 
 export function StatusChip(props: Props) {
   const commonSx = {
-    height: 28,
+    height: componentHeight.xs,
     borderRadius: borderRadiusScale.full,
     fontWeight: 750,
     letterSpacing: '0.01em',
     '& .MuiChip-label': {
-      px: 1.25,
+      px: spacingScale.sm,
     },
   };
 

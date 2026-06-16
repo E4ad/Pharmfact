@@ -1,6 +1,7 @@
 import { Box, List, ListItemButton, Paper, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { searchSantePharmacies, type SantePharmacyRegistryEntry } from '../services/santePharmacyRegistry';
+import { zIndexScale } from '../design-system/tokens';
 
 type Props = {
   label: string;
@@ -39,7 +40,7 @@ export function PharmacyRegistryAutocompleteInput({ label, value, onChange, onSe
         helperText="Recherche locale. Saisie manuelle possible."
       />
       {open && value.trim().length >= 2 ? (
-        <Paper elevation={6} sx={{ position: 'absolute', zIndex: 30, left: 0, right: 0, mt: 1, overflow: 'hidden' }}>
+        <Paper elevation={6} sx={{ position: 'absolute', zIndex: zIndexScale.dropdown, left: 0, right: 0, mt: 1, overflow: 'hidden' }}>
           {suggestions.length ? (
             <List dense disablePadding>
               {suggestions.map((suggestion) => (
