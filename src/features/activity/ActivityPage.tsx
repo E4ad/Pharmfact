@@ -224,7 +224,7 @@ function HomeActionCard({
               sx={(theme) => ({
                 width: iconSize.md,
                 height: iconSize.md,
-                borderRadius: componentBorderRadius.card,
+                borderRadius: borderRadiusScale.lg,
                 bgcolor: emphasized 
                   ? theme.palette.primary.main 
                   : theme.palette.mode === 'dark'
