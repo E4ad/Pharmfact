@@ -26,7 +26,7 @@ export function PageSection({ title, description, eyebrow, actions, children, sp
               {eyebrow}
             </Typography>
           ) : null}
-          <Typography variant="h3" sx={{ letterSpacing: '-0.03em' }}>
+          <Typography variant="h2" sx={{ letterSpacing: '-0.03em' }}>
             {title}
           </Typography>
           {description ? (

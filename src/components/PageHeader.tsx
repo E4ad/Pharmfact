@@ -1,7 +1,7 @@
 import { Box, Stack, Typography, type SxProps, type Theme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { componentBorderRadius, borderWidth, spacingScale, spacingFractional } from '../design-system/tokens';
+import { brandColors, neutralColors, componentBorderRadius, borderWidth, spacingScale, spacingFractional } from '../design-system/tokens';
 import { BackHomeButton } from './BackHomeButton';
 
 type PageHeaderProps = {
@@ -40,8 +40,8 @@ export function PageHeader({
           color: 'common.white',
           background:
             theme.palette.mode === 'dark'
-              ? 'linear-gradient(135deg, #172554 0%, #1e293b 100%)'
-              : 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+              ? `linear-gradient(135deg, ${brandColors.primary[950]} 0%, ${neutralColors.slate[800]} 100%)`
+              : `linear-gradient(135deg, ${brandColors.primary[600]} 0%, ${brandColors.primary[800]} 100%)`,
           boxShadow: theme.palette.mode === 'dark'
             ? `0 24px 70px ${theme.palette.common.black}42`
             : `0 24px 70px ${alpha(theme.palette.primary.main, 0.22)}`,

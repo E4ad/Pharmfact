@@ -25,6 +25,7 @@ export function EmptyState({ title, description, actionLabel, onAction }: Props)
       <Stack spacing={spacingScale.sm} sx={{ alignItems: 'center' }}>
         <Box
           aria-hidden="true"
+          tabIndex={-1}
           sx={{
             width: iconSize.lg,
             height: iconSize.lg,

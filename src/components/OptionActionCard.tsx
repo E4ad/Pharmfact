@@ -1,7 +1,7 @@
 import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { componentBorderRadius, iconSize, cardActionHeight, spacingFractional, spacingScale } from '../design-system/tokens';
+import { componentBorderRadius, iconSize, cardActionHeight, spacingFractional, spacingScale, typographyScale } from '../design-system/tokens';
 import { SurfaceCard } from './SurfaceCard';
 
 type IconTone = 'green' | 'blue' | 'amber' | 'purple' | 'red' | 'gray';
@@ -62,6 +62,7 @@ export function OptionActionCard({
         <Stack direction="row" spacing={spacingFractional['1.75']} sx={{ alignItems: 'flex-start', minHeight: cardActionHeight.sm }}>
           <Box sx={{ pt: spacingFractional['0.25'] }}>
             <Box
+              aria-hidden="true"
               sx={{
                 width: iconSize.md,
                 height: iconSize.md,
@@ -70,7 +71,7 @@ export function OptionActionCard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                '& svg': { fontSize: 20 },
+                '& svg': { fontSize: typographyScale.base },
                 ...toneStyles[iconTone],
               }}
             >

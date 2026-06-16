@@ -20,12 +20,21 @@ export function SurfaceCard({ children, contentSx, flush = false, sx, ...props }
           boxShadow: theme.palette.mode === 'dark' ? componentShadows.card.dark : componentShadows.card.light,
           overflow: 'hidden',
           transition: `box-shadow ${theme.transitions.duration.normal}, transform ${theme.transitions.duration.normal}`,
+          '@media (prefers-reduced-motion: reduce)': {
+            transition: 'none',
+          },
           '&:hover': {
             boxShadow: theme.palette.mode === 'dark' ? componentShadows.card.elevatedDark : componentShadows.card.elevatedLight,
             transform: 'translateY(-2px)',
+            '@media (prefers-reduced-motion: reduce)': {
+              transform: 'none',
+            },
           },
           '&:active': {
             transform: 'translateY(0)',
+            '@media (prefers-reduced-motion: reduce)': {
+              transform: 'none',
+            },
           },
         }),
         ...(Array.isArray(sx) ? sx : [sx]),

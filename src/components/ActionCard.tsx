@@ -19,6 +19,7 @@ export function ActionCard({ title, description, icon, onClick, 'data-testid': t
         <Stack spacing={spacingScale.md} sx={{ minHeight: cardActionHeight.lg, justifyContent: 'space-between' }}>
           <Stack spacing={spacingScale.sm}>
             <Stack
+              aria-hidden="true"
               sx={{
                 width: iconSize.xl,
                 height: iconSize.xl,
