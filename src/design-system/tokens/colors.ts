@@ -125,7 +125,7 @@ export const semanticColors = {
   },
   text: {
     primary: neutralColors.slate[900],
-    secondary: neutralColors.slate[600],
+    secondary: neutralColors.slate[700],
     tertiary: neutralColors.slate[500],
     disabled: neutralColors.slate[400],
     inverse: neutralColors.white,
@@ -170,7 +170,7 @@ export const darkThemeColors = {
   },
   text: {
     primary: '#f5f5f5',
-    secondary: '#a0aec0',
+    secondary: neutralColors.slate[300],
     tertiary: neutralColors.slate[500],
     disabled: 'rgba(255, 255, 255, 0.3)',
     inverse: neutralColors.black,
