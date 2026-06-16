@@ -24,7 +24,7 @@ import { getPlatformAsync } from '../../services/platformService';
 import { createBackup, downloadBackup, importBackup, loadBackupFromFile, type BackupResult } from '../../services/backupService';
 import { formatBytes } from '../../services/formatting';
 import { useNotifications } from '../../components/NotificationSystem';
-import { borderRadiusScale } from '../../design-system/tokens';
+import { borderRadiusScale, spacingScale, spacingFractional } from '../../design-system/tokens';
 
 const missionTypes = [
   ['REMPLACEMENT_OFFICINE', 'Remplacement officine'],
@@ -226,7 +226,7 @@ export function OptionsPage() {
         <PageSection
           title="Catégories de paramètres"
         >
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: spacingScale.md }}>
           <OptionActionCard
             title="Informations générales"
             description="Profil actif et statut fiscal."
@@ -302,7 +302,7 @@ export function OptionsPage() {
         description="Profil actif et statut fiscal par défaut."
         icon={<SettingsRoundedIcon color="primary" />}
       >
-        <Stack spacing={2}>
+        <Stack spacing={spacingScale.md}>
           <TextField
             label="Nom du pharmacien actif"
             value={currentActive?.nom ?? ''}
@@ -332,7 +332,7 @@ export function OptionsPage() {
         description="Paramètres par défaut pour la création de missions."
         icon={<PersonAddAltRoundedIcon color="primary" />}
       >
-        <Stack spacing={2}>
+        <Stack spacing={spacingScale.md}>
           <FormControl>
             <InputLabel id="mission-type-label">Type de mission</InputLabel>
             <Select
@@ -428,7 +428,7 @@ export function OptionsPage() {
         description="Paramètres de facture, conditions de paiement et génération PDF."
         icon={<AddBusinessRoundedIcon color="primary" />}
       >
-        <Stack spacing={2}>
+        <Stack spacing={spacingScale.md}>
           <TextField
             label="Mode de paiement"
             value={form.invoiceDefaults.paymentTerms ?? ''}
@@ -504,7 +504,7 @@ export function OptionsPage() {
         description="Réserve fiscale, acomptes provisionnels, seuils et suivi des dépenses."
         icon={<SettingsRoundedIcon color="primary" />}
       >
-        <Stack spacing={2}>
+        <Stack spacing={spacingScale.md}>
           <TextField
             label="Taux de réserve fiscale (%)"
             type="number"
@@ -581,8 +581,8 @@ export function OptionsPage() {
             }
             label="Suivre justificatifs"
           />
-          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>Vues financières</Typography>
-          <Stack direction="row" spacing={2}>
+          <Typography variant="subtitle2" sx={{ mt: spacingScale.md, mb: spacingScale.sm }}>Vues financières</Typography>
+          <Stack direction="row" spacing={spacingScale.md}>
             <FormControlLabel
               control={
                 <ToggleButtonGroup
@@ -636,7 +636,7 @@ export function OptionsPage() {
         description="Thème et couleurs de l'application."
         icon={<SettingsRoundedIcon color="primary" />}
       >
-        <Stack spacing={2}>
+        <Stack spacing={spacingScale.md}>
           <FormControl>
             <InputLabel id="theme-mode-label">Mode d'affichage</InputLabel>
             <Select
@@ -663,7 +663,7 @@ export function OptionsPage() {
         description="Sauvegarde automatique et gestion des données."
         icon={<SettingsRoundedIcon color="primary" />}
       >
-        <Stack spacing={2}>
+        <Stack spacing={spacingScale.md}>
           <FormControlLabel
             control={
               <ToggleButtonGroup
@@ -698,7 +698,7 @@ export function OptionsPage() {
               ) : null}
             </Alert>
           ) : null}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: spacingScale.md }}>
             <DataAction
               title="Exporter"
               description="Télécharger une sauvegarde JSON complète."
@@ -737,8 +737,8 @@ export function OptionsPage() {
               action={<Button variant="outlined" color="error" startIcon={<RestartAltRoundedIcon />} onClick={() => setResetOpen(true)}>Réinitialiser</Button>}
             />
           </Box>
-          <SurfaceCard contentSx={{ p: 2.5 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(5, 1fr)' }, gap: 2 }}>
+          <SurfaceCard contentSx={{ p: spacingFractional['2.5'] }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(5, 1fr)' }, gap: spacingScale.md }}>
               <DataCount label="Pharmaciens" value={state.pharmaciens.length} />
               <DataCount label="Pharmacies" value={state.pharmacies.length} />
               <DataCount label="Missions" value={state.missions.length} />
@@ -780,21 +780,21 @@ export function OptionsPage() {
           },
         }}
       >
-        <DialogTitle sx={{ p: 3, pb: 0 }}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <DialogTitle sx={{ p: spacingScale.lg, pb: 0 }}>
+          <Stack direction="row" spacing={spacingScale.sm} sx={{ alignItems: 'center' }}>
             <LocalPharmacyRoundedIcon color="primary" />
             <Typography id="references-dialog-title" variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
               Pharmaciens & Pharmacies
             </Typography>
-            <IconButton aria-label="Fermer" onClick={() => setActiveCategory(null)} sx={{ p: 0.5 }}>
+            <IconButton aria-label="Fermer" onClick={() => setActiveCategory(null)} sx={{ p: spacingFractional['0.5'] }}>
               <CloseRoundedIcon />
             </IconButton>
           </Stack>
         </DialogTitle>
-        <DialogContent sx={{ p: 3, pt: 1, overflowY: 'auto' }}>
-          <Typography id="references-dialog-description" variant="body2" color="text.secondary" sx={{ mb: 2 }}>Gérez vos profils et lieux de mission.</Typography>
-          <Divider sx={{ my: 1 }} />
-          <Stack spacing={2}>
+        <DialogContent sx={{ p: spacingScale.lg, pt: spacingScale.sm, overflowY: 'auto' }}>
+          <Typography id="references-dialog-description" variant="body2" color="text.secondary" sx={{ mb: spacingScale.md }}>Gérez vos profils et lieux de mission.</Typography>
+          <Divider sx={{ my: spacingScale.sm }} />
+          <Stack spacing={spacingScale.md}>
             {/* Pharmacies Section */}
             <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
               Pharmacies ({state.pharmacies.length})
@@ -812,10 +812,10 @@ export function OptionsPage() {
               Ajouter une pharmacie
             </Button>
             {state.pharmacies.length > 0 ? (
-              <Stack spacing={1}>
+              <Stack spacing={spacingScale.xs}>
                 {state.pharmacies.map((pharmacie) => (
-                  <SurfaceCard key={pharmacie.id} contentSx={{ p: 2 }}>
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                  <SurfaceCard key={pharmacie.id} contentSx={{ p: spacingScale.md }}>
+                    <Stack direction="row" spacing={spacingScale.xs} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="body1">{pharmacie.nom}</Typography>
                       <Button
                         variant="text"
@@ -842,7 +842,7 @@ export function OptionsPage() {
               </Typography>
             )}
             
-            <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: spacingScale.md }} />
             
             {/* Pharmaciens Section */}
             <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
@@ -861,10 +861,10 @@ export function OptionsPage() {
               Ajouter un pharmacien
             </Button>
             {state.pharmaciens.length > 0 ? (
-              <Stack spacing={1}>
+              <Stack spacing={spacingScale.xs}>
                 {state.pharmaciens.map((pharmacien) => (
-                  <SurfaceCard key={pharmacien.id} contentSx={{ p: 2 }}>
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                  <SurfaceCard key={pharmacien.id} contentSx={{ p: spacingScale.md }}>
+                    <Stack direction="row" spacing={spacingScale.xs} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="body1">{pharmacien.nom}</Typography>
                       <Button
                         variant="text"
@@ -960,25 +960,25 @@ function SettingsModal({
         },
       }}
     >
-      <DialogTitle sx={{ p: 3, pb: 0 }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+      <DialogTitle sx={{ p: spacingScale.lg, pb: 0 }}>
+        <Stack direction="row" spacing={spacingScale.sm} sx={{ alignItems: 'center' }}>
           {icon}
           <Typography id={titleId} variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
             {title}
           </Typography>
-          <IconButton aria-label="Fermer" onClick={onClose} sx={{ p: 0.5 }}>
+          <IconButton aria-label="Fermer" onClick={onClose} sx={{ p: spacingFractional['0.5'] }}>
             <CloseRoundedIcon />
           </IconButton>
         </Stack>
       </DialogTitle>
-      <DialogContent sx={{ p: 3, pt: 1, overflowY: 'auto' }}>
-        <Typography id={descriptionId} variant="body2" color="text.secondary" sx={{ mb: 2 }}>{description}</Typography>
-        <Divider sx={{ my: 1 }} />
-        <Stack spacing={2}>
+      <DialogContent sx={{ p: spacingScale.lg, pt: spacingScale.sm, overflowY: 'auto' }}>
+        <Typography id={descriptionId} variant="body2" color="text.secondary" sx={{ mb: spacingScale.md }}>{description}</Typography>
+        <Divider sx={{ my: spacingScale.sm }} />
+        <Stack spacing={spacingScale.sm}>
           {children}
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ p: 3, pt: 0 }}>
+      <DialogActions sx={{ p: spacingScale.lg, pt: 0 }}>
         <Button variant="outlined" onClick={onClose} sx={{ borderRadius: borderRadiusScale.full, flex: 1 }}>
           Annuler
         </Button>
@@ -992,9 +992,9 @@ function SettingsModal({
 
 function DataAction({ title, description, action }: { title: string; description: string; action: ReactNode }) {
   return (
-    <SurfaceCard contentSx={{ p: 2.5 }}>
-      <Stack spacing={2} sx={{ height: '100%', justifyContent: 'space-between' }}>
-        <Stack spacing={0.75}>
+    <SurfaceCard contentSx={{ p: spacingFractional['2.5'] }}>
+      <Stack spacing={spacingScale.md} sx={{ height: '100%', justifyContent: 'space-between' }}>
+        <Stack spacing={spacingFractional['0.75']}>
           <Typography variant="h6">{title}</Typography>
           <Typography color="text.secondary">{description}</Typography>
         </Stack>
@@ -1006,7 +1006,7 @@ function DataAction({ title, description, action }: { title: string; description
 
 function DataCount({ label, value }: { label: string; value: number }) {
   return (
-    <Stack spacing={0.5}>
+    <Stack spacing={spacingFractional['0.5']}>
       <Typography color="text.secondary">{label}</Typography>
       <Typography variant="h5">{value}</Typography>
     </Stack>
