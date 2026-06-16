@@ -19,7 +19,7 @@ import {
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
-import { componentBorderRadius, borderRadiusScale } from '../../design-system/tokens';
+import { brandColors, componentBorderRadius, borderRadiusScale, typographyScale } from '../../design-system/tokens';
 import { FadeIn } from '../../components/FadeIn';
 import { LoadingButton } from '../../components/LoadingButton';
 import { useNotifications } from '../../components/NotificationSystem';
@@ -382,7 +382,7 @@ export function MissionsPage() {
       <FadeIn>
         <SurfaceCard flush>
           {missions.length ? (
-            <Stack spacing={0}>
+            <Stack spacing={0} role="list">
               {missions.map((mission) => (
                 <MissionListItem
                   key={mission.id}
@@ -476,10 +476,10 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
         cursor: 'pointer',
         transition: 'all 180ms ease',
         borderRadius: borderRadiusScale.none,
-        outline: 'none',
         '&:hover, &:focus-visible': {
           backgroundColor: (theme) => theme.palette.action.hover,
-          boxShadow: 'inset 3px 0 0 currentColor',
+          outline: `3px solid ${brandColors.primary[600]}`,
+          outlineOffset: 2,
         },
       }}
     >
@@ -498,7 +498,6 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
             <Tooltip title="Première mission dans cette pharmacie">
               <Box
                 component="span"
-                aria-label="Première mission dans cette pharmacie"
                 sx={{
                   width: 30,
                   height: 30,
@@ -510,7 +509,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
                   color: 'warning.contrastText',
                 }}
               >
-                <StarRoundedIcon sx={{ fontSize: 18 }} />
+                <StarRoundedIcon sx={{ fontSize: typographyScale.base }} />
               </Box>
             </Tooltip>
           ) : null}
@@ -677,7 +676,6 @@ function MissionSummarySection({ mission, invoice, pharmacie, isFirstMissionAtPh
             <Tooltip title="Première mission dans cette pharmacie">
               <Box
                 component="span"
-                aria-label="Première mission dans cette pharmacie"
                 sx={{
                   width: 30,
                   height: 30,
@@ -689,7 +687,7 @@ function MissionSummarySection({ mission, invoice, pharmacie, isFirstMissionAtPh
                   color: 'warning.contrastText',
                 }}
               >
-                <StarRoundedIcon sx={{ fontSize: 18 }} />
+                <StarRoundedIcon sx={{ fontSize: typographyScale.base }} />
               </Box>
             </Tooltip>
           ) : null}

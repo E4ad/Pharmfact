@@ -44,7 +44,7 @@ export function ActivityPage() {
       />
 
       <Stack spacing={spacingScale.md}>
-        <Typography variant="h4">Travailler</Typography>
+        <Typography variant="h2">Travailler</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' }, gap: spacingScale.md }}>
           <HomeActionCard
             data-testid="activity-card-new-mission"
@@ -66,7 +66,7 @@ export function ActivityPage() {
       </Stack>
 
       <Stack spacing={spacingScale.md}>
-        <Typography variant="h4">Gérer</Typography>
+        <Typography variant="h2">Gérer</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: spacingScale.md }}>
           <HomeActionCard
             data-testid="activity-card-financial"
@@ -112,6 +112,7 @@ function HomeActionCard({
         <Stack spacing={spacingFractional['2.5']} sx={{ minHeight: emphasized ? cardActionHeight.lg + 32 : cardActionHeight.md, p: { xs: spacingScale.md, md: spacingFractional['3.5'] } }}>
           <Stack direction="row" spacing={spacingScale.sm} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <Stack
+              aria-hidden="true"
               sx={{
                 width: iconSize.md,
                 height: iconSize.md,
