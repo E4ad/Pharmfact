@@ -215,79 +215,92 @@ export function OptionsPage() {
 
   return (
     <>
-      {/* Main Page with Tiles */}
-      <Stack spacing={{ xs: 3, md: 4 }} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
+      {/* Page Shell - Common layout wrapper */}
+      <Stack spacing={spacingScale.lg} sx={{ 
+        width: 'min(1120px, 100%)', 
+        mx: 'auto', 
+        px: { xs: spacingScale.md, md: spacingScale.xl },
+        py: { xs: spacingScale.md, md: spacingScale.xl },
+      }}>
+        {/* Hero Header - Options page */}
         <PageHeader
           eyebrow="Paramètres"
           title="Options"
+          description="Configurez vos préférences et données de travail"
           data-testid="options-page-header"
         />
 
+        {/* Categories Section */}
         <PageSection
           title="Catégories de paramètres"
+          spacing="md"
         >
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: spacingScale.md }}>
-          <OptionActionCard
-            title="Informations générales"
-            description="Profil actif et statut fiscal."
-            icon={<SettingsRoundedIcon />}
-            iconTone="blue"
-            onClick={() => setActiveCategory('general')}
-            data-testid="options-card-general"
-          />
-          
-          <OptionActionCard
-            title="Missions"
-            description="Paramètres par défaut pour les missions."
-            icon={<PersonAddAltRoundedIcon />}
-            iconTone="amber"
-            onClick={() => setActiveCategory('missions')}
-            data-testid="options-card-missions"
-          />
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, 
+            gap: spacingScale.md 
+          }}>
+            <OptionActionCard
+              title="Informations générales"
+              description="Profil actif et statut fiscal."
+              icon={<SettingsRoundedIcon />}
+              iconTone="blue"
+              onClick={() => setActiveCategory('general')}
+              data-testid="options-card-general"
+            />
+            
+            <OptionActionCard
+              title="Missions"
+              description="Paramètres par défaut pour les missions."
+              icon={<PersonAddAltRoundedIcon />}
+              iconTone="amber"
+              onClick={() => setActiveCategory('missions')}
+              data-testid="options-card-missions"
+            />
 
-          <OptionActionCard
-            title="Facturation & PDF"
-            description="Paramètres de facture et PDF."
-            icon={<AddBusinessRoundedIcon />}
-            iconTone="purple"
-            onClick={() => setActiveCategory('invoicing')}
-            data-testid="options-card-invoicing"
-          />
+            <OptionActionCard
+              title="Facturation & PDF"
+              description="Paramètres de facture et PDF."
+              icon={<AddBusinessRoundedIcon />}
+              iconTone="purple"
+              onClick={() => setActiveCategory('invoicing')}
+              data-testid="options-card-invoicing"
+            />
 
-          <OptionActionCard
-            title="Financier & fiscalité"
-            description="Réserve fiscale, acomptes, seuils."
-            icon={<SettingsRoundedIcon />}
-            iconTone="green"
-            onClick={() => setActiveCategory('financial')}
-            data-testid="options-card-financial"
-          />
+            <OptionActionCard
+              title="Financier & fiscalité"
+              description="Réserve fiscale, acomptes, seuils."
+              icon={<SettingsRoundedIcon />}
+              iconTone="green"
+              onClick={() => setActiveCategory('financial')}
+              data-testid="options-card-financial"
+            />
 
-          <OptionActionCard
-            title="Apparence"
-            description="Thème et couleurs de l'application."
-            icon={<SettingsRoundedIcon />}
-            iconTone="gray"
-            onClick={() => setActiveCategory('appearance')}
-            data-testid="options-card-appearance"
-          />
+            <OptionActionCard
+              title="Apparence"
+              description="Thème et couleurs de l'application."
+              icon={<SettingsRoundedIcon />}
+              iconTone="gray"
+              onClick={() => setActiveCategory('appearance')}
+              data-testid="options-card-appearance"
+            />
 
-          <OptionActionCard
-            title="Données locales"
-            description="Sauvegarde et gestion des données."
-            icon={<SettingsRoundedIcon />}
-            iconTone="blue"
-            onClick={() => setActiveCategory('data')}
-            data-testid="options-card-data"
-          />
-          <OptionActionCard
-            title="Pharmaciens & Pharmacies"
-            description="Gérer les profils et les lieux de mission."
-            icon={<LocalPharmacyRoundedIcon />}
-            iconTone="purple"
-            onClick={() => setActiveCategory('references')}
-            data-testid="options-card-references"
-          />
+            <OptionActionCard
+              title="Données locales"
+              description="Sauvegarde et gestion des données."
+              icon={<SettingsRoundedIcon />}
+              iconTone="blue"
+              onClick={() => setActiveCategory('data')}
+              data-testid="options-card-data"
+            />
+            <OptionActionCard
+              title="Pharmaciens & Pharmacies"
+              description="Gérer les profils et les lieux de mission."
+              icon={<LocalPharmacyRoundedIcon />}
+              iconTone="purple"
+              onClick={() => setActiveCategory('references')}
+              data-testid="options-card-references"
+            />
           </Box>
         </PageSection>
       </Stack>

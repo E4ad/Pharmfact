@@ -68,6 +68,25 @@ export const homePageTokens = {
   },
 } as const;
 
+// Dashboard card tokens for consistent sizing across pages
+export const dashboardTokens = {
+  card: {
+    borderRadius: 24,  // px - for dashboard cards
+    height: {
+      sm: 132,   // Settings category cards
+      md: 176,   // Standard dashboard cards
+      lg: 196,   // Large dashboard cards
+    },
+  },
+  hero: {
+    borderRadius: 32,  // px - max for hero headers
+    height: {
+      standard: 200,   // Standard hero height
+      tall: 220,       // Tall hero height
+    },
+  },
+} as const;
+
 // Component-specific border radius mappings
 export const componentBorderRadiusMap = {
   // Form components

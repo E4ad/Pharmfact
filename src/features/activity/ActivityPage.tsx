@@ -4,10 +4,12 @@ import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded';
 import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
+import { alpha } from '@mui/material/styles';
 import { Box, CardActionArea, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { componentBorderRadius, borderRadiusScale, borderWidth, iconSize, spacingScale, spacingFractional, cardBackgrounds, brandColors, homePageTokens } from '../../design-system/tokens';
+import { borderRadiusScale, borderWidth, iconSize, spacingScale, spacingFractional, cardBackgrounds, brandColors, homePageTokens } from '../../design-system/tokens';
+import { PageHeader } from '../../components/PageHeader';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { useAppState } from '../../storage/localStore';
 import { activePharmacien } from '../../storage/selectors';
@@ -219,20 +221,24 @@ function HomeActionCard({
           >
             <Stack
               aria-hidden="true"
-              sx={{
+              sx={(theme) => ({
                 width: iconSize.md,
                 height: iconSize.md,
                 borderRadius: componentBorderRadius.card,
                 bgcolor: emphasized 
-                  ? (theme) => theme.palette.primary.main 
-                  : cardBackgrounds.secondary,
+                  ? theme.palette.primary.main 
+                  : theme.palette.mode === 'dark'
+                    ? alpha(theme.palette.primary.main, 0.14)
+                    : cardBackgrounds.secondary,
                 color: emphasized 
-                  ? (theme) => theme.palette.primary.contrastText 
-                  : 'text.primary',
+                  ? theme.palette.primary.contrastText 
+                  : theme.palette.mode === 'dark'
+                    ? theme.palette.primary.light
+                    : 'text.primary',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-              }}
+              })}
             >
               {icon}
             </Stack>
@@ -241,14 +247,18 @@ function HomeActionCard({
               <Chip 
                 label={badge} 
                 size="small" 
-                sx={{
+                sx={(theme) => ({
                   bgcolor: emphasized 
-                    ? (theme) => theme.palette.primary.main 
-                    : cardBackgrounds.secondary,
+                    ? theme.palette.primary.main 
+                    : theme.palette.mode === 'dark'
+                      ? alpha(theme.palette.primary.main, 0.14)
+                      : cardBackgrounds.secondary,
                   color: emphasized 
-                    ? (theme) => theme.palette.primary.contrastText 
-                    : 'text.secondary',
-                }}
+                    ? theme.palette.primary.contrastText 
+                    : theme.palette.mode === 'dark'
+                      ? theme.palette.primary.light
+                      : 'text.secondary',
+                })}
               />
             ) : null}
             

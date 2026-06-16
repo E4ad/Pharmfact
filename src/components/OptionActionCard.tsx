@@ -1,7 +1,8 @@
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { componentBorderRadius, iconSize, cardActionHeight, spacingFractional, spacingScale, typographyScale } from '../design-system/tokens';
+import { componentBorderRadius, iconSize, cardActionHeight, spacingFractional, spacingScale, typographyScale, dashboardTokens, homePageTokens } from '../design-system/tokens';
 import { SurfaceCard } from './SurfaceCard';
 
 type IconTone = 'green' | 'blue' | 'amber' | 'purple' | 'red' | 'gray';
@@ -58,16 +59,40 @@ export function OptionActionCard({
 }: OptionActionCardProps) {
   return (
     <SurfaceCard data-testid={testId} flush>
-      <CardActionArea onClick={onClick} sx={{ height: '100%', p: spacingScale.sm }}>
-        <Stack direction="row" spacing={spacingFractional['1.75']} sx={{ alignItems: 'flex-start', minHeight: cardActionHeight.sm }}>
-          <Box sx={{ pt: spacingFractional['0.25'] }}>
+      <CardActionArea 
+        onClick={onClick} 
+        sx={{
+          height: '100%', 
+          p: { xs: spacingScale.md, md: spacingScale.lg },
+          minHeight: { xs: dashboardTokens.card.height.sm, md: dashboardTokens.card.height.sm },
+          // Focus visible for accessibility
+          '&:focus': {
+            outline: `${1}px solid`,
+            outlineColor: 'primary.main',
+            outlineOffset: 2,
+          },
+        }}
+      >
+        <Stack spacing={spacingScale.md} sx={{ 
+          height: '100%',
+          alignItems: 'flex-start',
+        }}>
+          {/* Header: Icon + Arrow */}
+          <Stack 
+            direction="row" 
+            spacing={spacingScale.sm}
+            sx={{ 
+              width: '100%',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+            }}
+          >
             <Box
               aria-hidden="true"
               sx={{
                 width: iconSize.md,
                 height: iconSize.md,
-                borderRadius: componentBorderRadius.sm,
-                // No border - visual hierarchy through bgcolor only
+                borderRadius: componentBorderRadius.card,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -77,10 +102,45 @@ export function OptionActionCard({
             >
               {icon}
             </Box>
-          </Box>
-          <Stack spacing={spacingFractional['0.5']} sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 750, lineHeight: 1.25 }}>{title}</Typography>
-            <Typography variant="body2" color="text.secondary">{description}</Typography>
+            
+            {/* Affordance visual - arrow icon */}
+            <ArrowForwardRoundedIcon 
+              sx={{
+                color: 'text.disabled',
+                fontSize: iconSize.sm,
+                opacity: 0.6,
+              }}
+            />
+          </Stack>
+          
+          {/* Content: Title + Description */}
+          <Stack spacing={spacingScale.sm} sx={{ 
+            alignItems: 'flex-start',
+            width: '100%',
+          }}>
+            <Typography 
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                letterSpacing: '-0.02em',
+                overflowWrap: 'break-word',
+                wordBreak: 'break-word',
+              }}
+            >
+              {title}
+            </Typography>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{
+                maxWidth: 280,
+                lineHeight: 1.5,
+                overflowWrap: 'break-word',
+                wordBreak: 'break-word',
+              }}
+            >
+              {description}
+            </Typography>
           </Stack>
         </Stack>
       </CardActionArea>
