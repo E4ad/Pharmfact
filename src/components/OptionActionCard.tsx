@@ -1,7 +1,7 @@
 import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { componentBorderRadius, borderWidth } from '../design-system/tokens';
+import { componentBorderRadius } from '../design-system/tokens';
 import { SurfaceCard } from './SurfaceCard';
 
 type IconTone = 'green' | 'blue' | 'amber' | 'purple' | 'red' | 'gray';
@@ -66,7 +66,7 @@ export function OptionActionCard({
                 width: 36,
                 height: 36,
                 borderRadius: componentBorderRadius.sm,
-                border: `${borderWidth.thin}px solid`,
+                // No border - visual hierarchy through bgcolor only
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

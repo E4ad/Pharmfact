@@ -22,10 +22,10 @@ export const darkShadows = {
 
 export const componentShadows = {
   card: {
-    light: lightShadows.sm,
-    dark: darkShadows.sm,
-    elevatedLight: lightShadows.md,
-    elevatedDark: darkShadows.md,
+    light: lightShadows.md,
+    dark: darkShadows.md,
+    elevatedLight: lightShadows.lg,
+    elevatedDark: darkShadows.lg,
   },
   button: {
     light: lightShadows.xs,

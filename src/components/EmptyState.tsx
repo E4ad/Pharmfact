@@ -33,8 +33,7 @@ export function EmptyState({ title, description, actionLabel, onAction }: Props)
             placeItems: 'center',
             bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
             color: 'primary.main',
-            border: `${borderWidth.thin}px solid`,
-            borderColor: (theme) => alpha(theme.palette.primary.main, 0.18),
+            // No border - visual hierarchy through bgcolor only
           }}
         >
           <Inventory2RoundedIcon />

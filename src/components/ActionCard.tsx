@@ -1,7 +1,7 @@
 import { CardActionArea, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { componentBorderRadius, borderWidth } from '../design-system/tokens';
+import { componentBorderRadius } from '../design-system/tokens';
 import { SurfaceCard } from './SurfaceCard';
 
 type Props = {
@@ -27,8 +27,7 @@ export function ActionCard({ title, description, icon, onClick, 'data-testid': t
                 color: 'primary.main',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: `${borderWidth.thin}px solid`,
-                borderColor: (theme) => alpha(theme.palette.primary.main, 0.18),
+                // No border - visual hierarchy through bgcolor only
               }}
             >
               {icon}
