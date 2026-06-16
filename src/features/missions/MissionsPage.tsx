@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 import { componentBorderRadius, borderRadiusScale } from '../../design-system/tokens';
 import { FadeIn } from '../../components/FadeIn';
 import { LoadingButton } from '../../components/LoadingButton';
@@ -343,11 +344,11 @@ export function MissionsPage() {
           <Button
             variant="contained"
             onClick={() => navigate('/mission/new')}
-            sx={{
+            sx={(theme) => ({
               bgcolor: 'common.white',
               color: 'primary.dark',
-              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.9)' },
-            }}
+              '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.9) },
+            })}
           >
             Créer une mission
           </Button>

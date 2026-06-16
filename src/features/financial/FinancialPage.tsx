@@ -28,7 +28,7 @@ import ReceiptRoundedIcon from '@mui/icons-material/ReceiptRounded';
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
 import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded';
 import WarningRoundedIcon from '@mui/icons-material/WarningRounded';
-import { borderRadiusScale } from '../../design-system/tokens';
+import { borderRadiusScale, componentShadows } from '../../design-system/tokens';
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
 
 type ViewMode = 'monthly' | 'quarterly' | 'annual';
@@ -558,13 +558,13 @@ export function InstalmentSummaryCard({
           variant="contained"
           startIcon={<AddRoundedIcon />}
           onClick={onAddTaxPayment}
-          sx={{
+          sx={(theme) => ({
             borderRadius: borderRadiusScale.full, 
             alignSelf: 'flex-start',
             mt: 1,
-            boxShadow: 2,
-            '&:hover': { boxShadow: 4 }
-          }}
+            boxShadow: theme.palette.mode === 'dark' ? componentShadows.button.elevatedDark : componentShadows.button.elevatedLight,
+            '&:hover': { boxShadow: theme.palette.mode === 'dark' ? componentShadows.button.elevatedDark : componentShadows.button.elevatedLight }
+          })}
         >
           Ajouter un acompte
         </Button>
@@ -606,13 +606,13 @@ export function DeductibleExpensesSummaryCard({
           variant="contained"
           startIcon={<AddRoundedIcon />}
           onClick={onAddDeductibleExpense}
-          sx={{
+          sx={(theme) => ({
             borderRadius: borderRadiusScale.full, 
             alignSelf: 'flex-start',
             mt: 1,
-            boxShadow: 2,
-            '&:hover': { boxShadow: 4 }
-          }}
+            boxShadow: theme.palette.mode === 'dark' ? componentShadows.button.elevatedDark : componentShadows.button.elevatedLight,
+            '&:hover': { boxShadow: theme.palette.mode === 'dark' ? componentShadows.button.elevatedDark : componentShadows.button.elevatedLight }
+          })}
         >
           Ajouter une dépense
         </Button>

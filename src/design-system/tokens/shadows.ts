@@ -30,6 +30,8 @@ export const componentShadows = {
   button: {
     light: lightShadows.xs,
     dark: darkShadows.xs,
+    elevatedLight: lightShadows.sm,
+    elevatedDark: darkShadows.sm,
     pressed: lightShadows.none,
   },
   modal: {
