@@ -1,4 +1,5 @@
 import type { AppState, Invoice, Mission, Pharmacien, Pharmacie, AppOptions, FiscalSettings, UiSettings, LocalDataSettings, TaxStatus } from './schema';
+import { invoiceForMission } from '../services/businessRules';
 
 export function activePharmacien(state: AppState): Pharmacien | undefined {
   return state.pharmaciens.find((pharmacien) => pharmacien.id === state.activePharmacienId);
@@ -25,7 +26,7 @@ export function findInvoice(state: AppState, id?: string): Invoice | undefined {
 }
 
 export function missionInvoice(state: AppState, mission: Mission): Invoice | undefined {
-  return state.invoices.find((invoice) => invoice.id === mission.invoiceId || invoice.missionId === mission.id);
+  return invoiceForMission(state.invoices, mission);
 }
 
 // Sélecteurs pour les nouvelles options structurées

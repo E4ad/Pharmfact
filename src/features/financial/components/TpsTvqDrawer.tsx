@@ -18,7 +18,7 @@ export function TpsTvqDrawer({
   gstQstRemittedCents,
 }: TpsTvqDrawerProps) {
   return (
-    <FinancialDrawer title="TPS/TVQ" open={open} onClose={onClose}>
+    <FinancialDrawer title="TPS/TVQ" open={open} onClose={onClose} data-testid="financial-tps-tvq-drawer">
       <Stack spacing={2}>
         {isSmallSupplier ? (
           <Typography>TPS/TVQ non applicable — statut de petit fournisseur.</Typography>

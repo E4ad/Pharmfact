@@ -4,6 +4,7 @@ import path from 'node:path';
 import viteCompression from 'vite-plugin-compression';
 
 export default defineConfig({
+  base: './',
   plugins: [
     react(),
     viteCompression({
@@ -27,6 +28,12 @@ export default defineConfig({
         secure: false,
       },
     },
+  },
+  optimizeDeps: {
+    include: [
+      '@mui/icons-material/CalendarMonthRounded',
+      '@mui/icons-material/StarRounded',
+    ],
   },
   build: {
     sourcemap: 'hidden',

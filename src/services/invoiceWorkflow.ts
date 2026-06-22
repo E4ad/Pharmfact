@@ -1,5 +1,7 @@
 import type { AppState, Invoice, InvoiceStatus, Mission } from '../storage/schema';
 import { addDaysIso, createId, todayIso } from './ids';
+import { assertSamePharmacy } from './businessRules';
+import { resolveInvoiceDefaults, resolveTaxSettingsForInvoice } from '../storage/selectors';
 
 export const invoiceStatusLabels: Record<InvoiceStatus, string> = {
   GENERATED: 'Générée',
@@ -23,18 +25,34 @@ export function generateInvoiceNumber(invoices: Invoice[], dateIso = todayIso())
 }
 
 export function createInvoiceFromMission(mission: Mission, state: AppState): Invoice {
+  return createInvoiceFromMissions([mission], state);
+}
+
+export function createInvoiceFromMissions(missions: Mission[], state: AppState): Invoice {
+  if (!missions.length) throw new Error('Aucune mission à facturer.');
+  const pharmacyCheck = assertSamePharmacy(missions);
+  if (!pharmacyCheck.ok) throw new Error('Une facture multi-missions doit viser une seule pharmacie.');
+  const firstMission = missions[0];
   const dateFacture = todayIso();
+  const invoiceDefaults = resolveInvoiceDefaults(state, firstMission.pharmacienId);
+  const taxSettings = resolveTaxSettingsForInvoice(state, firstMission.pharmacienId);
   return {
     id: createId('inv'),
     numero: generateInvoiceNumber(state.invoices, dateFacture),
-    missionId: mission.id,
-    pharmacienId: mission.pharmacienId,
-    pharmacieId: mission.pharmacieId,
+    missionIds: missions.map((mission) => mission.id),
+    missionId: firstMission.id,
+    pharmacienId: firstMission.pharmacienId,
+    pharmacieId: firstMission.pharmacieId,
     dateFacture,
-    dateEcheance: addDaysIso(dateFacture, 30),
+    dateEcheance: addDaysIso(dateFacture, invoiceDefaults.invoiceDueDays),
     status: 'GENERATED',
-    hours: mission.totalHours,
-    amountCents: mission.totalCents,
+    hours: Math.round(missions.reduce((sum, mission) => sum + mission.totalHours, 0) * 100) / 100,
+    amountCents: missions.reduce((sum, mission) => sum + mission.totalCents, 0),
+    paymentTerms: invoiceDefaults.paymentTerms,
+    smallSupplierMention:
+      taxSettings.taxStatus === 'SMALL_SUPPLIER'
+        ? 'Petit fournisseur: TPS/TVQ non applicables. À valider selon votre situation fiscale.'
+        : undefined,
     createdAt: new Date().toISOString(),
   };
 }

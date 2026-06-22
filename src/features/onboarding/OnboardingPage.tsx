@@ -3,11 +3,11 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import LocalPharmacyRoundedIcon from '@mui/icons-material/LocalPharmacyRounded';
 import WorkRoundedIcon from '@mui/icons-material/WorkRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import { Box, Button, CardActionArea, Stack, Typography, Stepper, Step, StepLabel, Paper } from '@mui/material';
+import { Box, Button, CardActionArea, Stack, Typography, Stepper, Step, StepLabel, Paper, useTheme } from '@mui/material';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { updateAppState, useAppState } from '../../storage/localStore';
-import { componentBorderRadius } from '../../design-system/tokens';
 
 // Clé pour stocker la progression dans localStorage
 const ONBOARDING_PROGRESS_KEY = 'onboarding_progress';
@@ -202,48 +202,33 @@ function ProfileSelection() {
 }
 
 export function OnboardingPage() {
+  const theme = useTheme();
   const state = useAppState();
   const navigate = useNavigate();
-  
-  // Vérifier si on est explicitement dans le flux onboarding (via localStorage)
-  const onboardingFlag = localStorage.getItem('in_onboarding_flow');
-  const inOnboardingFlow = onboardingFlag === 'true';
-  
-  // Démarrer le flag d'onboarding si on a des éléments manquants et pas de flag
-  // Cela permet d'activer automatiquement l'onboarding pour les nouveaux utilisateurs
-  if (needsOnboarding(state) && !inOnboardingFlow) {
-    localStorage.setItem('in_onboarding_flow', 'true');
-    console.log('[Onboarding] Flag d\'onboarding activé');
-    // Recharger pour prendre en compte le nouveau flag
-    window.location.reload();
-    return null;
-  }
-  
-  // Si on n'est PAS dans le flux onboarding et qu'on a des pharmaciens,
-  // afficher la sélection de profil
+
+  const onboardingFlag = typeof window !== 'undefined' ? localStorage.getItem('in_onboarding_flow') : null;
+  const shouldOnboard = needsOnboarding(state);
+  const inOnboardingFlow = onboardingFlag === 'true' || shouldOnboard;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (shouldOnboard) {
+      localStorage.setItem('in_onboarding_flow', 'true');
+      return;
+    }
+
+    if (onboardingFlag === 'true') {
+      localStorage.removeItem('in_onboarding_flow');
+    }
+  }, [onboardingFlag, shouldOnboard]);
+
+  const currentStep = getCurrentOnboardingStep(state);
+
   if (!inOnboardingFlow && state.pharmaciens.length > 0) {
     return <ProfileSelection />;
   }
-  
-  // Si on n'est PAS dans le flux onboarding et qu'on n'a PAS de pharmaciens,
-  // démarrer le flux onboarding
-  if (!inOnboardingFlow && state.pharmaciens.length === 0) {
-    localStorage.setItem('in_onboarding_flow', 'true');
-    console.log('[Onboarding] Démarrage du flux onboarding');
-    window.location.reload();
-    return null;
-  }
-  
-  // On est dans le flux onboarding
-  const currentStep = getCurrentOnboardingStep(state);
-  
-  // Si on n'est plus dans le flux onboarding (flags supprimés mais page toujours ouverte),
-  // rediriger vers activity
-  if (!inOnboardingFlow && !needsOnboarding(state) && state.pharmaciens.length > 0) {
-    navigate('/activity');
-    return null;
-  }
-  
+
   // Gestion de la progression
   const handleStepComplete = (step: number) => {
     localStorage.setItem(ONBOARDING_PROGRESS_KEY, String(step));
@@ -260,11 +245,10 @@ export function OnboardingPage() {
         break;
       case 4:
       default:
-        // Configuration complète, rediriger vers l'accueil avec Bonjour
+        // Configuration complète, aller vers l'accueil applicatif
         localStorage.removeItem(ONBOARDING_PROGRESS_KEY);
         localStorage.removeItem('in_onboarding_flow');
-        console.log('[Onboarding] Flag d\'onboarding désactivé - redirection vers /');
-        navigate('/');
+        navigate('/activity');
         break;
     }
   };
@@ -283,7 +267,7 @@ export function OnboardingPage() {
         <Typography className="welcome-hello" variant="h1">Bonjour</Typography>
         
         {/* Indicateur de progression (seulement pour le flux onboarding) */}
-        <Paper sx={{ width: '100%', p: 3, borderRadius: componentBorderRadius.paper }}>
+        <Paper sx={{ width: '100%', p: 3, borderRadius: theme.runtimeTokens.surfaceRadius }}>
           <Stepper activeStep={currentStep - 1} alternativeLabel sx={{ width: '100%' }}>
             <Step completed={currentStep > 1} active={currentStep === 1}>
               <StepLabel>Pharmacien</StepLabel>

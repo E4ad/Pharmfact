@@ -24,7 +24,129 @@ const allViewports = [
   { name: 'desktop', width: 1440, height: 1000 },
   { name: 'laptop', width: 1280, height: 900 },
   { name: 'tablet', width: 768, height: 1024 },
-  { name: 'mobile', width: 390, height: 844 },
+];
+
+const interactiveCaptures = [
+  {
+    name: 'missions-new-day-open',
+    page: 'missions-new',
+    trigger: '[data-testid="mission-day-row"]',
+    ready: '[data-testid="mission-day-detail"]',
+  },
+  {
+    name: 'missions-expense-edit',
+    page: 'missions-new',
+    trigger: '[data-testid="expense-row"]',
+    ready: '[data-testid="expense-editor"]',
+  },
+  {
+    name: 'missions-billing-panel',
+    page: 'missions',
+    trigger: '[data-testid="billing-panel-toggle"]',
+    ready: '[data-testid="billing-panel"]',
+  },
+  {
+    name: 'options-general-modal',
+    page: 'options',
+    trigger: '[data-testid="options-card-general"]',
+    ready: '[data-testid="settings-modal-general"]',
+  },
+  {
+    name: 'options-missions-modal',
+    page: 'options',
+    trigger: '[data-testid="options-card-missions"]',
+    ready: '[data-testid="settings-modal-missions"]',
+  },
+  {
+    name: 'options-invoicing-modal',
+    page: 'options',
+    trigger: '[data-testid="options-card-invoicing"]',
+    ready: '[data-testid="settings-modal-invoicing"]',
+  },
+  {
+    name: 'options-financial-modal',
+    page: 'options',
+    trigger: '[data-testid="options-card-financial"]',
+    ready: '[data-testid="settings-modal-financial"]',
+  },
+  {
+    name: 'options-appearance-modal',
+    page: 'options',
+    trigger: '[data-testid="options-card-appearance"]',
+    ready: '[data-testid="settings-modal-appearance"]',
+  },
+  {
+    name: 'options-data-modal',
+    page: 'options',
+    trigger: '[data-testid="options-card-data"]',
+    ready: '[data-testid="settings-modal-data"]',
+  },
+  {
+    name: 'options-references-modal',
+    page: 'options',
+    trigger: '[data-testid="options-card-references"]',
+    ready: '[data-testid="settings-modal-references"]',
+  },
+  {
+    name: 'options-pharmacy-modal',
+    page: 'options',
+    trigger: '[data-testid="options-add-pharmacy-button"]',
+    ready: '[data-testid="pharmacie-form-modal"]',
+  },
+  {
+    name: 'options-pharmacy-edit-modal',
+    page: 'options',
+    trigger: '[data-testid^="options-edit-pharmacy-"]',
+    ready: '[data-testid="pharmacie-form-modal"]',
+  },
+  {
+    name: 'options-pharmacien-modal',
+    page: 'options',
+    trigger: '[data-testid="options-add-pharmacien-button"]',
+    ready: '[data-testid="pharmacien-form-modal"]',
+  },
+  {
+    name: 'options-pharmacien-edit-modal',
+    page: 'options',
+    trigger: '[data-testid^="options-edit-pharmacien-"]',
+    ready: '[data-testid="pharmacien-form-modal"]',
+  },
+  {
+    name: 'missions-pharmacy-modal',
+    page: 'missions-new',
+    trigger: 'button:has-text("Ajouter une nouvelle pharmacie")',
+    ready: '[data-testid="pharmacie-form-modal"]',
+  },
+  {
+    name: 'financial-tax-payment-drawer',
+    page: 'financial',
+    trigger: 'button:has-text("Ajouter un acompte")',
+    ready: '[data-testid="financial-tax-payment-drawer"]',
+  },
+  {
+    name: 'financial-deductible-expense-drawer',
+    page: 'financial',
+    trigger: 'button:has-text("Ajouter une dépense")',
+    ready: '[data-testid="financial-deductible-expense-drawer"]',
+  },
+  {
+    name: 'financial-mission-expenses-drawer',
+    page: 'financial',
+    trigger: 'button:has-text("Voir tout le détail")',
+    ready: '[data-testid="financial-mission-expenses-drawer"]',
+  },
+  {
+    name: 'financial-receivables-drawer',
+    page: 'financial',
+    trigger: 'button:has-text("Voir les factures")',
+    ready: '[data-testid="financial-receivables-drawer"]',
+  },
+  {
+    name: 'financial-tps-tvq-drawer',
+    page: 'financial',
+    trigger: 'button:has-text("TPS/TVQ")',
+    ready: '[data-testid="financial-tps-tvq-drawer"]',
+  },
 ];
 
 function parseArgs(argv) {
@@ -76,7 +198,7 @@ function printHelp() {
 
 Options:
   --page <name>              Capture a single page or group (missions, invoices, financial)
-  --viewport <name>          desktop, laptop, tablet, mobile
+  --viewport <name>          desktop, laptop, tablet
   --all-viewports            Capture all configured viewports
   --base-url <url>           Default http://127.0.0.1:5173
   --output <dir>             Default screenshots
@@ -113,7 +235,7 @@ function selectPages(pageFilter) {
 function selectViewports(options) {
   if (options.viewport) return allViewports.filter((viewport) => viewport.name === options.viewport);
   if (options.allViewports) return allViewports;
-  return allViewports.filter((viewport) => viewport.name === 'desktop' || viewport.name === 'mobile');
+  return allViewports.filter((viewport) => viewport.name === 'desktop');
 }
 
 function ensureOutputDir(outputDir) {
@@ -247,12 +369,6 @@ async function optionalInteractiveCapture(page, config, viewportName, outputDir,
   }
 }
 
-const optionalStates = [
-  { name: 'missions-new-day-open', url: '/missions/new', trigger: '[data-testid="mission-day-row"]', ready: '[data-testid="mission-day-detail"]' },
-  { name: 'missions-expense-edit', url: '/missions/new', trigger: '[data-testid="expense-row"]', ready: '[data-testid="expense-editor"]' },
-  { name: 'missions-billing-panel', url: '/missions', trigger: '[data-testid="billing-panel-toggle"]', ready: '[data-testid="billing-panel"]' },
-];
-
 function printSummary(result, outputDir) {
   console.log('\nCaptures terminées.');
   console.log(`\nRéussies : ${result.successes.length}`);
@@ -307,9 +423,15 @@ async function main() {
         await captureMissionDrawer(page, viewport.name, outputDir, options, result);
       }
 
-      if (!options.page || options.page === 'missions-new') {
-        for (const state of optionalStates) {
-          await optionalInteractiveCapture(page, state, viewport.name, outputDir, options, result);
+      if (!options.page) {
+        for (const config of interactiveCaptures) {
+          if (config.page === 'missions' || config.page === 'missions-new') {
+            await optionalInteractiveCapture(page, { ...config, url: config.page === 'missions' ? '/missions' : '/missions/new' }, viewport.name, outputDir, options, result);
+          } else if (config.page === 'options') {
+            await optionalInteractiveCapture(page, { ...config, url: '/settings' }, viewport.name, outputDir, options, result);
+          } else if (config.page === 'financial') {
+            await optionalInteractiveCapture(page, { ...config, url: '/financial' }, viewport.name, outputDir, options, result);
+          }
         }
       }
 

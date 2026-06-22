@@ -16,10 +16,12 @@ import {
   Alert,
   IconButton,
   Tooltip,
+  useTheme,
+  SvgIcon,
 } from '@mui/material';
-import EditRoundedIcon from '@mui/icons-material/EditRounded';
-import { BackHomeButton } from '../../components/BackHomeButton';
 import { PageHeader } from '../../components/PageHeader';
+import { NotFoundState } from '../../components/NotFoundState';
+import { useNotifications } from '../../components/NotificationSystem';
 import { createId } from '../../services/ids';
 import { createInvoiceFromMission, invoiceStatusLabels } from '../../services/invoiceWorkflow';
 import { formatMoney } from '../../services/money';
@@ -37,20 +39,25 @@ import {
 import { useMissionForm } from '../../hooks/useMissionForm';
 import { useMissionFinancialPreview } from '../../hooks/useMissionFinancialPreview';
 import { expenseTypeConfig, missionQuickExpenseTypes } from '../../services/expenseTypes';
+import { actTypeCatalog, getActTypeDefinition } from '../../services/actTypes';
+import { invoiceForMission, invoiceMissionIds } from '../../services/businessRules';
 import { getAvailableEditActions, getInvoiceEditImpact, type MissionEditAction } from '../../services/missionEditRules';
-import { updateAppState, useAppState } from '../../storage/localStore';
-import type { ExpenseReceipt, Invoice, Mission, MissionExpense, MissionStatus } from '../../storage/schema';
+import type { AuditTrailInput } from '../../services/auditTrail';
+import { setAppStateAsync, useAppState } from '../../storage/localStore';
+import type { AppState, ExpenseReceipt, Invoice, Mission, MissionExpense, MissionStatus } from '../../storage/schema';
 import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
 import './MissionFormPage.css';
 import { getPlatform } from '../../services/platformService';
 import { PharmacieFormModal } from '../pharmacies/PharmacieFormModal';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import { borderRadiusScale } from '../../design-system/tokens';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import { downloadInvoicePdf } from '../../services/downloadInvoicePdf';
+import { logMappedError, mapError } from '../../services/errorMapper';
 
 type MissionExpenseFormValue = MissionExpense;
 type WorkflowAction = 'save_draft' | 'confirm' | 'confirm_generate' | MissionEditAction;
 
-const missionTypes = [{ value: 'REMPLACEMENT_OFFICINE', label: 'Remplacement officine' }, { value: 'GARDE', label: 'Garde' }, { value: 'CLINIQUE', label: 'Clinique' }];
+const missionTypes = actTypeCatalog.map((actType) => ({ value: actType.value, label: actType.label }));
 
 function FormField({ label, type, value, onChange, sx }: { 
   label: string; 
@@ -70,6 +77,14 @@ function FormField({ label, type, value, onChange, sx }: {
       fullWidth
       sx={sx}
     />
+  );
+}
+
+function EditRoundedIcon() {
+  return (
+    <SvgIcon fontSize="small">
+      <path d="M3 17.46v3.04c0 .28.22.5.5.5h3.04c.13 0 .26-.05.35-.15L17.81 9.94l-3.75-3.75L3.15 17.1q-.15.15-.15.36M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z" />
+    </SvgIcon>
   );
 }
 
@@ -158,6 +173,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const { missionId } = useParams();
   const navigate = useNavigate();
   const state = useAppState();
+  const { notify } = useNotifications();
   const [searchParams] = useSearchParams();
   const fromOnboarding = searchParams.get('from') === 'onboarding';
   
@@ -174,6 +190,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     addExpense,
     addTypedExpense,
     removeExpense,
+    removeDay,
     updateExpense,
     addReceipt,
     deleteReceipt,
@@ -186,6 +203,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const [openDayId, setOpenDayId] = useState<string | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [pharmacieModalOpen, setPharmacieModalOpen] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<WorkflowAction | null>(null);
   const preview = useMissionFinancialPreview(values);
   const returnPath = mode === 'edit' && existing ? `/missions?selected=${existing.id}` : '/missions';
 
@@ -193,66 +211,76 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     setValues((current) => regenerateDays(current));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function submit(action: WorkflowAction) {
+  async function submit(action: WorkflowAction) {
     const mission = buildMissionFromForm(values, existing);
     const status: MissionStatus = action === 'save_draft'
       ? 'DRAFT'
       : action === 'confirm' || action === 'confirm_generate'
         ? 'CONFIRMED'
-        : mission.status;
+      : mission.status;
     const finalMission = { ...mission, status };
+    let regeneratedInvoice: Invoice | undefined;
 
-    updateAppState((current) => {
-      const currentInvoice = existing ? current.invoices.find((item) => item.id === existing.invoiceId || item.missionId === existing.id) : undefined;
-      let invoices = current.invoices;
-      let missionToStore = finalMission;
+    setSubmittingAction(action);
+    try {
+      const nextState = buildNextMissionState({
+        current: state,
+        mode,
+        existing,
+        action,
+        finalMission,
+        pendingReceipts,
+      });
+      regeneratedInvoice = nextState.regeneratedInvoice;
 
-      if (mode === 'create' && action === 'confirm_generate') {
-        const invoice = createInvoiceFromMission(finalMission, current);
-        invoices = [...invoices, invoice];
-        missionToStore = { ...finalMission, invoiceId: invoice.id };
-      } else if (mode === 'edit' && currentInvoice && action === 'save_regenerate') {
-        invoices = invoices.map((item) =>
-          item.id === currentInvoice.id
-            ? {
-                ...item,
-                hours: finalMission.totalHours,
-                amountCents: finalMission.totalCents,
-                pharmacieId: finalMission.pharmacieId,
-                pharmacienId: finalMission.pharmacienId,
-              }
-            : item,
-        );
-        missionToStore = { ...finalMission, events: [...finalMission.events, { id: createId('evt'), eventType: 'INVOICE_UPDATED', label: `Facture ${currentInvoice.numero} rééditée`, eventDate: new Date().toISOString() }] };
-      }
-
-      const receiptsToStore = pendingReceipts.map((receipt) => ({
-        ...receipt,
-        missionId: missionToStore.id,
-        storageUrl: receipt.storageUrl.replace('receipts/draft/', `receipts/${missionToStore.id}/`),
+      await setAppStateAsync(nextState.state, buildMissionAuditInput({
+        mode,
+        action,
+        mission: finalMission,
+        existing,
+        invoice,
+        regeneratedInvoice,
       }));
 
-      return {
-        ...current,
-        missions: mode === 'edit'
-          ? current.missions.map((item) => (item.id === existing?.id ? missionToStore : item))
-          : [...current.missions, missionToStore],
-        invoices,
-        expenseReceipts: [
-          ...current.expenseReceipts.filter((receipt) => !receiptsToStore.some((item) => item.id === receipt.id)),
-          ...receiptsToStore,
-        ],
-      };
-    });
+      if (action === 'save_regenerate' && regeneratedInvoice) {
+        const result = await downloadInvoicePdf(regeneratedInvoice, nextState.state);
+        if (result.status === 'downloaded') {
+          notify({ severity: 'success', message: 'Facture rééditée et PDF généré.' });
+        } else if (result.status === 'cancelled') {
+          notify({ severity: 'info', message: 'Facture rééditée. Téléchargement annulé.' });
+        } else {
+          throw result.error;
+        }
+      }
 
-    if (fromOnboarding) {
-      navigate('/welcome');
-    } else {
-      navigate(`/missions?selected=${finalMission.id}`);
+      if (fromOnboarding) {
+        navigate('/welcome');
+      } else {
+        navigate(`/missions?selected=${finalMission.id}`);
+      }
+    } catch (error) {
+      const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
+      logMappedError(mapped, error);
+      notify({
+        severity: mapped.severity,
+        message: action === 'save_regenerate' ? 'Facture rééditée, mais le PDF n’a pas pu être généré.' : mapped.message,
+        persist: action === 'save_regenerate' || mapped.severity === 'error',
+      });
+    } finally {
+      setSubmittingAction(null);
     }
   }
 
-  if (mode === 'edit' && !existing) return <div className="mission-form-page"><BackHomeButton to={returnPath} label="Missions" data-testid="mission-form-back-button" /><p>Mission introuvable.</p></div>;
+  if (mode === 'edit' && missionId && !existing) {
+    return (
+      <NotFoundState
+        title="Mission introuvable"
+        description="La mission demandée n’existe plus dans le stockage local."
+        actionLabel="Retour aux missions"
+        actionTo="/missions"
+      />
+    );
+  }
 
   return <main className="mission-form-page">
     <PageHeader
@@ -292,10 +320,10 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
         pharmacyName={pharmacie ? pharmacieDisplayName(pharmacie) : undefined}
         pharmacistName={pharmacien?.nom}
       />
-      <MissionDaysSection values={values} receipts={[...state.expenseReceipts, ...pendingReceipts]} openDayId={openDayId} setOpenDayId={setOpenDayId} updateDay={updateDay} addExpense={addExpense} addTypedExpense={addTypedExpense} updateExpense={updateExpense} removeExpense={removeExpense} addReceipt={addReceipt} deleteReceipt={deleteReceipt} />
+      <MissionDaysSection values={values} receipts={[...state.expenseReceipts, ...pendingReceipts]} openDayId={openDayId} setOpenDayId={setOpenDayId} updateDay={updateDay} addExpense={addExpense} addTypedExpense={addTypedExpense} updateExpense={updateExpense} removeExpense={removeExpense} removeDay={removeDay} addReceipt={addReceipt} deleteReceipt={deleteReceipt} />
       <MissionNotesCard showNotes={showNotes} notes={values.notes} onShowNotes={() => setShowNotes(true)} onChangeNotes={(value) => setField('notes', value)} />
       <MissionFinancialPreview preview={preview} rate={values.tauxHoraire} />
-      <MissionFormActions mode={mode} invoice={invoice} onSubmit={submit} onCancel={() => navigate(returnPath)} />
+      <MissionFormActions mode={mode} invoice={invoice} submittingAction={submittingAction} onSubmit={submit} onCancel={() => navigate(returnPath)} />
     </div>
     
     <PharmacieFormModal
@@ -304,6 +332,167 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
       pharmacieId={undefined}
     />
   </main>;
+}
+
+export function buildNextMissionState({
+  current,
+  mode,
+  existing,
+  action,
+  finalMission,
+  pendingReceipts,
+}: {
+  current: AppState;
+  mode: 'create' | 'edit';
+  existing?: Mission;
+  action: WorkflowAction;
+  finalMission: Mission;
+  pendingReceipts: ExpenseReceipt[];
+}): { state: AppState; regeneratedInvoice?: Invoice } {
+  const currentInvoice = mode === 'edit'
+    ? current.invoices.find((item) =>
+        item.id === finalMission.invoiceId ||
+        item.id === existing?.invoiceId ||
+        invoiceMissionIds(item).includes(finalMission.id)
+      )
+    : undefined;
+  let invoices = current.invoices;
+  let missionToStore = finalMission;
+  let regeneratedInvoice: Invoice | undefined;
+
+  if (mode === 'create' && action === 'confirm_generate') {
+    const invoice = createInvoiceFromMission(finalMission, current);
+    invoices = [...invoices, invoice];
+    missionToStore = { ...finalMission, invoiceId: invoice.id };
+  } else if (mode === 'edit' && currentInvoice && action === 'save_regenerate') {
+    const invoiceMissions = invoiceMissionIds(currentInvoice)
+      .map((missionId) => (missionId === finalMission.id ? finalMission : current.missions.find((mission) => mission.id === missionId)))
+      .filter((mission): mission is Mission => Boolean(mission));
+    const missionsForTotal = invoiceMissions.length ? invoiceMissions : [finalMission];
+    regeneratedInvoice = {
+      ...currentInvoice,
+      hours: Math.round(missionsForTotal.reduce((sum, mission) => sum + mission.totalHours, 0) * 100) / 100,
+      amountCents: missionsForTotal.reduce((sum, mission) => sum + mission.totalCents, 0),
+      pharmacieId: finalMission.pharmacieId,
+      pharmacienId: finalMission.pharmacienId,
+      missionIds: invoiceMissionIds(currentInvoice).length ? invoiceMissionIds(currentInvoice) : [finalMission.id],
+      missionId: currentInvoice.missionId ?? finalMission.id,
+    };
+    invoices = invoices.map((item) => (item.id === currentInvoice.id ? regeneratedInvoice! : item));
+    missionToStore = {
+      ...finalMission,
+      invoiceId: currentInvoice.id,
+      events: [
+        ...finalMission.events,
+        {
+          id: createId('evt'),
+          eventType: 'INVOICE_UPDATED',
+          label: `Facture ${currentInvoice.numero} rééditée`,
+          eventDate: new Date().toISOString(),
+        },
+      ],
+    };
+  } else if (mode === 'edit' && currentInvoice && action === 'create_corrected_version') {
+    regeneratedInvoice = createInvoiceFromMission(finalMission, current);
+    invoices = [...invoices, regeneratedInvoice];
+    missionToStore = {
+      ...finalMission,
+      invoiceId: regeneratedInvoice.id,
+      events: [
+        ...finalMission.events,
+        {
+          id: createId('evt'),
+          eventType: 'INVOICE_UPDATED',
+          label: `Version corrigée ${regeneratedInvoice.numero} créée`,
+          eventDate: new Date().toISOString(),
+        },
+      ],
+    };
+    regeneratedInvoice = {
+      ...regeneratedInvoice,
+      correctedFromInvoiceId: currentInvoice.id,
+    };
+    invoices = invoices.map((item) =>
+      item.id === regeneratedInvoice!.id ? regeneratedInvoice! : item,
+    );
+  }
+
+  const receiptsToStore = pendingReceipts.map((receipt) => ({
+    ...receipt,
+    missionId: missionToStore.id,
+    storageUrl: receipt.storageUrl.replace('receipts/draft/', `receipts/${missionToStore.id}/`),
+  }));
+
+  return {
+    state: {
+      ...current,
+      missions: mode === 'edit'
+        ? current.missions.map((item) => (item.id === existing?.id ? missionToStore : item))
+        : [...current.missions, missionToStore],
+      invoices,
+      expenseReceipts: [
+        ...current.expenseReceipts.filter((receipt) => !receiptsToStore.some((item) => item.id === receipt.id)),
+        ...receiptsToStore,
+      ],
+    },
+    regeneratedInvoice,
+  };
+}
+
+function buildMissionAuditInput({
+  mode,
+  action,
+  mission,
+  existing,
+  invoice,
+  regeneratedInvoice,
+}: {
+  mode: 'create' | 'edit';
+  action: WorkflowAction;
+  mission: Mission;
+  existing?: Mission;
+  invoice?: Invoice;
+  regeneratedInvoice?: Invoice;
+}): AuditTrailInput | null {
+  if (mode !== 'edit' || !existing || !invoice) return null;
+
+  if (action === 'save_regenerate' && regeneratedInvoice) {
+    return {
+      eventType: 'STATE_UPDATED',
+      scope: 'invoices',
+      label: `Facture ${invoice.numero} rééditée`,
+      detail: `${existing.missionCode} a été corrigée et le PDF de ${regeneratedInvoice.numero} doit être transmis au client.`,
+    };
+  }
+
+  if (action === 'create_corrected_version' && regeneratedInvoice) {
+    return {
+      eventType: 'STATE_UPDATED',
+      scope: 'invoices',
+      label: `Version corrigée créée pour ${invoice.numero}`,
+      detail: `${existing.missionCode} a généré la nouvelle facture ${regeneratedInvoice.numero} sans modifier le document d'origine.`,
+    };
+  }
+
+  if (action === 'save_internal') {
+    return {
+      eventType: 'STATE_UPDATED',
+      scope: 'missions',
+      label: `Correction interne enregistrée pour ${existing.missionCode}`,
+      detail: invoice.status === 'PAID' || invoice.status === 'ARCHIVED'
+        ? `La mission a été mise à jour sans toucher à la facture ${invoice.numero}.`
+        : `La mission a été mise à jour avec la facture ${invoice.numero} conservée.`,
+    };
+  }
+
+  return {
+    eventType: 'STATE_UPDATED',
+    scope: invoice.status === 'PAID' || invoice.status === 'ARCHIVED' ? 'invoices' : 'missions',
+    label: `Mission ${mission.missionCode} mise à jour`,
+    detail: invoice.status === 'SENT'
+      ? `La mission a été sauvegardée et la facture ${invoice.numero} devra être rééditée si nécessaire.`
+      : `La mission a été sauvegardée.`,
+  };
 }
 
 function MissionLocationCard({
@@ -384,6 +573,9 @@ function MissionCoreCard({
   onSetValues: Dispatch<SetStateAction<MissionFormValues>>;
   regenerateDays: (values?: MissionFormValues) => MissionFormValues;
 }) {
+  const theme = useTheme();
+  const actType = getActTypeDefinition(values.actType);
+
   return (
     <section className="mission-form-card">
       <h2>2. Mission</h2>
@@ -417,10 +609,13 @@ function MissionCoreCard({
           />
         ) : null}
         {values.isMultiDay ? (
-          <Button variant="outlined" size="small" onClick={() => onSetValues(regenerateDays())} sx={{ borderRadius: borderRadiusScale.full, alignSelf: 'flex-start' }}>
+          <Button variant="outlined" size="small" onClick={() => onSetValues(regenerateDays())} sx={{ borderRadius: theme.runtimeTokens.controlRadius, alignSelf: 'flex-start' }}>
             Mettre à jour les jours
           </Button>
         ) : null}
+        <Alert severity="info" sx={{ gridColumn: '1 / -1' }}>
+          Libellé facture par défaut: {actType.defaultInvoiceLabel}. {actType.fiscalWarning}
+        </Alert>
       </div>
     </section>
   );
@@ -495,6 +690,8 @@ function MissionNotesCard({
   onShowNotes: () => void;
   onChangeNotes: (value: string) => void;
 }) {
+  const theme = useTheme();
+
   return (
     <section className="mission-form-card mission-notes-card">
       <h2>5. Notes</h2>
@@ -513,7 +710,7 @@ function MissionNotesCard({
           />
         </div>
       ) : (
-        <Button variant="outlined" size="small" onClick={onShowNotes} startIcon={<EditRoundedIcon />} sx={{ borderRadius: borderRadiusScale.full }}>
+        <Button variant="outlined" size="small" onClick={onShowNotes} startIcon={<EditRoundedIcon />} sx={{ borderRadius: theme.runtimeTokens.controlRadius }}>
           Ajouter une note
         </Button>
       )}
@@ -521,15 +718,16 @@ function MissionNotesCard({
   );
 }
 
-function MissionDaysSection({ values, receipts, openDayId, setOpenDayId, updateDay, addExpense, addTypedExpense, updateExpense, removeExpense, addReceipt, deleteReceipt }: { values: MissionFormValues; receipts: ExpenseReceipt[]; openDayId: string | null; setOpenDayId: (id: string | null) => void; updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void; addExpense: (dayId: string, type: ExpenseType) => void; addTypedExpense: (dayId: string, typeKey: string) => void; updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void; removeExpense: (dayId: string, feeId: string) => void; addReceipt: (dayId: string, expenseId: string, file: File) => string | null; deleteReceipt: (receiptId: string) => void }) {
+function MissionDaysSection({ values, receipts, openDayId, setOpenDayId, updateDay, addExpense, addTypedExpense, updateExpense, removeExpense, removeDay, addReceipt, deleteReceipt }: { values: MissionFormValues; receipts: ExpenseReceipt[]; openDayId: string | null; setOpenDayId: (id: string | null) => void; updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void; addExpense: (dayId: string, type: ExpenseType) => void; addTypedExpense: (dayId: string, typeKey: string) => void; updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void; removeExpense: (dayId: string, feeId: string) => void; removeDay: (dayId: string) => void; addReceipt: (dayId: string, expenseId: string, file: File) => string | null; deleteReceipt: (receiptId: string) => void }) {
   return (
     <section className="mission-form-card">
       <h2>4. Jours travaillés</h2>
       <div className="mission-day-list">
-        {values.days.map((day) => (
+        {values.days.map((day, index) => (
           <MissionDayAccordion
             key={day.id}
             day={day}
+            canRemove={values.days.length > 1}
             receipts={receipts}
             open={openDayId === day.id}
             onToggle={() => setOpenDayId(openDayId === day.id ? null : day.id)}
@@ -538,6 +736,10 @@ function MissionDaysSection({ values, receipts, openDayId, setOpenDayId, updateD
             addTypedExpense={addTypedExpense}
             updateExpense={updateExpense}
             removeExpense={removeExpense}
+            onRemoveDay={() => {
+              removeDay(day.id);
+              if (openDayId === day.id) setOpenDayId(null);
+            }}
             addReceipt={addReceipt}
             deleteReceipt={deleteReceipt}
           />
@@ -547,7 +749,7 @@ function MissionDaysSection({ values, receipts, openDayId, setOpenDayId, updateD
   );
 }
 
-function MissionDayAccordion({ day, receipts, open, onToggle, updateDay, addExpense, addTypedExpense, updateExpense, removeExpense, addReceipt, deleteReceipt }: { day: MissionDayFormValue; receipts: ExpenseReceipt[]; open: boolean; onToggle: () => void; updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void; addExpense: (dayId: string, type: ExpenseType) => void; addTypedExpense: (dayId: string, typeKey: string) => void; updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void; removeExpense: (dayId: string, feeId: string) => void; addReceipt: (dayId: string, expenseId: string, file: File) => string | null; deleteReceipt: (receiptId: string) => void }) {
+function MissionDayAccordion({ day, canRemove, receipts, open, onToggle, updateDay, addExpense, addTypedExpense, updateExpense, removeExpense, onRemoveDay, addReceipt, deleteReceipt }: { day: MissionDayFormValue; canRemove: boolean; receipts: ExpenseReceipt[]; open: boolean; onToggle: () => void; updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void; addExpense: (dayId: string, type: ExpenseType) => void; addTypedExpense: (dayId: string, typeKey: string) => void; updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void; removeExpense: (dayId: string, feeId: string) => void; onRemoveDay: () => void; addReceipt: (dayId: string, expenseId: string, file: File) => string | null; deleteReceipt: (receiptId: string) => void }) {
   const feeTotalCents = day.expenses.reduce((sum, fee) => sum + fee.amountCents, 0);
   const feeTypes = [...new Set(day.expenses.map((fee) => expenseTypeConfig(fee.typeKey).label.toLocaleLowerCase('fr-CA')))].join(', ');
   return (
@@ -557,6 +759,19 @@ function MissionDayAccordion({ day, receipts, open, onToggle, updateDay, addExpe
       </button>
       {open ? (
         <div className="mission-day-panel">
+          {canRemove ? (
+            <div className="mission-day-panel-actions">
+              <Button
+                variant="text"
+                size="small"
+                color="error"
+                startIcon={<DeleteOutlineRoundedIcon fontSize="small" />}
+                onClick={onRemoveDay}
+              >
+                Retirer le jour
+              </Button>
+            </div>
+          ) : null}
           <div className="mission-form-fields">
             <FormField label="Début" type="time" value={day.startTime} onChange={(value) => updateDay(day.id, { startTime: value })} />
             <FormField label="Fin" type="time" value={day.endTime} onChange={(value) => updateDay(day.id, { endTime: value })} />
@@ -922,6 +1137,7 @@ function ExpenseReceiptPreview({ receipt, onDeleteReceipt }: { receipt: ExpenseR
 }
 
 function MissionFinancialPreview({ preview, rate }: { preview: { hours: number; subtotal: number; expenses: number; total: number }; rate: number }) {
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
   return (
     <section className="mission-form-card mission-summary-card">
@@ -934,7 +1150,7 @@ function MissionFinancialPreview({ preview, rate }: { preview: { hours: number; 
           size="small" 
           onClick={() => setOpen((value) => !value)}
           startIcon={open ? undefined : <EditRoundedIcon />}
-          sx={{ borderRadius: borderRadiusScale.full, alignSelf: 'flex-start' }}
+          sx={{ borderRadius: theme.runtimeTokens.controlRadius, alignSelf: 'flex-start' }}
         >
           {open ? 'Masquer le détail' : 'Voir le détail'}
         </Button>
@@ -952,13 +1168,27 @@ function MissionFinancialPreview({ preview, rate }: { preview: { hours: number; 
   );
 }
 
-function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'create' | 'edit'; invoice?: Invoice; onSubmit: (action: WorkflowAction) => void; onCancel: () => void }) {
+function MissionFormActions({
+  mode,
+  invoice,
+  submittingAction,
+  onSubmit,
+  onCancel,
+}: {
+  mode: 'create' | 'edit';
+  invoice?: Invoice;
+  submittingAction: WorkflowAction | null;
+  onSubmit: (action: WorkflowAction) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const isSubmitting = Boolean(submittingAction);
   if (mode === 'create') {
     return (
       <div className="mission-form-actions">
         <Button 
           variant="outlined" 
           type="button" 
+          disabled={isSubmitting}
           onClick={() => onSubmit('save_draft')}
         >
           Enregistrer brouillon
@@ -966,6 +1196,7 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
         <Button 
           variant="outlined" 
           type="button" 
+          disabled={isSubmitting}
           onClick={() => onSubmit('confirm')}
         >
           Valider mission
@@ -973,6 +1204,7 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
         <Button 
           variant="contained" 
           type="button" 
+          disabled={isSubmitting}
           onClick={() => onSubmit('confirm_generate')}
         >
           Valider et générer facture
@@ -986,6 +1218,7 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
       <Button 
         variant="outlined" 
         type="button" 
+        disabled={isSubmitting}
         onClick={onCancel}
       >
         Annuler
@@ -995,6 +1228,7 @@ function MissionFormActions({ mode, invoice, onSubmit, onCancel }: { mode: 'crea
           key={definition.action} 
           variant={definition.primary ? 'contained' : 'outlined'} 
           type="button" 
+          disabled={isSubmitting}
           onClick={() => onSubmit(definition.action)}
         >
           {definition.label}

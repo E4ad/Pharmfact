@@ -5,9 +5,7 @@ import {
   brandColors,
   borderWidth,
   componentBorderRadius,
-  componentBorderRadiusMap,
   componentHeight,
-  componentShadows,
   darkThemeColors,
   fontFamilies,
   fontWeights,
@@ -17,6 +15,7 @@ import {
   typographyScale,
   typographyTokens,
 } from '../design-system';
+import { normalizeRuntimeDesignTokenOverrides, type RuntimeDesignTokenOverrides, type RuntimeDesignTokens } from '../design-system/runtimeTokens';
 import {
   createDarkTheme as createDSDarkTheme,
   createDesignSystemTheme,
@@ -27,7 +26,8 @@ import {
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 // Thème de base commun à light et dark
-const baseTheme = {
+function createBaseTheme(runtimeTokens: RuntimeDesignTokens) {
+  return {
   typography: {
     fontFamily: fontFamilies.sans,
     fontSize: typographyTokens.fontSize,
@@ -66,13 +66,14 @@ const baseTheme = {
     },
   },
   shape: {
-    borderRadius: componentBorderRadius.container,
+    borderRadius: runtimeTokens.surfaceRadius,
   },
   components: {
     MuiPaper: {
       styleOverrides: {
         root: {
           backgroundImage: 'none',
+          borderRadius: runtimeTokens.surfaceRadius,
         },
       },
     },
@@ -84,24 +85,27 @@ const baseTheme = {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: componentBorderRadius.button.default,
+          borderRadius: runtimeTokens.controlRadius,
           minHeight: componentHeight.md,
           paddingInline: spacingScale.lg,
           transition: `background-color ${animationTokens.transition.fast}, border-color ${animationTokens.transition.fast}, box-shadow ${animationTokens.transition.fast}`,
           '&:hover': {
-            boxShadow: componentShadows.button.light,
+            boxShadow: runtimeTokens.shadows.button.light,
           },
           '&:active': {
-            boxShadow: componentShadows.button.pressed,
+            boxShadow: runtimeTokens.shadows.button.pressed,
           },
           '&.Mui-disabled': {
             cursor: 'not-allowed',
             opacity: 0.52,
           },
           '&.Mui-focusVisible': {
-            outline: `3px solid ${brandColors.primary[600]}`,
+            outline: `3px solid ${runtimeTokens.primary.light.main}`,
             outlineOffset: 3,
           },
+        },
+        outlined: {
+          borderWidth: runtimeTokens.borderWidth,
         },
         sizeSmall: {
           minHeight: componentHeight.sm,
@@ -115,24 +119,24 @@ const baseTheme = {
         },
       },
     },
-    // Button pill variant - uses full border radius
+    // Button group and square-button variant
     MuiButtonGroup: {
       styleOverrides: {
         root: {
-          borderRadius: componentBorderRadius.button.pill,
+          borderRadius: runtimeTokens.controlRadius,
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: componentBorderRadius.card,
+          borderRadius: runtimeTokens.surfaceRadius,
           // Border and box-shadow are now handled by SurfaceCard component
           // to avoid double borders when using SurfaceCard
-          boxShadow: componentShadows.card.light,
+          boxShadow: runtimeTokens.shadows.card.light,
           transition: `box-shadow ${animationTokens.transition.normal}`,
           '&:hover': {
-            boxShadow: componentShadows.card.elevatedLight,
+            boxShadow: runtimeTokens.shadows.card.elevatedLight,
           },
         },
       },
@@ -140,10 +144,10 @@ const baseTheme = {
     MuiIconButton: {
       styleOverrides: {
         root: {
-          borderRadius: componentBorderRadius.avatar,
+          borderRadius: runtimeTokens.iconRadius,
           transition: `background-color ${animationTokens.transition.fast}, color ${animationTokens.transition.fast}`,
           '&.Mui-focusVisible': {
-            outline: `3px solid ${brandColors.primary[600]}`,
+            outline: `3px solid ${runtimeTokens.primary.light.main}`,
             outlineOffset: 3,
           },
         },
@@ -152,9 +156,9 @@ const baseTheme = {
     MuiToggleButton: {
       styleOverrides: {
         root: {
-          borderRadius: componentBorderRadius.button.default,
+          borderRadius: runtimeTokens.controlRadius,
           '&.Mui-focusVisible': {
-            outline: `3px solid ${brandColors.primary[600]}`,
+            outline: `3px solid ${runtimeTokens.primary.light.main}`,
             outlineOffset: 3,
           },
         },
@@ -163,13 +167,14 @@ const baseTheme = {
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          borderRadius: componentBorderRadius.input,
+          borderRadius: runtimeTokens.controlRadius,
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderWidth: 2,
-            borderColor: brandColors.primary[600],
+            borderWidth: runtimeTokens.borderWidth,
+            borderColor: runtimeTokens.primary.light.main,
           },
         },
         notchedOutline: {
+          borderWidth: runtimeTokens.borderWidth,
           borderColor: lightThemeColors.border.default,
         },
       },
@@ -182,34 +187,52 @@ const baseTheme = {
         },
       },
     },
+    MuiBadge: {
+      styleOverrides: {
+        badge: {
+          borderRadius: componentBorderRadius.badge,
+        },
+      },
+    },
+    MuiAvatar: {
+      styleOverrides: {
+        root: {
+          borderRadius: componentBorderRadius.avatar,
+        },
+      },
+    },
     MuiAlert: {
       styleOverrides: {
         root: {
-          borderRadius: componentBorderRadius.alert,
+          borderRadius: runtimeTokens.surfaceRadius,
         },
       },
     },
     MuiDialog: {
       styleOverrides: {
         paper: {
-          borderRadius: componentBorderRadius.dialog,
-          boxShadow: componentShadows.modal.light,
+          borderRadius: runtimeTokens.surfaceRadius,
+          boxShadow: runtimeTokens.shadows.modal.light,
+          overflow: 'hidden' as const,
+          display: 'flex' as const,
+          flexDirection: 'column' as const,
+          maxHeight: '90vh' as const,
         },
       },
     },
     MuiMenu: {
       styleOverrides: {
         paper: {
-          borderRadius: componentBorderRadius.paper,
-          boxShadow: componentShadows.dropdown.light,
+          borderRadius: runtimeTokens.surfaceRadius,
+          boxShadow: runtimeTokens.shadows.dropdown.light,
         },
       },
     },
     MuiTooltip: {
       styleOverrides: {
         tooltip: {
-          borderRadius: componentBorderRadius.tooltip,
-          boxShadow: componentShadows.tooltip.light,
+          borderRadius: runtimeTokens.surfaceRadius,
+          boxShadow: runtimeTokens.shadows.tooltip.light,
         },
       },
     },
@@ -226,89 +249,83 @@ const baseTheme = {
     },
   },
 };
+}
 
-// Thème clair
-const lightThemePalette = {
-  mode: 'light' as const,
-  background: {
-    default: lightThemeColors.background.default,
-    paper: lightThemeColors.background.paper,
-  },
-  primary: {
-    main: brandColors.primary[600],
-    light: brandColors.primary[500],
-    dark: brandColors.primary[700],
-    contrastText: neutralColors.white,
-  },
-  success: {
-    main: '#059669',
-    light: brandColors.success[500],
-    dark: '#047857',
-  },
-  warning: {
-    main: brandColors.warning[600],
-    light: brandColors.warning[500],
-    dark: brandColors.warning[700],
-  },
-  error: {
-    main: brandColors.error[600],
-    light: brandColors.error[500],
-    dark: brandColors.error[700],
-  },
-  text: {
-    primary: lightThemeColors.text.primary,
-    secondary: lightThemeColors.text.secondary,
-  },
-  divider: lightThemeColors.divider,
-};
+function createLightThemePalette(runtimeTokens: RuntimeDesignTokens) {
+  return {
+    mode: 'light' as const,
+    background: {
+      default: lightThemeColors.background.default,
+      paper: lightThemeColors.background.paper,
+    },
+    primary: runtimeTokens.primary.light,
+    success: {
+      main: '#059669',
+      light: brandColors.success[500],
+      dark: '#047857',
+    },
+    warning: {
+      main: brandColors.warning[600],
+      light: brandColors.warning[500],
+      dark: brandColors.warning[700],
+    },
+    error: {
+      main: brandColors.error[600],
+      light: brandColors.error[500],
+      dark: brandColors.error[700],
+    },
+    text: {
+      primary: lightThemeColors.text.primary,
+      secondary: lightThemeColors.text.secondary,
+    },
+    divider: lightThemeColors.divider,
+  };
+}
 
-// Thème sombre
-const darkThemePalette = {
-  mode: 'dark' as const,
-  background: {
-    default: darkThemeColors.background.default,
-    paper: darkThemeColors.background.paper,
-  },
-  primary: {
-    main: '#90caf9',
-    light: '#c7d8f0',
-    dark: '#639ddb',
-    contrastText: neutralColors.black,
-  },
-  success: {
-    main: '#4caf50',
-    light: '#81c784',
-    dark: '#388e3c',
-    contrastText: '#000000',
-  },
-  warning: {
-    main: '#ff9800',
-    light: '#ffc947',
-    dark: '#c66900',
-    contrastText: '#000000',
-  },
-  error: {
-    main: '#f44336',
-    light: '#ff7961',
-    dark: '#ba000d',
-    contrastText: '#000000',
-  },
-  text: {
-    primary: darkThemeColors.text.primary,
-    secondary: darkThemeColors.text.secondary,
-  },
-  divider: darkThemeColors.divider,
-};
+function createDarkThemePalette(runtimeTokens: RuntimeDesignTokens) {
+  return {
+    mode: 'dark' as const,
+    background: {
+      default: darkThemeColors.background.default,
+      paper: darkThemeColors.background.paper,
+    },
+    primary: runtimeTokens.primary.dark,
+    success: {
+      main: '#4caf50',
+      light: '#81c784',
+      dark: '#388e3c',
+      contrastText: '#000000',
+    },
+    warning: {
+      main: '#ff9800',
+      light: '#ffc947',
+      dark: '#c66900',
+      contrastText: '#000000',
+    },
+    error: {
+      main: '#f44336',
+      light: '#ff7961',
+      dark: '#ba000d',
+      contrastText: '#000000',
+    },
+    text: {
+      primary: darkThemeColors.text.primary,
+      secondary: darkThemeColors.text.secondary,
+    },
+    divider: darkThemeColors.divider,
+  };
+}
 
 // Overrides spécifiques pour le dark mode
-const darkThemeOverrides = {
+function createDarkThemeOverrides(runtimeTokens: RuntimeDesignTokens, primary: RuntimeDesignTokens['primary']['dark']) {
+  return {
   components: {
     MuiCard: {
       styleOverrides: {
         root: {
           // Border and box-shadow are now handled by SurfaceCard component
           // to avoid double borders when using SurfaceCard
-          boxShadow: componentShadows.card.dark,
+          boxShadow: runtimeTokens.shadows.card.dark,
         },
       },
     },
@@ -373,6 +390,7 @@ const darkThemeOverrides = {
       styleOverrides: {
         root: {
           backgroundColor: darkThemeColors.background.paper,
+          borderRadius: runtimeTokens.surfaceRadius,
         },
       },
     },
@@ -400,7 +418,7 @@ const darkThemeOverrides = {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: componentBorderRadius.button.default,
+          borderRadius: runtimeTokens.controlRadius,
           paddingInline: spacingScale.lg,
         },
         containedPrimary: {
@@ -473,6 +491,10 @@ const darkThemeOverrides = {
         paper: {
           backgroundColor: darkThemeColors.background.paper,
           border: `${borderWidth.thin}px solid ${darkThemeColors.border.light}`,
+          overflow: 'hidden' as const,
+          display: 'flex' as const,
+          flexDirection: 'column' as const,
+          maxHeight: '90vh' as const,
         },
       },
     },
@@ -500,7 +522,7 @@ const darkThemeOverrides = {
         root: {
           color: darkThemeColors.text.secondary,
           '&.Mui-checked': {
-            color: darkThemePalette.primary.main,
+            color: primary.main,
           },
           '&.Mui-disabled': {
             color: darkThemeColors.text.disabled,
@@ -513,7 +535,7 @@ const darkThemeOverrides = {
         root: {
           color: darkThemeColors.text.secondary,
           '&.Mui-checked': {
-            color: darkThemePalette.primary.main,
+            color: primary.main,
           },
         },
       },
@@ -529,7 +551,7 @@ const darkThemeOverrides = {
         thumb: {
           backgroundColor: darkThemeColors.text.secondary,
           '.Mui-checked &': {
-            backgroundColor: darkThemePalette.primary.main,
+            backgroundColor: primary.main,
           },
         },
       },
@@ -540,7 +562,7 @@ const darkThemeOverrides = {
           color: darkThemeColors.text.secondary,
         },
         indicator: {
-          backgroundColor: darkThemePalette.primary.main,
+          backgroundColor: primary.main,
         },
       },
     },
@@ -578,7 +600,7 @@ const darkThemeOverrides = {
     MuiBadge: {
       styleOverrides: {
         badge: {
-          backgroundColor: darkThemePalette.primary.main,
+          backgroundColor: primary.main,
           color: neutralColors.black,
         },
       },
@@ -607,7 +629,7 @@ const darkThemeOverrides = {
         root: {
           color: darkThemeColors.text.secondary,
           '&.Mui-focused': {
-            color: darkThemePalette.primary.main,
+            color: primary.main,
           },
         },
       },
@@ -617,7 +639,7 @@ const darkThemeOverrides = {
         root: {
           color: darkThemeColors.text.secondary,
           '&.Mui-focused': {
-            color: darkThemePalette.primary.main,
+            color: primary.main,
           },
         },
       },
@@ -660,10 +682,151 @@ const darkThemeOverrides = {
     },
   },
 };
+}
+
+function createRuntimeThemeOverrides(runtimeTokens: RuntimeDesignTokens) {
+  return {
+    shape: {
+      borderRadius: runtimeTokens.surfaceRadius,
+    },
+    components: {
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.surfaceRadius,
+          },
+        },
+      },
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.controlRadius,
+          },
+        },
+      },
+      MuiButtonGroup: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.controlRadius,
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.surfaceRadius,
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.iconRadius,
+          },
+        },
+      },
+      MuiToggleButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.controlRadius,
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.controlRadius,
+          },
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.controlRadius,
+          },
+        },
+      },
+      MuiAlert: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.surfaceRadius,
+          },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            borderRadius: runtimeTokens.surfaceRadius,
+            overflow: 'hidden' as const,
+            display: 'flex' as const,
+            flexDirection: 'column' as const,
+            maxHeight: '90vh' as const,
+          },
+        },
+      },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            borderRadius: runtimeTokens.surfaceRadius,
+          },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: {
+            borderRadius: runtimeTokens.surfaceRadius,
+          },
+        },
+      },
+      MuiSnackbar: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.surfaceRadius,
+          },
+        },
+      },
+      MuiAvatar: {
+        styleOverrides: {
+          root: {
+            borderRadius: runtimeTokens.iconRadius,
+          },
+        },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            borderRadius: runtimeTokens.surfaceRadius,
+          },
+        },
+      },
+    },
+  };
+}
+
+function buildTheme(mode: 'light' | 'dark', overrides?: RuntimeDesignTokenOverrides): Theme {
+  const runtimeTokens = normalizeRuntimeDesignTokenOverrides(overrides);
+  const lightPalette = createLightThemePalette(runtimeTokens);
+  const darkPalette = createDarkThemePalette(runtimeTokens);
+  const palette = mode === 'dark' ? darkPalette : lightPalette;
+  const base = createTheme(deepmerge(createBaseTheme(runtimeTokens), createRuntimeThemeOverrides(runtimeTokens)));
+  const themed = createTheme(deepmerge(base, { palette }));
+
+  if (mode === 'dark') {
+    return {
+      ...createTheme(deepmerge(themed, createDarkThemeOverrides(runtimeTokens, darkPalette.primary))),
+      runtimeTokens,
+    } as Theme;
+  }
+
+  return {
+    ...themed,
+    runtimeTokens,
+  } as Theme;
+}
 
 // Créer les thèmes
-const lightTheme = createTheme(deepmerge(baseTheme, { palette: lightThemePalette }));
-const darkTheme = createTheme(deepmerge(deepmerge(baseTheme, { palette: darkThemePalette }), darkThemeOverrides));
+const lightTheme = buildTheme('light');
+const darkTheme = buildTheme('dark');
 
 // Détecter le mode système
 export function getSystemMode(): 'light' | 'dark' {
@@ -674,11 +837,11 @@ export function getSystemMode(): 'light' | 'dark' {
 }
 
 // Retourner le thème approprié en fonction du mode
-export function getTheme(mode: ThemeMode): Theme {
-  if (mode === 'dark') return darkTheme;
-  if (mode === 'light') return lightTheme;
+export function getTheme(mode: ThemeMode, overrides?: RuntimeDesignTokenOverrides): Theme {
+  if (mode === 'dark') return buildTheme('dark', overrides);
+  if (mode === 'light') return buildTheme('light', overrides);
   // system
-  return getSystemMode() === 'dark' ? darkTheme : lightTheme;
+  return buildTheme(getSystemMode(), overrides);
 }
 
 // Thème par défaut (pour la compatibilité descendante)
@@ -691,8 +854,8 @@ export function createThemeFromDesignSystem(mode: ThemeMode): Theme {
   return createDesignSystemTheme(mode === 'dark' ? 'dark' : 'light');
 }
 
-export function getEnhancedTheme(mode: ThemeMode): Theme {
-  return getTheme(mode);
+export function getEnhancedTheme(mode: ThemeMode, overrides?: RuntimeDesignTokenOverrides): Theme {
+  return getTheme(mode, overrides);
 }
 
 export { createDSLightTheme, createDSDarkTheme, createDesignSystemTheme, mergeThemes };

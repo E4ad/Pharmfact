@@ -14,6 +14,7 @@ import type {
 import type { AppState, Invoice, ExpenseReceipt } from '../storage/schema';
 import { APP_STORAGE_KEY } from '../storage/schema';
 import type { GeocodeSuggestion } from '../hooks/useAddressAutocomplete';
+import { renderInvoicePdfBlob } from '../services/invoicePdfRenderer';
 
 // ============================================================================
 // Adapter de stockage pour le navigateur (localStorage)
@@ -112,28 +113,16 @@ const browserFileAdapter: AppFileAdapter = {
 };
 
 // ============================================================================
-// Adapter PDF pour le navigateur (utilise l'API backend)
+// Adapter PDF pour le navigateur (rendu local du template HTML)
 // ============================================================================
 
 const browserPdfAdapter: AppPdfAdapter = {
   async generateInvoicePdf(invoice: Invoice, state: AppState): Promise<Blob> {
-    // Vérifier qu'on n'est pas en mode Tauri (ce qui serait une erreur)
     if (typeof window !== 'undefined' && (window.__TAURI_INTERNALS__ || window.__TAURI__)) {
       throw new Error('[Platform Error] browserPlatform.pdf.generateInvoicePdf appelé en mode Tauri. Utilisez getPlatformAsync() ou attendez que tauriPlatform soit initialisé.');
     }
-    
-    // Appel au backend local pour générer le PDF
-    const response = await fetch(`/api/invoices/${invoice.id}/pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state }),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Génération PDF échouée: ${response.status}`);
-    }
-    
-    return response.blob();
+
+    return renderInvoicePdfBlob(invoice, state);
   },
 
   async downloadPdf(blob: Blob, filename: string): Promise<boolean> {

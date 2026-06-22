@@ -1,8 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSeedState } from '../storage/seedData';
-import { createBackup, parseAndValidateBackup } from './backupService';
+import { getAppState } from '../storage/localStore';
+import { createBackup, importBackup, parseAndValidateBackup } from './backupService';
+
+vi.mock('./platformService', () => ({
+  getPlatformAsync: vi.fn(async () => ({
+    files: {
+      download: vi.fn(async () => true),
+    },
+  })),
+}));
 
 describe('backupService', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('creates a versioned backup envelope', () => {
     const state = createSeedState();
     const backup = createBackup(state, new Date('2026-06-14T12:00:00Z'));
@@ -29,5 +42,26 @@ describe('backupService', () => {
 
     expect(result.success).toBe(false);
     expect(result.errors[0]).toContain('illisible');
+  });
+
+  it('imports without forcing a downloaded safety backup', async () => {
+    const state = createSeedState();
+    const result = parseAndValidateBackup(createBackup(state).data, state);
+    const restored = await importBackup(result);
+
+    expect(restored.success).toBe(true);
+    expect(
+      restored.warnings.some((warning) => warning.includes('Sauvegarde de sécurité locale')),
+    ).toBe(true);
+  });
+
+  it('records a backup restoration in the audit trail', async () => {
+    const state = createSeedState();
+    const result = parseAndValidateBackup(createBackup(state).data, state);
+    await importBackup(result);
+
+    const restoredState = getAppState();
+    expect(restoredState.ui.auditTrail?.[0].eventType).toBe('BACKUP_IMPORTED');
+    expect(restoredState.ui.auditTrail?.[0].scope).toBe('backup');
   });
 });

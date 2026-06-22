@@ -1,5 +1,5 @@
 // Component-specific design tokens
-// Phase 6 - Component Family Consistency
+// Phase 3 - Component Family Consistency
 // Phase 7 - Spacing and Height Tokenization
 
 import { borderRadiusScale } from './borderRadius';
@@ -32,8 +32,9 @@ export const spacingFractional = {
 } as const;
 
 // Border Width - 2-Step Rule: max 2 options (1px and 4px)
+// Default changed to 2px per user request
 export const borderWidth = {
-  thin: 1,    // default for inputs, cards, dividers
+  thin: 2,    // default for inputs, cards, dividers (changed from 1)
   thick: 4,   // featured items, bold accents, active indicators
 } as const;
 
@@ -71,7 +72,7 @@ export const homePageTokens = {
 // Dashboard card tokens for consistent sizing across pages
 export const dashboardTokens = {
   card: {
-    borderRadius: 24,  // px - for dashboard cards
+    borderRadius: borderRadiusScale.xs,  // 1px for sharp corners
     height: {
       sm: 132,   // Settings category cards
       md: 176,   // Standard dashboard cards
@@ -79,7 +80,7 @@ export const dashboardTokens = {
     },
   },
   hero: {
-    borderRadius: 32,  // px - max for hero headers
+    borderRadius: borderRadiusScale.xs,  // 1px for sharp corners
     height: {
       standard: 200,   // Standard hero height
       tall: 220,       // Tall hero height
@@ -88,26 +89,30 @@ export const dashboardTokens = {
 } as const;
 
 // Component-specific border radius mappings
+// Card standard: 1px, Header/hero: 1px, Chip/badge/avatar: full only
 export const componentBorderRadiusMap = {
-  // Form components
-  input: borderRadiusScale.sm,
-  select: borderRadiusScale.sm,
-  textarea: borderRadiusScale.sm,
+  // Form components - using 1px for sharp corners
+  input: borderRadiusScale.xs,
+  select: borderRadiusScale.xs,
+  textarea: borderRadiusScale.xs,
   
   // Buttons
   button: {
-    default: borderRadiusScale.md,
-    pill: borderRadiusScale.full,
+    default: borderRadiusScale.xs,
+    square: borderRadiusScale.none,
   },
   
   // Cards and containers
-  card: borderRadiusScale.lg,
-  paper: borderRadiusScale.lg,
-  container: borderRadiusScale.lg,
-  dialog: borderRadiusScale.lg,
-  modal: borderRadiusScale.lg,
+  card: borderRadiusScale.xs,
+  dashboardCard: borderRadiusScale.xs,
+  settingsCard: borderRadiusScale.xs,
+  hero: borderRadiusScale.xs,
+  paper: borderRadiusScale.xs,
+  container: borderRadiusScale.none,
+  dialog: borderRadiusScale.xs,
+  modal: borderRadiusScale.xs,
   
-  // Pills, badges, chips
+  // Chips, badges, tags - full rounding for pills
   chip: borderRadiusScale.full,
   badge: borderRadiusScale.full,
   status: borderRadiusScale.full,
@@ -115,13 +120,13 @@ export const componentBorderRadiusMap = {
   tag: borderRadiusScale.full,
   
   // Other components
-  alert: borderRadiusScale.md,
-  toast: borderRadiusScale.md,
-  tooltip: borderRadiusScale.sm,
-  tableContainer: borderRadiusScale.md,
+  alert: borderRadiusScale.xs,
+  toast: borderRadiusScale.xs,
+  tooltip: borderRadiusScale.xs,
+  tableContainer: borderRadiusScale.none,
   
   // Special cases
-  image: borderRadiusScale.md,
+  image: borderRadiusScale.xs,
   avatar: borderRadiusScale.full,
   drawer: borderRadiusScale.none,
 } as const;

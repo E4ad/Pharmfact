@@ -1,4 +1,19 @@
-import type { AppOptions, AppState, DeductibleExpense, FiscalSettings, Invoice, Mission, MissionDay, MissionEvent, Pharmacien, Pharmacie, TaxPayment, UiSettings, LocalDataSettings, OpqPharmacistRegistry } from './schema';
+import type {
+  AppOptions,
+  AppState,
+  DeductibleExpense,
+  FiscalSettings,
+  Invoice,
+  Mission,
+  MissionDay,
+  MissionEvent,
+  Pharmacien,
+  Pharmacie,
+  TaxPayment,
+  UiSettings,
+  LocalDataSettings,
+  OpqPharmacistRegistry,
+} from './schema';
 import { addDaysIso, createId, todayIso } from '../services/ids';
 import { calculateMission } from '../services/missionCalculator';
 import { createDefaultUiSettings } from './settings/uiSettings';
@@ -101,7 +116,13 @@ function missionEvent(label: string, eventType: MissionEvent['eventType']): Miss
   };
 }
 
-function missionDay(id: string, dateService: string, startTime: string, endTime: string, breakMinutes: number): MissionDay {
+function missionDay(
+  id: string,
+  dateService: string,
+  startTime: string,
+  endTime: string,
+  breakMinutes: number,
+): MissionDay {
   return {
     id,
     dateService,
@@ -134,6 +155,9 @@ function buildMission(seed: {
     pharmacienId: seed.pharmacienId,
     pharmacieId: seed.pharmacieId,
     status: seed.status,
+    actType: 'REMPLACEMENT_OFFICINE',
+    invoiceLabel: 'Remplacement en officine',
+    suggestedTaxClassification: 'TO_VALIDATE',
     dateDebut: days[0]?.dateService ?? today,
     dateFin: days[days.length - 1]?.dateService ?? today,
     days,
@@ -147,7 +171,10 @@ function buildMission(seed: {
     mileageTotalCents: calculation.mileageTotalCents,
     totalCents: calculation.totalCents,
     notes: seed.notes,
-    events: [missionEvent('Mission créée', 'CREATED'), missionEvent(`Statut: ${seed.status}`, 'STATUS_CHANGED')],
+    events: [
+      missionEvent('Mission créée', 'CREATED'),
+      missionEvent(`Statut: ${seed.status}`, 'STATUS_CHANGED'),
+    ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -170,6 +197,7 @@ const completedMission = buildMission({
 const invoice: Invoice = {
   id: 'inv_seed_1',
   numero: 'FAC-2026-0001',
+  missionIds: [completedMission.id],
   missionId: completedMission.id,
   pharmacienId: completedMission.pharmacienId,
   pharmacieId: completedMission.pharmacieId,
@@ -178,6 +206,9 @@ const invoice: Invoice = {
   status: 'SENT',
   hours: completedMission.totalHours,
   amountCents: completedMission.totalCents,
+  paymentTerms: 'Paiement par virement dans les 30 jours.',
+  smallSupplierMention:
+    'Petit fournisseur: TPS/TVQ non applicables, à valider selon votre situation fiscale.',
   sentAt: today,
   createdAt: new Date().toISOString(),
 };
@@ -289,7 +320,7 @@ export function createDefaultAppOptions(): AppOptions {
 
 export function createSeedState(): AppState {
   return {
-    version: 2,
+    version: 3,
     activePharmacienId: '',
     pharmaciens: [],
     pharmacies: [],
@@ -307,6 +338,7 @@ export function createSeedState(): AppState {
     ui: {
       missionFilters: {},
       lastVisitedAt: new Date().toISOString(),
+      auditTrail: [],
     },
   };
 }
@@ -317,7 +349,7 @@ export function createSeedState(): AppState {
 
 export function createDemoState(): AppState {
   return {
-    version: 2,
+    version: 3,
     activePharmacienId: 'ph_amelie',
     pharmaciens,
     pharmacies,
@@ -335,6 +367,7 @@ export function createDemoState(): AppState {
     ui: {
       missionFilters: {},
       lastVisitedAt: new Date().toISOString(),
+      auditTrail: [],
     },
   };
 }

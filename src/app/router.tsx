@@ -7,6 +7,7 @@ import { InvoicePrintPage } from '../features/invoices/InvoicePrintPage';
 import { OnboardingPage } from '../features/onboarding/OnboardingPage';
 import { OptionsPage } from '../features/options/OptionsPage';
 import { PharmacieAddPage } from '../features/pharmacies/PharmacieAddPage';
+import { PharmaciesPage } from '../features/pharmacies/PharmaciesPage';
 import { PharmacienNewPage } from '../features/pharmaciens/PharmacienNewPage';
 import { NotFoundPage } from '../pages/errors/NotFoundPage';
 import { RouteErrorPage } from '../pages/errors/RouteErrorPage';
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
   route('/options', shell(<OptionsPage />)),
   { path: '/settings', loader: () => redirect('/options?panel=data') },
   route('/pharmacy/add', shell(<PharmacieAddPage />)),
+  route('/pharmacies', shell(<PharmaciesPage />)),
   route('/pharmacien/new', shell(<PharmacienNewPage />)),
   { path: '*', element: <NotFoundPage />, errorElement: <RouteErrorPage /> },
 ]);

@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
 import { PageHeader } from '../../components/PageHeader';
+import { NotFoundState } from '../../components/NotFoundState';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import type { GeocodeSuggestion } from '../../hooks/useAddressAutocomplete';
 import { eurosToCents } from '../../services/money';
@@ -22,6 +23,7 @@ export function PharmacienNewPage() {
   const id = searchParams.get('id') || '';
   const fromOnboarding = searchParams.get('from') === 'onboarding';
   const existingPharmacien = state.pharmaciens.find(p => p.id === id);
+  const missingPharmacien = Boolean(id && !existingPharmacien);
   
   const [form, setForm] = useState({ nom: '', opqLicenseNumber: '', adresse: '', ville: '', codePostal: '', rue: '', numero: '', lat: undefined as number | undefined, lng: undefined as number | undefined, telephone: '', email: '', hourlyRate: '80', distanceKmDomicile: '0', taxStatus: 'SMALL_SUPPLIER' as TaxStatus, gstNumber: '', qstNumber: '', favoritePharmacieId: '' });
   
@@ -49,6 +51,17 @@ export function PharmacienNewPage() {
       });
     }
   }, [id, existingPharmacien]);
+
+  if (missingPharmacien) {
+    return (
+      <NotFoundState
+        title="Pharmacien introuvable"
+        description="Le profil demandé n’existe plus dans les données locales."
+        actionLabel="Retour aux référentiels"
+        actionTo="/options?panel=references"
+      />
+    );
+  }
 
   function update<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -138,10 +151,10 @@ export function PharmacienNewPage() {
   return (
     <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
       <PageHeader
-        eyebrow="Paramètres"
+        eyebrow="Référentiels"
         title={existingPharmacien ? 'Modifier le pharmacien' : 'Nouveau pharmacien'}
-        backTo="/settings"
-        backLabel="Paramètres"
+        backTo="/options?panel=references"
+        backLabel="Référentiels"
         actions={existingPharmacien ? (
           <Tooltip title="Supprimer ce pharmacien">
             <IconButton aria-label="Supprimer ce pharmacien" onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacien-delete-button">

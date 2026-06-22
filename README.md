@@ -81,10 +81,10 @@ Capturer seulement les missions:
 npm run screenshots -- --page missions
 ```
 
-Capturer seulement mobile:
+Capturer seulement tablette:
 
 ```bash
-npm run screenshots -- --viewport mobile
+npm run screenshots -- --viewport tablet
 ```
 
 Capturer tous les viewports:
@@ -120,7 +120,7 @@ Les fichiers PNG sont générés dans:
 /screenshots
 ```
 
-Le script capture les pages principales en desktop et mobile:
+Le script capture les pages principales en desktop, laptop et tablette:
 
 ```text
 welcome
@@ -135,6 +135,23 @@ financial
 pharmacies
 pharmaciens
 exports
+options-general-modal
+options-missions-modal
+options-invoicing-modal
+options-financial-modal
+options-appearance-modal
+options-data-modal
+options-references-modal
+options-pharmacy-modal
+options-pharmacy-edit-modal
+options-pharmacien-modal
+options-pharmacien-edit-modal
+missions-pharmacy-modal
+financial-tax-payment-drawer
+financial-deductible-expense-drawer
+financial-mission-expenses-drawer
+financial-receivables-drawer
+financial-tps-tvq-drawer
 ```
 
 Le script continue si une page ou un état interactif échoue et affiche un résumé final avec les réussites et erreurs.
@@ -151,9 +168,12 @@ Avec le script automatique, l’option suivante affiche un avertissement si `/ap
 npm run screenshots:auto -- --with-backend
 ```
 
-Pour capturer le drawer mission ouvert, les composants React contiennent des identifiants stables:
+Pour capturer les états interactifs, les composants React contiennent des identifiants stables:
 
 ```tsx
 data-testid="mission-row"
 data-testid="mission-drawer"
+data-testid="settings-modal-references"
+data-testid="pharmacie-form-modal"
+data-testid="financial-receivables-drawer"
 ```

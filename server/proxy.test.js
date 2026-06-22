@@ -9,13 +9,13 @@ vi.mock('./pdfService.js', () => ({
 }));
 
 describe('Proxy Vite → Express', () => {
-  it('should respond to /health with status 200', async () => {
+  it('should respond to /api/health with status 200', async () => {
     const app = createApp();
     const server = http.createServer(app);
     const address = server.listen().address();
     const port = address.port;
 
-    const response = await fetch(`http://127.0.0.1:${port}/health`);
+    const response = await fetch(`http://127.0.0.1:${port}/api/health`);
     expect(response.status).toBe(200);
 
     server.close();

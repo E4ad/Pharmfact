@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createId } from '../../services/ids';
 import { PharmacyRegistryAutocompleteInput } from '../../components/PharmacyRegistryAutocompleteInput';
 import { PageHeader } from '../../components/PageHeader';
+import { NotFoundState } from '../../components/NotFoundState';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Pharmacie } from '../../storage/schema';
@@ -20,6 +21,7 @@ export function PharmacieAddPage() {
   const fromOnboarding = searchParams.get('from') === 'onboarding';
   const state = useAppState();
   const existingPharmacie = state.pharmacies.find(p => p.id === id);
+  const missingPharmacie = Boolean(id && !existingPharmacie);
   
   const [form, setForm] = useState({
     nom: '', 
@@ -33,6 +35,12 @@ export function PharmacieAddPage() {
     lng: undefined as number | undefined, 
     telephone: '', 
     email: '', 
+    billingContactName: '',
+    billingEmail: '',
+    billingPhone: '',
+    usualHourlyRate: '',
+    paymentTerms: '',
+    distanceKm: '',
     defaultBreakMinutes: '60', 
     notes: ''
   });
@@ -52,11 +60,28 @@ export function PharmacieAddPage() {
         lng: existingPharmacie.lng,
         telephone: existingPharmacie.telephone || '',
         email: existingPharmacie.email || '',
+        billingContactName: existingPharmacie.billingContactName || '',
+        billingEmail: existingPharmacie.billingEmail || '',
+        billingPhone: existingPharmacie.billingPhone || '',
+        usualHourlyRate: existingPharmacie.usualHourlyRateCents ? String(existingPharmacie.usualHourlyRateCents / 100) : '',
+        paymentTerms: existingPharmacie.paymentTerms || '',
+        distanceKm: existingPharmacie.distanceKm ? String(existingPharmacie.distanceKm) : '',
         defaultBreakMinutes: String(existingPharmacie.defaultBreakMinutes || '60'),
         notes: existingPharmacie.notes || ''
       });
     }
   }, [id, existingPharmacie]);
+
+  if (missingPharmacie) {
+    return (
+      <NotFoundState
+        title="Pharmacie introuvable"
+        description="La pharmacie demandée n’existe plus dans les données locales."
+        actionLabel="Retour aux référentiels"
+        actionTo="/options?panel=references"
+      />
+    );
+  }
 
   function update(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -89,7 +114,7 @@ export function PharmacieAddPage() {
         ...state,
         pharmacies: state.pharmacies.filter(p => p.id !== existingPharmacie.id)
       }));
-      navigate('/activity');
+      navigate('/pharmacies');
     }
   }, [existingPharmacie, navigate]);
 
@@ -119,6 +144,12 @@ export function PharmacieAddPage() {
       lng: form.lng,
       telephone: form.telephone.trim(),
       email: form.email.trim(),
+      billingContactName: form.billingContactName.trim() || undefined,
+      billingEmail: form.billingEmail.trim() || undefined,
+      billingPhone: form.billingPhone.trim() || undefined,
+      usualHourlyRateCents: form.usualHourlyRate ? Math.round(Number(form.usualHourlyRate.replace(',', '.')) * 100) : undefined,
+      paymentTerms: form.paymentTerms.trim() || undefined,
+      distanceKm: form.distanceKm ? Number(form.distanceKm.replace(',', '.')) : undefined,
       defaultBreakMinutes: Math.max(Number(form.defaultBreakMinutes) || 0, 0),
       notes: form.notes.trim(),
     };
@@ -134,17 +165,17 @@ export function PharmacieAddPage() {
     if (fromOnboarding) {
       navigate('/welcome');
     } else {
-      navigate('/activity');
+      navigate('/pharmacies');
     }
   }
 
   return (
     <Stack spacing={4} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
       <PageHeader
-        eyebrow="Accueil"
+        eyebrow="Référentiels"
         title={existingPharmacie ? 'Modifier la pharmacie' : 'Ajouter une pharmacie'}
-        backTo="/activity"
-        backLabel="Accueil"
+        backTo="/options?panel=references"
+        backLabel="Référentiels"
         actions={existingPharmacie ? (
           <Tooltip title="Supprimer cette pharmacie">
             <IconButton aria-label="Supprimer cette pharmacie" onClick={() => handleDelete().catch(() => {})} color="error" data-testid="pharmacy-delete-button">
@@ -194,11 +225,17 @@ export function PharmacieAddPage() {
               <TextField label="Ville" value={form.ville} onChange={(e) => update('ville', e.target.value)} />
               <TextField label="Téléphone" value={form.telephone} onChange={(e) => update('telephone', e.target.value)} />
               <TextField label="Email" type="email" value={form.email} onChange={(e) => update('email', e.target.value)} />
+              <TextField label="Contact facturation" value={form.billingContactName} onChange={(e) => update('billingContactName', e.target.value)} />
+              <TextField label="Email facturation" type="email" value={form.billingEmail} onChange={(e) => update('billingEmail', e.target.value)} />
+              <TextField label="Téléphone facturation" value={form.billingPhone} onChange={(e) => update('billingPhone', e.target.value)} />
+              <TextField label="Taux horaire habituel" type="number" value={form.usualHourlyRate} onChange={(e) => update('usualHourlyRate', e.target.value)} />
+              <TextField label="Distance habituelle (km)" type="number" value={form.distanceKm} onChange={(e) => update('distanceKm', e.target.value)} />
               <TextField label="Pause non payée par défaut (minutes)" type="number" value={form.defaultBreakMinutes} onChange={(e) => update('defaultBreakMinutes', e.target.value)} helperText="Cette valeur sera utilisée par défaut lors de la création de missions" />
+              <TextField label="Conditions de paiement" value={form.paymentTerms} onChange={(e) => update('paymentTerms', e.target.value)} multiline minRows={2} sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }} />
               <TextField label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} multiline minRows={4} sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }} />
             </Stack>
             <Stack direction="row" sx={{ gap: 2, justifyContent: 'flex-end' }}>
-              <Button variant="outlined" color="inherit" onClick={() => navigate('/activity')} data-testid="pharmacie-cancel-button">Annuler</Button>
+              <Button variant="outlined" color="inherit" onClick={() => navigate('/pharmacies')} data-testid="pharmacie-cancel-button">Annuler</Button>
               <Button variant="contained" type="submit" startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacy)} data-testid="pharmacie-save-button">
                 {existingPharmacie ? 'Enregistrer les modifications' : 'Enregistrer'}
               </Button>

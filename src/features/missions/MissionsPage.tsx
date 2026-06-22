@@ -15,30 +15,37 @@ import {
   Stack,
   Tooltip,
   Typography,
+  useTheme,
+  type Theme,
 } from '@mui/material';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
-import { brandColors, componentBorderRadius, borderRadiusScale, typographyScale } from '../../design-system/tokens';
+import { brandColors, borderWidth, typographyScale } from '../../design-system/tokens';
 import { FadeIn } from '../../components/FadeIn';
 import { LoadingButton } from '../../components/LoadingButton';
 import { useNotifications } from '../../components/NotificationSystem';
 import { PageHeader } from '../../components/PageHeader';
 import { PageSection } from '../../components/PageSection';
 import { SurfaceCard } from '../../components/SurfaceCard';
+import { MetricCard } from '../../components/MetricCard';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
 import { createId } from '../../services/ids';
-import { createInvoiceFromMission, invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
+import { createInvoiceFromMission, createInvoiceFromMissions, invoiceStatusLabels, transitionInvoice } from '../../services/invoiceWorkflow';
+import { businessMissionStatusLabels, deriveMissionBusinessStatus, missionsReadyToInvoice } from '../../services/businessRules';
+import { buildMissionWindowMetrics } from '../../services/dashboardMetrics';
 import { formatMoney } from '../../services/money';
 import { missionStatusLabels } from '../../services/missionStatus';
 import { updateAppState, useAppState } from '../../storage/localStore';
 import type { Invoice, InvoiceStatus, Mission, MissionStatus, Pharmacie } from '../../storage/schema';
-import { getPlatformAsync } from '../../services/platformService';
+import { downloadInvoicePdf } from '../../services/downloadInvoicePdf';
 import { logMappedError, mapError } from '../../services/errorMapper';
 import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
 import { undoManager } from '../../services/undoManager';
+import { todayIso } from '../../services/ids';
 
 const missionStatusOptions: MissionStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'ARCHIVED'];
+type MissionFocus = 'all' | 'upcoming7d' | 'estimated7d' | 'toInvoice';
 const missionFilterOptions: Array<{ value: MissionStatus | 'ALL'; label: string }> = [
   { value: 'ALL', label: 'Toutes' },
   { value: 'DRAFT', label: 'Brouillon' },
@@ -65,13 +72,7 @@ const getInvoiceStatusColor = (status?: InvoiceStatus): 'default' | 'success' | 
 };
 
 function missionStatusDisplayLabel(mission: Mission, invoice?: Invoice): string {
-  if (mission.status === 'COMPLETED' && invoice?.status === 'PAID') {
-    return 'Terminée · Payée';
-  }
-  if (mission.status === 'COMPLETED' && invoice && invoice.status !== 'PAID') {
-    return `Terminée · ${invoiceStatusLabels[invoice.status]}`;
-  }
-  return missionStatusLabels[mission.status];
+  return businessMissionStatusLabels[deriveMissionBusinessStatus(mission, invoice)];
 }
 
 function formatShortDate(date: string): string {
@@ -117,15 +118,61 @@ function formatEventDate(value: string): string {
   }).format(new Date(value));
 }
 
+function parseMissionFocus(value: string | null): MissionFocus {
+  if (
+    value === 'upcoming_7d' ||
+    value === 'upcoming7d'
+  ) {
+    return 'upcoming7d';
+  }
+  if (
+    value === 'estimated_7d' ||
+    value === 'estimated7d'
+  ) {
+    return 'estimated7d';
+  }
+  if (value === 'to_invoice' || value === 'toInvoice') {
+    return 'toInvoice';
+  }
+  return 'all';
+}
+
+function matchesMissionFocus(
+  mission: Mission,
+  focus: MissionFocus,
+  todayIsoValue: string,
+  windowEndIso: string,
+): boolean {
+  if (focus === 'all') return true;
+  if (focus === 'upcoming7d') {
+    return (
+      mission.status !== 'ARCHIVED' &&
+      mission.status !== 'CANCELLED' &&
+      mission.dateDebut >= todayIsoValue &&
+      mission.dateDebut <= windowEndIso
+    );
+  }
+  if (focus === 'estimated7d') {
+    return (
+      mission.status !== 'ARCHIVED' &&
+      mission.status !== 'CANCELLED' &&
+      mission.dateDebut <= windowEndIso &&
+      mission.dateFin >= todayIsoValue &&
+      (mission.status === 'CONFIRMED' || mission.status === 'IN_PROGRESS' || mission.status === 'COMPLETED')
+    );
+  }
+  return mission.status === 'COMPLETED' && !mission.invoiceId;
+}
+
 // Style pour les statuts
-const statusPillSx = {
+const statusPillSx = (theme: Theme) => ({
   height: '30px',
   px: 1.5,
-  borderRadius: componentBorderRadius.full,
+  borderRadius: theme.runtimeTokens.controlRadius,
   fontSize: '0.8rem',
   fontWeight: 700,
   whiteSpace: 'nowrap',
-};
+});
 
 export function MissionsPage() {
   const state = useAppState();
@@ -135,13 +182,20 @@ export function MissionsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get('selected'));
   const [historyOpen, setHistoryOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<MissionStatus | 'ALL'>('ALL');
+  const [focusFilter, setFocusFilter] = useState<MissionFocus>(() =>
+    parseMissionFocus(searchParams.get('filter') ?? searchParams.get('focus')),
+  );
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const today = todayIso();
+  const missionMetrics = useMemo(() => buildMissionWindowMetrics(state, today), [state, today]);
 
   const missions = useMemo(
-    () => [...state.missions]
-      .filter((mission) => statusFilter === 'ALL' || mission.status === statusFilter)
-      .sort((a, b) => `${b.dateDebut}${b.createdAt}`.localeCompare(`${a.dateDebut}${a.createdAt}`)),
-    [state.missions, statusFilter],
+    () =>
+      [...state.missions]
+        .filter((mission) => statusFilter === 'ALL' || mission.status === statusFilter)
+        .filter((mission) => matchesMissionFocus(mission, focusFilter, today, missionMetrics.windowEndIso))
+        .sort((a, b) => `${b.dateDebut}${b.createdAt}`.localeCompare(`${a.dateDebut}${a.createdAt}`)),
+    [state.missions, statusFilter, focusFilter, today, missionMetrics.windowEndIso],
   );
   const firstMissionIdsByPharmacy = useMemo(() => {
     const firstByPharmacy = new Map<string, Mission>();
@@ -156,21 +210,39 @@ export function MissionsPage() {
 
   const selected = state.missions.find((mission) => mission.id === selectedId);
   const selectedInvoice = selected ? findInvoice(state, selected.invoiceId) ?? missionInvoice(state, selected) : undefined;
+  const invoiceReadyGroups = useMemo(() => {
+    const groups = new Map<string, Mission[]>();
+    missionsReadyToInvoice(state).forEach((mission) => {
+      groups.set(mission.pharmacieId, [...(groups.get(mission.pharmacieId) ?? []), mission]);
+    });
+    return [...groups.entries()].map(([pharmacieId, groupMissions]) => ({
+      pharmacie: findPharmacie(state, pharmacieId),
+      missions: groupMissions,
+    }));
+  }, [state]);
 
   useEffect(() => {
-    document.title = 'Pilotage des missions · Pharmfact';
+    document.title = 'Missions · Pharmfact';
   }, []);
 
   useEffect(() => {
     const selected = searchParams.get('selected');
-    if (selected) setSelectedId(selected);
+    setSelectedId(selected);
+  }, [searchParams]);
+
+  useEffect(() => {
+    setFocusFilter(parseMissionFocus(searchParams.get('filter') ?? searchParams.get('focus')));
   }, [searchParams]);
 
   useEffect(() => {
     function closeWithEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setSelectedId(null);
-        setSearchParams({});
+        setSearchParams((current) => {
+          const next = new URLSearchParams(current);
+          next.delete('selected');
+          return next;
+        });
         setHistoryOpen(false);
       }
     }
@@ -181,14 +253,33 @@ export function MissionsPage() {
 
   function openMission(missionId: string) {
     setSelectedId(missionId);
-    setSearchParams({ selected: missionId });
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('selected', missionId);
+      return next;
+    });
     setHistoryOpen(false);
   }
 
   function closeMission() {
     setSelectedId(null);
-    setSearchParams({});
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('selected');
+      return next;
+    });
     setHistoryOpen(false);
+  }
+
+  function setMissionFocus(focus: MissionFocus) {
+    setFocusFilter(focus);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('focus');
+      if (focus === 'all') next.delete('filter');
+      else next.set('filter', focus === 'toInvoice' ? 'to_invoice' : focus);
+      return next;
+    });
   }
 
   function transitionMission(mission: Mission, status: MissionStatus) {
@@ -276,6 +367,31 @@ export function MissionsPage() {
     });
   }
 
+  function generateGroupedInvoice(groupMissions: Mission[]) {
+    if (!groupMissions.length) return;
+    const invoice = createInvoiceFromMissions(groupMissions, state);
+    const missionIds = new Set(groupMissions.map((mission) => mission.id));
+
+    updateAppState((current) => ({
+      ...current,
+      invoices: [...current.invoices, invoice],
+      missions: current.missions.map((item) =>
+        missionIds.has(item.id)
+          ? {
+              ...item,
+              invoiceId: invoice.id,
+              events: [
+                ...item.events,
+                { id: createId('evt'), eventType: 'INVOICE_CREATED', label: `Facture ${invoice.numero} générée`, eventDate: new Date().toISOString() },
+              ],
+            }
+          : item,
+      ),
+    }));
+
+    notify({ severity: 'success', message: `Facture ${invoice.numero} générée pour ${groupMissions.length} mission(s).` });
+  }
+
   function updateInvoiceStatus(invoiceId: string, status: InvoiceStatus) {
     const previousInvoice = state.invoices.find((invoice) => invoice.id === invoiceId);
     if (!previousInvoice || previousInvoice.status === status) return;
@@ -314,14 +430,11 @@ export function MissionsPage() {
     if (!invoice) return;
     setDownloadingInvoiceId(invoiceId);
     try {
-      // Utiliser getPlatformAsync pour garantir que tauriPlatform est chargé en mode Tauri
-      const platform = await getPlatformAsync();
-      console.log('[PDF] Début téléchargement facture depuis mission:', invoice.numero);
-      const blob = await platform.pdf.generateInvoicePdf(invoice, state);
-      console.log('[PDF] Blob reçu, taille:', blob.size);
-      const saved = await platform.pdf.downloadPdf(blob, invoice.numero);
-      if (saved) {
+      const result = await downloadInvoicePdf(invoice, state);
+      if (result.status === 'downloaded') {
         notify({ severity: 'success', message: 'PDF téléchargé.' });
+      } else if (result.status === 'error') {
+        throw result.error;
       }
     } catch (error) {
       const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
@@ -338,7 +451,7 @@ export function MissionsPage() {
     <Stack spacing={{ xs: 3, md: 4 }} sx={{ width: 'min(1120px, 100%)', mx: 'auto' }}>
       <PageHeader
         eyebrow="Missions"
-        title="Pilotage des missions"
+        title="Missions"
         description="Suivez les mandats, générez les factures et gardez les statuts opérationnels au même endroit."
         actions={
           <Button
@@ -356,6 +469,41 @@ export function MissionsPage() {
         data-testid="missions-page-header"
       />
 
+      <PageSection title="Repères propriétaires" description="Les missions à venir, l’estimation sur 7 jours et le volume à facturer vivent ici." >
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+            gap: 2,
+          }}
+        >
+          <MetricCard
+            label="Missions à venir - 7 jours"
+            value={String(missionMetrics.upcomingCount)}
+            helperText={focusFilter === 'upcoming7d' ? 'Filtre actif sur la liste' : 'Cliquez pour filtrer la file'}
+            tone="primary"
+            actionLabel="Filtrer"
+            onAction={() => setMissionFocus('upcoming7d')}
+          />
+          <MetricCard
+            label="Montant estimé - 7 jours"
+            value={formatMoney(missionMetrics.estimatedCents)}
+            helperText={focusFilter === 'estimated7d' ? 'Filtre actif sur la liste' : 'Missions actives dans la fenêtre'}
+            tone="success"
+            actionLabel="Filtrer"
+            onAction={() => setMissionFocus('estimated7d')}
+          />
+          <MetricCard
+            label="Missions à facturer"
+            value={String(missionMetrics.toInvoiceCount)}
+            helperText={focusFilter === 'toInvoice' ? 'Filtre actif sur la liste' : formatMoney(missionMetrics.toInvoiceCents)}
+            tone="warning"
+            actionLabel="Filtrer"
+            onAction={() => setMissionFocus('toInvoice')}
+          />
+        </Box>
+      </PageSection>
+
       <PageSection
         title="File de missions"
         description={`${missions.length} mission${missions.length > 1 ? 's' : ''} affichée${missions.length > 1 ? 's' : ''}. Filtrez par état pour prioriser le suivi.`}
@@ -366,18 +514,43 @@ export function MissionsPage() {
               key={option.value}
               variant={statusFilter === option.value ? 'contained' : 'outlined'}
               onClick={() => setStatusFilter(option.value)}
-              sx={{
-                borderRadius: componentBorderRadius.full,
+              sx={(theme) => ({
+                borderRadius: theme.runtimeTokens.controlRadius,
                 minHeight: '36px',
                 padding: '8px 14px',
                 fontWeight: 700,
-              }}
+              })}
             >
               {option.label}
             </Button>
           ))}
         </Stack>
       </PageSection>
+
+      {invoiceReadyGroups.length ? (
+        <PageSection
+          title="Missions à facturer"
+          description="Les regroupements sont limités aux missions d’une même pharmacie."
+        >
+          <Stack spacing={1.5}>
+            {invoiceReadyGroups.map((group) => (
+              <SurfaceCard key={group.pharmacie?.id ?? group.missions[0]?.pharmacieId} contentSx={{ p: 2 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{pharmacieDisplayName(group.pharmacie)}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {group.missions.length} mission(s) · {formatMoney(group.missions.reduce((sum, mission) => sum + mission.totalCents, 0))}
+                    </Typography>
+                  </Box>
+                  <Button variant="contained" onClick={() => generateGroupedInvoice(group.missions)}>
+                    Générer facture groupée
+                  </Button>
+                </Stack>
+              </SurfaceCard>
+            ))}
+          </Stack>
+        </PageSection>
+      ) : null}
 
       <FadeIn>
         <SurfaceCard flush>
@@ -444,6 +617,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
   onOpenPdf: (invoiceId: string) => void;
   downloadingInvoiceId: string | null;
 }) {
+  const theme = useTheme();
   const canDownloadPdf = Boolean(invoice);
   const pdfBusy = invoice ? downloadingInvoiceId === invoice.id : false;
   const stats = missionSummaryRows(mission);
@@ -475,7 +649,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
         textAlign: 'left',
         cursor: 'pointer',
         transition: 'all 180ms ease',
-        borderRadius: borderRadiusScale.none,
+        borderRadius: theme.runtimeTokens.surfaceRadius,
         '&:hover, &:focus-visible': {
           backgroundColor: (theme) => theme.palette.action.hover,
           outline: `3px solid ${brandColors.primary[600]}`,
@@ -501,7 +675,7 @@ function MissionListItem({ mission, invoice, pharmacie, isFirstMissionAtPharmacy
                 sx={{
                   width: 30,
                   height: 30,
-                  borderRadius: componentBorderRadius.full,
+                  borderRadius: theme.runtimeTokens.iconRadius,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -579,6 +753,8 @@ function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, h
   onInvoiceStatus: (invoiceId: string, status: InvoiceStatus) => void;
   onOpenPdf: (invoiceId: string) => void;
 }) {
+  const theme = useTheme();
+
   return (
     <Dialog
       open={!!mission}
@@ -590,9 +766,13 @@ function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, h
       slotProps={{
         paper: {
           sx: {
-            maxHeight: '90vh',
+            height: { xs: '100vh', sm: '90vh' },
+            maxHeight: { xs: '100vh', sm: '90vh' },
             width: { xs: '100%', md: 'min(680px, 100%)' },
             zIndex: 1400,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           },
         },
       }}
@@ -607,7 +787,7 @@ function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, h
             right: 8,
             width: 36,
             height: 36,
-            borderRadius: componentBorderRadius.full,
+            borderRadius: theme.runtimeTokens.iconRadius,
             backgroundColor: 'action.hover',
             color: 'text.primary',
           }}
@@ -621,23 +801,36 @@ function MissionModal({ mission, invoice, pharmacie, isFirstMissionAtPharmacy, h
           isFirstMissionAtPharmacy={isFirstMissionAtPharmacy}
         />
       </DialogTitle>
-      <DialogContent id="mission-detail-description" sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
-        <MissionLocationSection mission={mission} pharmacie={pharmacie} />
-        <MissionPharmacySection pharmacie={pharmacie} />
-        <MissionScheduleSection mission={mission} />
-        <MissionFinancialSection mission={mission} invoice={invoice} />
-        <MissionActionsSection
-          mission={mission}
-          invoice={invoice}
-          downloadingInvoiceId={downloadingInvoiceId}
-          onCalendar={onCalendar}
-          onEditMission={onEditMission}
-          onGenerateInvoice={onGenerateInvoice}
-          onInvoiceStatus={onInvoiceStatus}
-          onOpenPdf={onOpenPdf}
-          onTransitionMission={onTransitionMission}
-        />
-        <MissionHistorySection mission={mission} open={historyOpen} onToggle={onToggleHistory} />
+      <DialogContent
+        id="mission-detail-description"
+        sx={{
+          p: 3,
+          pt: 0,
+          overflowY: 'auto',
+          flex: 1,
+          minHeight: 0,
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        <Box sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <MissionLocationSection mission={mission} pharmacie={pharmacie} />
+          <MissionPharmacySection pharmacie={pharmacie} />
+          <MissionScheduleSection mission={mission} />
+          <MissionFinancialSection mission={mission} invoice={invoice} />
+          <MissionActionsSection
+            mission={mission}
+            invoice={invoice}
+            downloadingInvoiceId={downloadingInvoiceId}
+            onCalendar={onCalendar}
+            onEditMission={onEditMission}
+            onGenerateInvoice={onGenerateInvoice}
+            onInvoiceStatus={onInvoiceStatus}
+            onOpenPdf={onOpenPdf}
+            onTransitionMission={onTransitionMission}
+          />
+          <MissionHistorySection mission={mission} open={historyOpen} onToggle={onToggleHistory} />
+        </Box>
       </DialogContent>
     </Dialog>
   );
@@ -657,6 +850,7 @@ function Section({ title, children, compact = false }: { title: string; children
 }
 
 function MissionSummarySection({ mission, invoice, pharmacie, isFirstMissionAtPharmacy }: { mission: Mission; invoice?: Invoice; pharmacie?: Pharmacie; isFirstMissionAtPharmacy: boolean }) {
+  const theme = useTheme();
   const summaryItems = missionSummaryRows(mission, true);
 
   return (
@@ -679,7 +873,7 @@ function MissionSummarySection({ mission, invoice, pharmacie, isFirstMissionAtPh
                 sx={{
                   width: 30,
                   height: 30,
-                  borderRadius: componentBorderRadius.full,
+                  borderRadius: theme.runtimeTokens.iconRadius,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -764,6 +958,7 @@ function MissionPharmacySection({ pharmacie }: { pharmacie?: Pharmacie }) {
 }
 
 function MissionScheduleSection({ mission }: { mission: Mission }) {
+  const theme = useTheme();
   const days = [...mission.days].sort((a, b) => `${a.dateService}${a.startTime}`.localeCompare(`${b.dateService}${b.startTime}`));
 
   return (
@@ -778,7 +973,7 @@ function MissionScheduleSection({ mission }: { mission: Mission }) {
               gap: 1.5,
               alignItems: 'center',
               p: 1.5,
-              borderRadius: componentBorderRadius.card,
+        borderRadius: theme.runtimeTokens.surfaceRadius,
               bgcolor: 'action.hover',
             }}
           >
@@ -853,6 +1048,8 @@ function MissionActionsSection({ invoice, mission, downloadingInvoiceId, onCalen
   onOpenPdf: (invoiceId: string) => void;
   onTransitionMission: (mission: Mission, status: MissionStatus) => void;
 }) {
+  const theme = useTheme();
+
   return (
     <Section title="Actions">
       <Stack spacing={1.5}>
@@ -909,7 +1106,7 @@ function MissionActionsSection({ invoice, mission, downloadingInvoiceId, onCalen
               size="small"
               variant={mission.status === status ? 'contained' : 'outlined'}
               onClick={() => onTransitionMission(mission, status)}
-              sx={{ borderRadius: componentBorderRadius.full, fontWeight: 750 }}
+              sx={(theme) => ({ borderRadius: theme.runtimeTokens.controlRadius, fontWeight: 750 })}
             >
               {missionStatusLabels[status]}
             </Button>

@@ -58,7 +58,11 @@ export async function saveToIndexedDB(state: unknown): Promise<void> {
       const store = transaction.objectStore(STORE_NAME);
       const request = store.put(state, APP_STORAGE_KEY);
 
-      request.onsuccess = () => resolve();
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = (event) => {
+        console.error('Erreur lors de la transaction IndexedDB:', event);
+        reject(transaction.error ?? new Error('Transaction IndexedDB échouée'));
+      };
       request.onerror = (event) => {
         console.error('Erreur lors de la sauvegarde dans IndexedDB:', event);
         // Fallback vers localStorage

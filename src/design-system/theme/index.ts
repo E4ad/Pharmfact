@@ -114,7 +114,7 @@ function createDesignSystemOptions(mode: 'light' | 'dark'): ThemeOptions {
       overline: { ...typographyTokens.overline },
     },
     shape: {
-      borderRadius: componentBorderRadius.container,
+      borderRadius: 0,
     },
     shadows: createMuiShadows(mode),
     zIndex: {

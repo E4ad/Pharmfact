@@ -7,6 +7,8 @@ export type InvoiceEditImpact = {
   message: string;
   canSilentlyRegenerate: boolean;
   requiresExplicitRegeneration: boolean;
+  requiresCorrectedVersion: boolean;
+  recommendedAction: MissionEditAction;
 };
 
 export type MissionEditActionDefinition = {
@@ -22,6 +24,8 @@ export function getInvoiceEditImpact(invoice?: Invoice): InvoiceEditImpact {
       message: 'Cette mission n’a pas encore de facture.',
       canSilentlyRegenerate: false,
       requiresExplicitRegeneration: false,
+      requiresCorrectedVersion: false,
+      recommendedAction: 'save',
     };
   }
 
@@ -31,6 +35,8 @@ export function getInvoiceEditImpact(invoice?: Invoice): InvoiceEditImpact {
       message: 'Cette mission possède déjà une facture générée. Les modifications peuvent recalculer la facture liée.',
       canSilentlyRegenerate: true,
       requiresExplicitRegeneration: false,
+      requiresCorrectedVersion: false,
+      recommendedAction: 'save_regenerate',
     };
   }
 
@@ -40,24 +46,30 @@ export function getInvoiceEditImpact(invoice?: Invoice): InvoiceEditImpact {
       message: 'Attention : cette facture a déjà été envoyée au paiement. Toute modification peut nécessiter de transmettre un nouveau PDF au client.',
       canSilentlyRegenerate: false,
       requiresExplicitRegeneration: true,
+      requiresCorrectedVersion: false,
+      recommendedAction: 'save_regenerate',
     };
   }
 
   if (invoice.status === 'PAID') {
     return {
       level: 'danger',
-      message: 'Attention : cette facture est marquée comme payée. La mission peut être modifiée pour correction interne, mais la facture payée ne devrait pas être remplacée sans validation.',
+      message: 'Attention : cette facture est payée. La correction doit créer une nouvelle version plutôt que remplacer le document réglé.',
       canSilentlyRegenerate: false,
       requiresExplicitRegeneration: true,
+      requiresCorrectedVersion: true,
+      recommendedAction: 'create_corrected_version',
     };
   }
 
   if (invoice.status === 'ARCHIVED') {
     return {
       level: 'warning',
-      message: 'Cette facture est archivée. Les corrections doivent rester internes sauf restauration explicite de la facture.',
+      message: 'Cette facture est archivée. Les corrections doivent créer une version corrigée ou rester internes selon le besoin métier.',
       canSilentlyRegenerate: false,
       requiresExplicitRegeneration: true,
+      requiresCorrectedVersion: true,
+      recommendedAction: 'create_corrected_version',
     };
   }
 
@@ -66,6 +78,8 @@ export function getInvoiceEditImpact(invoice?: Invoice): InvoiceEditImpact {
     message: 'Cette facture est annulée. Les modifications ne rééditeront pas automatiquement le document annulé.',
     canSilentlyRegenerate: false,
     requiresExplicitRegeneration: false,
+    requiresCorrectedVersion: false,
+    recommendedAction: 'save_internal',
   };
 }
 
@@ -84,14 +98,21 @@ export function getAvailableEditActions(invoice?: Invoice): MissionEditActionDef
   if (invoice.status === 'SENT') {
     return [
       { action: 'save', label: 'Sauvegarder sans rééditer' },
-      { action: 'save_regenerate', label: 'Générer nouveau PDF', primary: true },
+      { action: 'save_regenerate', label: 'Sauvegarder et télécharger le nouveau PDF', primary: true },
     ];
   }
 
   if (invoice.status === 'PAID') {
     return [
-      { action: 'save_internal', label: 'Sauvegarder correction interne', primary: true },
-      { action: 'create_corrected_version', label: 'Créer une version corrigée' },
+      { action: 'create_corrected_version', label: 'Créer une version corrigée', primary: true },
+      { action: 'save_internal', label: 'Sauvegarder correction interne' },
+    ];
+  }
+
+  if (invoice.status === 'ARCHIVED') {
+    return [
+      { action: 'create_corrected_version', label: 'Créer une version corrigée', primary: true },
+      { action: 'save_internal', label: 'Sauvegarder correction interne' },
     ];
   }
 

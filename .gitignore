@@ -13,6 +13,20 @@ CHANGES_MODALS*.md
 icons/
 playwright-report/
 .vitest/
+.agent/
+.claude/
+.codebuddy/
+.codex/
+.continue/
+.cursor/
+.gemini/
+.github/prompts/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.windsurf/
 
 # Tauri
 src-tauri/target/

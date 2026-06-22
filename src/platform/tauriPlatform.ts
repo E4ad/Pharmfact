@@ -15,11 +15,11 @@ import type {
 import type { AppState, Invoice, ExpenseReceipt, OpqPharmacistRegistryEntry } from '../storage/schema';
 import type { GeocodeSuggestion } from '../hooks/useAddressAutocomplete';
 import { createId } from '../services/ids';
+import { renderInvoicePdfBlob } from '../services/invoicePdfRenderer';
 
 // Import dynamique pour éviter les erreurs dans un environnement non-Tauri
 // Tauri v2 : plugins séparés avec nouvelles APIs
 interface TauriApis {
-  invoke: <T>(command: string, args?: any) => Promise<T>;
   save: (options: any) => Promise<string | null>;
   open: (options: any) => Promise<string | string[] | null>;
   appDataDir: () => Promise<string>;
@@ -34,23 +34,30 @@ interface TauriApis {
 }
 
 let tauriApis: TauriApis | null = null;
+let tauriInvoke: (<T>(command: string, args?: any) => Promise<T>) | null = null;
 
 function ensurePdfFilename(filename: string): string {
   return filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
 }
 
+async function initTauriInvoke(): Promise<void> {
+  if (tauriInvoke) return;
+  const coreModule = await import('@tauri-apps/api/core');
+  tauriInvoke = coreModule.invoke;
+}
+
 async function initTauriApis(): Promise<void> {
   if (tauriApis) return;
   
-  const [coreModule, pathModule, dialogModule, fsModule] = await Promise.all([
-    import('@tauri-apps/api/core'),
+  await initTauriInvoke();
+
+  const [pathModule, dialogModule, fsModule] = await Promise.all([
     import('@tauri-apps/api/path'),
     import('@tauri-apps/plugin-dialog'),
     import('@tauri-apps/plugin-fs'),
   ]);
   
   tauriApis = {
-    invoke: coreModule.invoke,
     save: dialogModule.save,
     open: dialogModule.open,
     // Helper pour normaliser le retour de open (string | string[] | null -> string | null)
@@ -67,19 +74,10 @@ async function initTauriApis(): Promise<void> {
   };
 }
 
-// ============================================================================
-// Chemin de stockage pour Tauri
-// ============================================================================
-
-const APP_DATA_DIR = 'Pharmfact';
-const STATE_FILE = 'app-state.json';
-
-async function getStatePath(): Promise<string> {
-  await initTauriApis();
-  const appDir = await tauriApis!.appDataDir();
-  const dataDir = `${appDir}${APP_DATA_DIR}`;
-  await tauriApis!.mkdir(dataDir, { recursive: true });
-  return `${dataDir}/${STATE_FILE}`;
+function parseTauriStatePayload(payload: string | null): AppState | null {
+  const trimmed = payload?.trim() ?? '';
+  if (!trimmed || trimmed === 'null' || trimmed === '{}') return null;
+  return JSON.parse(trimmed) as AppState;
 }
 
 // ============================================================================
@@ -89,30 +87,19 @@ async function getStatePath(): Promise<string> {
 const tauriStorageAdapter: AppStorageAdapter = {
   async loadState(): Promise<AppState | null> {
     try {
-      await initTauriApis();
-      const statePath = await getStatePath();
-      const existsState = await tauriApis!.exists(statePath);
-      
-      if (!existsState) {
-        return null;
-      }
-      
-      const content = await tauriApis!.readTextFile(statePath);
-      return JSON.parse(content) as AppState;
+      await initTauriInvoke();
+      const payload = await tauriInvoke!<string>('load_state');
+      return parseTauriStatePayload(payload);
     } catch (error) {
       console.error('Erreur de chargement de l\'état:', error);
-      return null;
+      throw new Error('Impossible de charger les données locales');
     }
   },
 
   async saveState(state: AppState): Promise<void> {
     try {
-      await initTauriApis();
-      const statePath = await getStatePath();
-      const stateJson = JSON.stringify(state, null, 2);
-      // writeFile en Tauri v2 n'accepte que Uint8Array ou ReadableStream
-      const dataBytes = new TextEncoder().encode(stateJson);
-      await tauriApis!.writeFile(statePath, dataBytes);
+      await initTauriInvoke();
+      await tauriInvoke!('save_state', { state: JSON.stringify(state, null, 2) });
     } catch (error) {
       console.error('Erreur de sauvegarde de l\'état:', error);
       throw new Error('Impossible de sauvegarder les données');
@@ -121,29 +108,34 @@ const tauriStorageAdapter: AppStorageAdapter = {
 
   async exportState(): Promise<string> {
     try {
-      const state = await this.loadState();
-      return state ? JSON.stringify(state, null, 2) : '{}';
-    } catch {
-      return '{}';
+      await initTauriInvoke();
+      const payload = await tauriInvoke!<string>('export_state');
+      return parseTauriStatePayload(payload) ? payload : '{}';
+    } catch (error) {
+      console.error('Erreur d\'export de l\'état:', error);
+      throw new Error('Impossible d\'exporter les données');
     }
   },
 
   async importState(json: string): Promise<AppState> {
-    const state = JSON.parse(json) as AppState;
-    await this.saveState(state);
-    return state;
+    try {
+      const state = JSON.parse(json) as AppState;
+      await initTauriInvoke();
+      await tauriInvoke!('import_state', { json });
+      return state;
+    } catch (error) {
+      console.error('Erreur d\'import de l\'état:', error);
+      throw new Error('Impossible d\'importer les données');
+    }
   },
 
   async clear(): Promise<void> {
     try {
-      await initTauriApis();
-      const statePath = await getStatePath();
-      await tauriApis!.remove(statePath);
+      await initTauriInvoke();
+      await tauriInvoke!('clear_state');
     } catch (error) {
-      // Ignorer si le fichier n'existe pas
-      if (!String(error).includes('No such file')) {
-        console.error('Erreur lors de la suppression de l\'état:', error);
-      }
+      console.error('Erreur lors de la suppression de l\'état:', error);
+      throw new Error('Impossible d\'effacer les données');
     }
   },
 };
@@ -227,77 +219,11 @@ const tauriFileAdapter: AppFileAdapter = {
 
 const tauriPdfAdapter: AppPdfAdapter = {
   async generateInvoicePdf(invoice: Invoice, state: AppState): Promise<Blob> {
-    await initTauriApis();
-    
-    // Vérifier que Tauri APIs sont bien initialisées
-    if (!tauriApis) {
-      console.error('[PDF] Erreur: APIs desktop non initialisées');
-      throw new Error('Environnement desktop non disponible');
-    }
-    
-    // Utiliser le backend intégré pour générer le PDF
-    
-    // Appeler la commande Tauri pour générer le PDF (retourne base64)
     try {
       console.log('[PDF] Début génération PDF pour facture:', invoice.numero);
-      console.log('[PDF] Appel invoke de generate_invoice_pdf');
-      
-      const startTime = Date.now();
-      let pdfBase64: string;
-      try {
-        pdfBase64 = await tauriApis!.invoke('generate_invoice_pdf', {
-          invoice,
-          stateJson: JSON.stringify(state),
-        });
-        console.log('[PDF] invoke terminé en', Date.now() - startTime, 'ms');
-      } catch (invokeError) {
-        console.error('[PDF] Erreur lors de l\'invoke:', invokeError);
-        throw new Error('Erreur lors de l\'appel de la commande Rust: ' + String(invokeError));
-      }
-      
-      // Vérifier que la base64 n'est pas vide ou undefined
-      if (pdfBase64 === undefined || pdfBase64 === null) {
-        console.error('[PDF] Erreur: invoke a retourné undefined/null');
-        throw new Error('La commande Rust n\'a pas retourné de résultat');
-      }
-      
-      console.log('[PDF] Base64 reçu, longueur:', pdfBase64.length);
-      console.log('[PDF] Base64 premier 50 chars:', pdfBase64.substring(0, 50));
-      if (!pdfBase64 || pdfBase64.length < 100) {
-        console.error('[PDF] Erreur: PDF base64 trop court (', pdfBase64?.length, 'bytes)');
-        throw new Error('La génération du PDF a produit un résultat vide');
-      }
-      
-      // Vérifier que ça commence par le header PDF après décodage
-      let binaryString: string;
-      try {
-        console.log('[PDF] Début décodage base64, premier 50 chars:', pdfBase64.substring(0, 50));
-        binaryString = atob(pdfBase64);
-        console.log('[PDF] Base64 décodé avec succès, longueur:', binaryString.length);
-      } catch (decodeError) {
-        console.error('[PDF] Erreur décodage base64:', decodeError);
-        console.error('[PDF] Base64 complet:', pdfBase64);
-        throw new Error('Erreur de décodage du PDF');
-      }
-      
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      
-      // Vérifier le header PDF (%PDF-)
-      const header = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
-      if (header !== '%PDF') {
-        console.error('[PDF] Erreur: Buffer ne commence pas par %PDF- (header:', header, ')');
-        throw new Error('Format PDF invalide: header manquant');
-      }
-      
-      console.log('[PDF] PDF généré avec succès (', bytes.length, 'bytes, header:', header, ')');
-      
-      return new Blob([bytes], { type: 'application/pdf' });
+      return await renderInvoicePdfBlob(invoice, state);
     } catch (error) {
       console.error('[PDF] Erreur génération PDF:', error);
-      // Ne pas exposer les détails techniques à l'utilisateur
       throw new Error('Impossible de générer le PDF. Veuillez réessayer.');
     }
   },
@@ -399,8 +325,8 @@ const tauriSystemAdapter: AppSystemAdapter = {
 const tauriApiAdapter: AppApiAdapter = {
   async geocode(query: string): Promise<GeocodeSuggestion[]> {
     try {
-      await initTauriApis();
-      return await tauriApis!.invoke<GeocodeSuggestion[]>('geocode_address', { query });
+      await initTauriInvoke();
+      return await tauriInvoke!<GeocodeSuggestion[]>('geocode_address', { query });
     } catch {
       return [];
     }
@@ -408,8 +334,8 @@ const tauriApiAdapter: AppApiAdapter = {
 
   async routeDistance(input) {
     try {
-      await initTauriApis();
-      return await tauriApis!.invoke<RouteDistanceResult | null>('route_distance', { input });
+      await initTauriInvoke();
+      return await tauriInvoke!<RouteDistanceResult | null>('route_distance', { input });
     } catch {
       return null;
     }
@@ -417,8 +343,8 @@ const tauriApiAdapter: AppApiAdapter = {
 
   async fetchOpqPharmacistRegistry(): Promise<OpqPharmacistRegistryEntry[]> {
     try {
-      await initTauriApis();
-      return await tauriApis!.invoke<OpqPharmacistRegistryEntry[]>('fetch_opq_pharmacist_registry');
+      await initTauriInvoke();
+      return await tauriInvoke!<OpqPharmacistRegistryEntry[]>('fetch_opq_pharmacist_registry');
     } catch {
       return [];
     }
@@ -426,9 +352,9 @@ const tauriApiAdapter: AppApiAdapter = {
 
   async generateInvoicePdf(invoice: Invoice, state: AppState): Promise<Blob> {
     // Utiliser la commande Rust pour générer le PDF
-    await initTauriApis();
+    await initTauriInvoke();
     
-    const pdfBase64: string = await tauriApis!.invoke('generate_invoice_pdf', {
+    const pdfBase64: string = await tauriInvoke!('generate_invoice_pdf', {
       invoice,
       stateJson: JSON.stringify(state),
     });

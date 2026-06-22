@@ -11,7 +11,7 @@ interface MissionGeneratedExpensesDrawerProps {
 
 export function MissionGeneratedExpensesDrawer({ open, onClose, rows }: MissionGeneratedExpensesDrawerProps) {
   return (
-    <FinancialModal title="Dépenses issues des missions" open={open} onClose={onClose}>
+    <FinancialModal title="Dépenses issues des missions" open={open} onClose={onClose} data-testid="financial-mission-expenses-drawer">
       <Stack spacing={2} sx={{ maxHeight: '80vh', overflowY: 'auto' }}>
         {rows.length === 0 ? (
           <Typography>Aucun frais de mission déductible à afficher.</Typography>

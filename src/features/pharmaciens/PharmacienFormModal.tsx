@@ -1,6 +1,6 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, TextField, Typography, useTheme } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { FormEvent, useState, useEffect } from 'react';
 import { AddressAutocompleteInput } from '../../components/AddressAutocompleteInput';
@@ -12,7 +12,6 @@ import { createId } from '../../services/ids';
 import { getPlatform } from '../../services/platformService';
 import { findOpqPharmacistByLicense, normalizeOpqLicenseNumber } from '../../services/opqRegistry';
 import { findDuplicatePharmacist } from '../../services/entityDuplicates';
-import { borderRadiusScale } from '../../design-system/tokens';
 
 interface PharmacienFormModalProps {
   open: boolean;
@@ -21,6 +20,7 @@ interface PharmacienFormModalProps {
 }
 
 export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienFormModalProps) {
+  const theme = useTheme();
   const state = useAppState();
   const existingPharmacien = pharmacienId ? state.pharmaciens.find(p => p.id === pharmacienId) : undefined;
   const formId = 'pharmacien-modal-form';
@@ -180,12 +180,15 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
       fullWidth
       aria-labelledby="pharmacist-form-title"
       aria-describedby="pharmacist-form-description"
+      data-testid="pharmacien-form-modal"
       slotProps={{
         paper: {
           sx: {
             maxHeight: '90vh',
-            width: { xs: '100%', md: 'min(600px, 100%)' },
+            width: { xs: '100%', sm: 620, md: 720 },
             zIndex: 1400,
+            display: 'flex',
+            flexDirection: 'column',
           },
         },
       }}
@@ -202,7 +205,7 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
           <CloseRoundedIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
+      <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto', flex: 1 }}>
         <Typography id="pharmacist-form-description" variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
           Complétez le profil professionnel utilisé pour les missions et les factures.
         </Typography>
@@ -265,10 +268,10 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
             <DeleteRoundedIcon />
           </IconButton>
         )}
-        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: borderRadiusScale.full }}>
+        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: theme.runtimeTokens.controlRadius }}>
           Annuler
         </Button>
-        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacien)} sx={{ borderRadius: borderRadiusScale.full }}>
+        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacien)} sx={{ borderRadius: theme.runtimeTokens.controlRadius }}>
           {existingPharmacien ? 'Enregistrer les modifications' : 'Enregistrer'}
         </Button>
       </DialogActions>

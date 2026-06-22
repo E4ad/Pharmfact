@@ -1,4 +1,4 @@
-import { CardContent, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
+import { CardContent, Stack, Typography, Box, type SxProps, type Theme, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { MoneyValue } from '../../../components/MoneyValue';
 import { SurfaceCard } from '../../../components/SurfaceCard';
@@ -49,14 +49,16 @@ export function FinancialMetricCard({
   helperText,
   compact = false,
 }: FinancialMetricCardProps) {
+  const theme = useTheme();
+
   return (
-    <SurfaceCard contentSx={{ p: compact ? 2 : 3 }}>
+    <SurfaceCard radius="dashboardCard" contentSx={{ p: compact ? 2 : 3 }}>
       <Stack spacing={1}>
            <Box
             sx={{ 
               width: 32,
               height: 32,
-              borderRadius: '50%',
+              borderRadius: theme.runtimeTokens.iconRadius,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

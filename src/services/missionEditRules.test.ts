@@ -19,6 +19,7 @@ const invoice = (status: Invoice['status']): Invoice => ({
 describe('missionEditRules', () => {
   it('allows simple save when no invoice exists', () => {
     expect(getInvoiceEditImpact().level).toBe('info');
+    expect(getInvoiceEditImpact().recommendedAction).toBe('save');
     expect(getAvailableEditActions()).toEqual([{ action: 'save', label: 'Sauvegarder les modifications', primary: true }]);
   });
 
@@ -29,11 +30,21 @@ describe('missionEditRules', () => {
 
   it('requires explicit regeneration for sent invoices', () => {
     expect(getInvoiceEditImpact(invoice('SENT')).requiresExplicitRegeneration).toBe(true);
+    expect(getInvoiceEditImpact(invoice('SENT')).requiresCorrectedVersion).toBe(false);
     expect(getAvailableEditActions(invoice('SENT')).find((action) => action.primary)?.action).toBe('save_regenerate');
+    expect(getAvailableEditActions(invoice('SENT')).find((action) => action.primary)?.label).toBe('Sauvegarder et télécharger le nouveau PDF');
   });
 
-  it('keeps paid invoice edits internal by default', () => {
+  it('promotes corrected versions for paid invoices', () => {
     expect(getInvoiceEditImpact(invoice('PAID')).level).toBe('danger');
-    expect(getAvailableEditActions(invoice('PAID')).map((action) => action.action)).toEqual(['save_internal', 'create_corrected_version']);
+    expect(getInvoiceEditImpact(invoice('PAID')).requiresCorrectedVersion).toBe(true);
+    expect(getInvoiceEditImpact(invoice('PAID')).recommendedAction).toBe('create_corrected_version');
+    expect(getAvailableEditActions(invoice('PAID')).map((action) => action.action)).toEqual(['create_corrected_version', 'save_internal']);
+  });
+
+  it('promotes corrected versions for archived invoices too', () => {
+    expect(getInvoiceEditImpact(invoice('ARCHIVED')).requiresCorrectedVersion).toBe(true);
+    expect(getInvoiceEditImpact(invoice('ARCHIVED')).recommendedAction).toBe('create_corrected_version');
+    expect(getAvailableEditActions(invoice('ARCHIVED')).map((action) => action.action)).toEqual(['create_corrected_version', 'save_internal']);
   });
 });

@@ -1,4 +1,4 @@
-import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
+import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { SurfaceCard } from '../../../components/SurfaceCard';
 
@@ -46,8 +46,10 @@ export function FinancialActionCard({
   description,
   onClick,
 }: FinancialActionCardProps) {
+  const theme = useTheme();
+
   return (
-    <SurfaceCard>
+    <SurfaceCard radius="dashboardCard">
       <CardActionArea onClick={onClick} sx={{ p: 3 }}>
         <Stack spacing={2} sx={{ minHeight: 140, justifyContent: 'space-between' }}>
           <Stack spacing={2}>
@@ -55,7 +57,7 @@ export function FinancialActionCard({
                sx={{ 
                  width: 40,
                  height: 40,
-                 borderRadius: '50%',
+                 borderRadius: theme.runtimeTokens.iconRadius,
                  display: 'flex',
                  alignItems: 'center',
                  justifyContent: 'center',

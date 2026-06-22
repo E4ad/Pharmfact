@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import React from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { useAppState, setAppState } from '../storage/localStore';
 import { selectUiOptions } from '../storage/selectors';
 import type { ThemeMode } from '../types/common';
+import { normalizeRuntimeDesignTokenOverrides, type RuntimeDesignTokenOverrides, type RuntimeDesignTokens } from '../design-system/runtimeTokens';
 
 /**
  * Contexte pour la gestion du thème (clair/sombre/système)
@@ -17,6 +19,20 @@ interface ThemeContextType {
   isDark: boolean;
   /** Vrai si le thème clair est actif */
   isLight: boolean;
+  /** Tokens UI runtime résolus et sécurisés */
+  runtimeTokens: RuntimeDesignTokens;
+  /** Overrides de prévisualisation non persistés */
+  previewDesignTokenOverrides: RuntimeDesignTokenOverrides | null;
+  /** Mode de prévisualisation non persisté */
+  previewThemeMode: ThemeMode | null;
+  /** Met à jour les overrides de tokens UX */
+  setRuntimeDesignTokenOverrides: (overrides: RuntimeDesignTokenOverrides) => void;
+  /** Met à jour les overrides de prévisualisation */
+  setPreviewDesignTokenOverrides: (overrides: RuntimeDesignTokenOverrides | null) => void;
+  /** Met à jour le mode de prévisualisation */
+  setPreviewThemeMode: (mode: ThemeMode | null) => void;
+  /** Annule la prévisualisation */
+  clearPreviewTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
@@ -28,24 +44,38 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const state = useAppState();
   const uiSettings = selectUiOptions(state);
-  
-  // État local pour suivre le mode système
   const [systemMode, setSystemMode] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    if (typeof globalThis.matchMedia === 'function') {
+      return globalThis.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     return 'light';
   });
 
+  const [previewDesignTokenOverrides, setPreviewDesignTokenOverridesState] = useState<RuntimeDesignTokenOverrides | null>(null);
+  const [previewThemeMode, setPreviewThemeModeState] = useState<ThemeMode | null>(null);
+
+  const previewUiSettings = useMemo(
+    () => ({
+      themeMode: previewThemeMode ?? uiSettings.themeMode ?? 'system',
+      designTokenOverrides: previewDesignTokenOverrides ?? uiSettings.designTokenOverrides,
+    }),
+    [previewDesignTokenOverrides, previewThemeMode, uiSettings.designTokenOverrides, uiSettings.themeMode],
+  );
+  const runtimeTokens = useMemo(
+    () => normalizeRuntimeDesignTokenOverrides(previewUiSettings.designTokenOverrides),
+    [previewUiSettings.designTokenOverrides],
+  );
+
   // Récupérer le mode depuis les settings, avec fallback
-  const mode = uiSettings.themeMode ?? 'system';
+  const mode = previewUiSettings.themeMode;
   
   // Mode effectif (résout 'system' vers light/dark)
   const effectiveMode = mode === 'system' ? systemMode : mode;
   
   // Mettre à jour l'attribut data-theme quand effectiveMode change
   useEffect(() => {
-    const html = document.documentElement;
+    if (typeof globalThis.document === 'undefined') return;
+    const html = globalThis.document.documentElement;
     html.setAttribute('data-theme', effectiveMode);
     return () => {
       html.removeAttribute('data-theme');
@@ -58,9 +88,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Synchroniser avec les changements de préférences système
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
+    if (typeof globalThis.matchMedia !== 'function') return;
     
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (event: MediaQueryListEvent) => {
       setSystemMode(event.matches ? 'dark' : 'light');
     };
@@ -88,12 +118,46 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   }, [state, uiSettings]);
 
+  const setRuntimeDesignTokenOverrides = useCallback((overrides: RuntimeDesignTokenOverrides) => {
+    setAppState({
+      ...state,
+      uiSettings: {
+        ...uiSettings,
+        designTokenOverrides: overrides,
+      },
+      ui: {
+        ...state.ui,
+        lastVisitedAt: new Date().toISOString(),
+      },
+    });
+  }, [state, uiSettings]);
+
+  const setPreviewDesignTokenOverrides = useCallback((overrides: RuntimeDesignTokenOverrides | null) => {
+    setPreviewDesignTokenOverridesState(overrides);
+  }, []);
+
+  const setPreviewThemeMode = useCallback((mode: ThemeMode | null) => {
+    setPreviewThemeModeState(mode);
+  }, []);
+
+  const clearPreviewTheme = useCallback(() => {
+    setPreviewDesignTokenOverridesState(null);
+    setPreviewThemeModeState(null);
+  }, []);
+
   const value: ThemeContextType = {
     mode,
     effectiveMode,
     setMode,
     isDark,
     isLight,
+    runtimeTokens,
+    previewDesignTokenOverrides,
+    previewThemeMode,
+    setRuntimeDesignTokenOverrides,
+    setPreviewDesignTokenOverrides,
+    setPreviewThemeMode,
+    clearPreviewTheme,
   };
 
   return (

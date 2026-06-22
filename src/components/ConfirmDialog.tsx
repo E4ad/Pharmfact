@@ -24,14 +24,19 @@ export function ConfirmDialog({ open, title, description, confirmLabel, onClose,
       aria-describedby={descriptionId}
       slotProps={{
         paper: {
-          sx: { zIndex: 1400 },
+          sx: {
+            zIndex: 1400,
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+          },
         },
       }}
     >
       <DialogTitle id={titleId} sx={{ pb: spacingScale.sm, fontWeight: 750 }}>
         {title}
       </DialogTitle>
-      <DialogContent sx={{ pt: spacingScale.none }}>
+      <DialogContent sx={{ pt: spacingScale.none, flex: 1 }}>
         <DialogContentText id={descriptionId}>{description}</DialogContentText>
       </DialogContent>
       <DialogActions sx={{ px: spacingScale.lg, pb: spacingScale.lg, gap: spacingScale.sm }}>

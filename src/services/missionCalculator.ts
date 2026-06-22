@@ -2,6 +2,7 @@ import type { Mission, MissionDay, MissionExpense } from '../storage/schema';
 import { addressOf, estimateDistanceKm } from './distanceCalculator';
 import { createId, addDaysIso, todayIso } from './ids';
 import { normalizeMissionExpense, createMissionExpenseDraft } from './expenseTypes';
+import { getActTypeDefinition, getMissionInvoiceLabel } from './actTypes';
 
 export { addressOf, estimateDistanceKm } from './distanceCalculator';
 
@@ -78,6 +79,7 @@ export type MissionFormValues = {
   dateDebut: string;
   dateFin: string;
   isMultiDay: boolean;
+  excludedDates: string[];
   defaultStartTime: string;
   defaultEndTime: string;
   defaultUnpaidBreakMinutes: number;
@@ -173,10 +175,11 @@ export function missionToForm(mission: Mission): MissionFormValues {
   return {
     pharmacienId: mission.pharmacienId,
     pharmacieId: mission.pharmacieId,
-    actType: 'REMPLACEMENT_OFFICINE',
+    actType: mission.actType ?? 'REMPLACEMENT_OFFICINE',
     dateDebut: mission.dateDebut,
     dateFin: mission.dateFin,
     isMultiDay: mission.dateDebut !== mission.dateFin,
+    excludedDates: [...(mission.excludedDates ?? [])],
     defaultStartTime: mission.days[0]?.startTime ?? '08:00',
     defaultEndTime: mission.days[0]?.endTime ?? '17:00',
     defaultUnpaidBreakMinutes: mission.days[0]?.unpaidBreakMinutes ?? 60,
@@ -211,12 +214,18 @@ export function buildMissionFromForm(values: MissionFormValues, existing?: Missi
     (sum, day) => sum + day.expenses.reduce((feeSum, fee) => feeSum + fee.amountCents, 0),
     0
   );
+  const actType = values.actType || 'REMPLACEMENT_OFFICINE';
+  const actTypeDefinition = getActTypeDefinition(actType);
   return {
     id: missionId,
     missionCode: existing?.missionCode ?? `MIS-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
     pharmacienId: values.pharmacienId,
     pharmacieId: values.pharmacieId,
     status: existing?.status ?? 'DRAFT',
+    actType,
+    invoiceLabel: existing?.invoiceLabel ?? getMissionInvoiceLabel({ actType, invoiceLabel: undefined }),
+    suggestedTaxClassification: existing?.suggestedTaxClassification ?? actTypeDefinition.suggestedTaxClassification,
+    taxClassificationOverride: existing?.taxClassificationOverride,
     dateDebut: values.days[0]?.dateService ?? values.dateDebut,
     dateFin: values.days[values.days.length - 1]?.dateService ?? values.dateFin,
     days,
@@ -235,6 +244,7 @@ export function buildMissionFromForm(values: MissionFormValues, existing?: Missi
       .filter((fee) => fee.typeKey === 'MILEAGE')
       .reduce((sum, fee) => sum + fee.amountCents, 0),
     totalCents: subtotalCents + expenseTotalCents,
+    excludedDates: values.excludedDates.length ? [...values.excludedDates] : undefined,
     notes: values.notes,
     invoiceId: existing?.invoiceId,
     events: [
@@ -266,7 +276,9 @@ export function regenerateDays(
   }
 ): MissionFormValues {
   const end = source.isMultiDay ? source.dateFin : source.dateDebut;
+  const excludedDates = new Set(source.excludedDates ?? []);
   const nextDays = daysBetween(source.dateDebut, end || source.dateDebut).map((date) => {
+    if (excludedDates.has(date)) return null;
     const existingDay = source.days.find((day) => day.dateService === date);
     return existingDay
       ? recalcDay({ ...existingDay, startTime: source.defaultStartTime, endTime: source.defaultEndTime, unpaidBreakMinutes: source.defaultUnpaidBreakMinutes })
@@ -275,6 +287,6 @@ export function regenerateDays(
           mealThresholdHours: defaults.mealDefaults.thresholdHours,
           mealDefaultAmount: centsToMoney(defaults.mealDefaults.amountCents),
         });
-  });
+  }).filter((day): day is MissionDayFormValue => Boolean(day));
   return { ...source, dateFin: end || source.dateDebut, days: nextDays };
 }

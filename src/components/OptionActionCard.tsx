@@ -1,8 +1,8 @@
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
-import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme } from '@mui/material';
+import { CardActionArea, Stack, Typography, Box, type SxProps, type Theme, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { componentBorderRadius, iconSize, cardActionHeight, spacingFractional, spacingScale, typographyScale, dashboardTokens, homePageTokens } from '../design-system/tokens';
+import { iconSize, cardActionHeight, spacingFractional, spacingScale, typographyScale, dashboardTokens, homePageTokens } from '../design-system/tokens';
 import { SurfaceCard } from './SurfaceCard';
 
 type IconTone = 'green' | 'blue' | 'amber' | 'purple' | 'red' | 'gray';
@@ -57,8 +57,10 @@ export function OptionActionCard({
   onClick,
   'data-testid': testId,
 }: OptionActionCardProps) {
+  const theme = useTheme();
+
   return (
-    <SurfaceCard data-testid={testId} flush>
+    <SurfaceCard data-testid={testId} flush radius="dashboardCard">
       <CardActionArea 
         onClick={onClick} 
         sx={{
@@ -92,7 +94,7 @@ export function OptionActionCard({
               sx={{
                 width: iconSize.md,
                 height: iconSize.md,
-                borderRadius: componentBorderRadius.card,
+                borderRadius: theme.runtimeTokens.iconRadius,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

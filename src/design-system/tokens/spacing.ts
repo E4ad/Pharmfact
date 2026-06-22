@@ -5,6 +5,7 @@ function pxToRem(px: number): string {
 }
 
 export const spacingScalePx = {
+  none: 0,
   '2xs': BASE_UNIT,
   xs: BASE_UNIT * 2,
   sm: BASE_UNIT * 3,
@@ -19,6 +20,7 @@ export const spacingScalePx = {
 } as const;
 
 export const spacingScale = {
+  none: '0rem',
   '2xs': pxToRem(spacingScalePx['2xs']),
   xs: pxToRem(spacingScalePx.xs),
   sm: pxToRem(spacingScalePx.sm),

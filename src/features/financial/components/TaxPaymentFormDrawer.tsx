@@ -50,7 +50,7 @@ export function TaxPaymentFormDrawer({ open, onClose, onAdded, periodLabel }: Ta
   }
 
   return (
-    <FinancialDrawer title="Ajouter un acompte" open={open} onClose={onClose}>
+    <FinancialDrawer title="Ajouter un acompte" open={open} onClose={onClose} data-testid="financial-tax-payment-drawer">
       <form onSubmit={submit}>
         <Stack spacing={3}>
           <TextField

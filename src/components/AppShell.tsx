@@ -28,10 +28,11 @@ function pageTitle(pathname: string): string {
   if (pathname.startsWith('/activity')) return 'Accueil';
   if (pathname.startsWith('/mission/new') || pathname.startsWith('/missions/new')) return 'Nouvelle mission';
   if (pathname.startsWith('/missions/') && pathname.endsWith('/edit')) return 'Modifier une mission';
-  if (pathname.startsWith('/missions')) return 'Pilotage des missions';
-  if (pathname.startsWith('/invoices')) return 'Factures';
-  if (pathname.startsWith('/financial')) return 'État financier';
+  if (pathname.startsWith('/missions')) return 'Missions';
+  if (pathname.startsWith('/invoices')) return 'Factures & encaissements';
+  if (pathname.startsWith('/financial')) return 'Pilotage fiscal';
   if (pathname.startsWith('/options')) return 'Options';
+  if (pathname.startsWith('/pharmacies')) return 'Référentiels';
   if (pathname.startsWith('/pharmacy/add')) return 'Ajouter une pharmacie';
   if (pathname.startsWith('/pharmacien/new')) return 'Nouveau pharmacien';
   return 'Pharmfact';

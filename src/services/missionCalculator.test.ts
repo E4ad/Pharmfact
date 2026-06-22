@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateDayHours, calculateMission } from './missionCalculator';
+import { calculateDayHours, calculateMission, regenerateDays } from './missionCalculator';
 
 describe('missionCalculator', () => {
   it('subtracts unpaid break minutes from worked time', () => {
@@ -20,5 +20,29 @@ describe('missionCalculator', () => {
     expect(result.mealTotalCents).toBe(2_200);
     expect(result.mileageTotalCents).toBe(1_830);
     expect(result.totalCents).toBe(60_030);
+  });
+
+  it('keeps excluded multi-day dates removed when regenerating', () => {
+    const result = regenerateDays({
+      pharmacienId: 'ph_1',
+      pharmacieId: 'pha_1',
+      actType: 'REMPLACEMENT_OFFICINE',
+      dateDebut: '2026-06-05',
+      dateFin: '2026-06-07',
+      isMultiDay: true,
+      excludedDates: ['2026-06-06'],
+      defaultStartTime: '08:00',
+      defaultEndTime: '17:00',
+      defaultUnpaidBreakMinutes: 60,
+      tauxHoraire: 80,
+      distanceReferenceKm: 0,
+      kmUnitRate: 0.61,
+      days: [],
+      notes: '',
+    }, {
+      mealDefaults: { enabled: false, thresholdHours: 8, amountCents: 0 },
+    });
+
+    expect(result.days.map((day) => day.dateService)).toEqual(['2026-06-05', '2026-06-07']);
   });
 });

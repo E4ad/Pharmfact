@@ -23,9 +23,27 @@ describe('design tokens', () => {
     expect(spacingScalePx['3xl']).toBe(48);
   });
 
-  it('keeps pills fully rounded and cards larger than inputs', () => {
-    expect(componentBorderRadius.chip).toBeGreaterThan(1000);
-    expect(componentBorderRadius.card).toBeGreaterThan(componentBorderRadius.input);
+  it('uses 1px border radius as default for sharp corners', () => {
+    // Card and surface components use 1px for sharp corners
+    expect(componentBorderRadius.card).toBe(1);
+    expect(componentBorderRadius.hero).toBe(1);
+    expect(componentBorderRadius.dashboardCard).toBe(1);
+    expect(componentBorderRadius.settingsCard).toBe(1);
+    
+    // Buttons use 1px for sharp corners
+    expect(componentBorderRadius.button.default).toBe(1);
+    expect(componentBorderRadius.button.square).toBe(0);
+    
+    // Inputs use 1px for sharp corners
+    expect(componentBorderRadius.input).toBe(1);
+    expect(componentBorderRadius.select).toBe(1);
+    expect(componentBorderRadius.textarea).toBe(1);
+    
+    // Chips, badges, avatars use full rounding (pill shape)
+    expect(componentBorderRadius.chip).toBe(9999);
+    expect(componentBorderRadius.badge).toBe(9999);
+    expect(componentBorderRadius.avatar).toBe(9999);
+    expect(componentBorderRadius.status).toBe(9999);
   });
 
   it('keeps light theme text and paper colors stable', () => {

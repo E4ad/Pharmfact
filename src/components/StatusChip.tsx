@@ -1,8 +1,8 @@
-import { Chip } from '@mui/material';
+import { Chip, useTheme } from '@mui/material';
 import type { MissionStatus, InvoiceStatus } from '../storage/schema';
 import { invoiceStatusLabels, invoiceStatusTone } from '../services/invoiceWorkflow';
 import { missionStatusLabels, missionStatusTone } from '../services/missionStatus';
-import { borderRadiusScale, componentHeight, spacingScale } from '../design-system/tokens';
+import { componentHeight, spacingScale } from '../design-system/tokens';
 
 type Props =
   | { kind: 'mission'; status: MissionStatus }
@@ -10,9 +10,10 @@ type Props =
   | { kind: 'none'; label: string };
 
 export function StatusChip(props: Props) {
+  const theme = useTheme();
   const commonSx = {
     height: componentHeight.xs,
-    borderRadius: borderRadiusScale.full,
+    borderRadius: theme.runtimeTokens.controlRadius,
     fontWeight: 750,
     letterSpacing: '0.01em',
     '& .MuiChip-label': {

@@ -62,6 +62,7 @@ export function useMissionForm(
       dateDebut: todayIso(),
       dateFin: todayIso(),
       isMultiDay: false,
+      excludedDates: [],
       defaultStartTime: defaults.scheduleDefaults.startTime,
       defaultEndTime: defaults.scheduleDefaults.endTime,
       defaultUnpaidBreakMinutes: defaults.scheduleDefaults.breakMinutes,
@@ -150,6 +151,26 @@ export function useMissionForm(
       days: current.days.map((day) => (day.id === dayId ? recalcDay({ ...day, ...patch }) : day)),
     }));
   }, [recalcDay]);
+
+  const removeDay = useCallback((dayId: string) => {
+    const removedDay = values.days.find((day) => day.id === dayId);
+    setValues((current) => {
+      if (current.days.length <= 1) return current;
+      const removedCurrentDay = current.days.find((day) => day.id === dayId);
+      if (!removedCurrentDay) return current;
+      const remainingDays = current.days.filter((day) => day.id !== dayId);
+      return {
+        ...current,
+        excludedDates: [...new Set([...(current.excludedDates ?? []), removedCurrentDay.dateService])],
+        days: remainingDays,
+        dateDebut: remainingDays[0]?.dateService ?? current.dateDebut,
+        dateFin: remainingDays.at(-1)?.dateService ?? current.dateFin,
+      };
+    });
+    if (removedDay) {
+      setPendingReceipts((current) => current.filter((receipt) => receipt.missionDayId !== removedDay.id));
+    }
+  }, [values]);
 
   const addExpense = useCallback((dayId: string, type: ExpenseType) => {
     setValues((current) => {
@@ -342,6 +363,7 @@ export function useMissionForm(
     addExpense,
     addTypedExpense,
     removeExpense,
+    removeDay,
     updateExpense,
     addReceipt,
     deleteReceipt,

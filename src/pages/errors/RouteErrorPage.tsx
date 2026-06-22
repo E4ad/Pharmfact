@@ -31,9 +31,6 @@ export function RouteErrorPage() {
               <Button component={Link} to="/activity" variant="contained">
                 Retour à l’accueil
               </Button>
-              <Button onClick={() => window.location.reload()} variant="outlined">
-                Recharger
-              </Button>
             </Stack>
           </Stack>
         </SurfaceCard>

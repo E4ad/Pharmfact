@@ -1,7 +1,12 @@
 import { APP_SCHEMA_VERSION, type AppState } from '../storage/schema';
-import { getAppState, migrateAppState, setAppState } from '../storage/localStore';
-import { validateAppStateWithDetails, type ValidationError, type ValidationWarning } from '../storage/validation';
+import { getAppState, migrateAppState, setAppStateAsync } from '../storage/localStore';
+import {
+  validateAppStateWithDetails,
+  type ValidationError,
+  type ValidationWarning,
+} from '../storage/validation';
 import { getPlatformAsync } from './platformService';
+import { buildBackupAuditTrailEntry } from './auditTrail';
 
 const BACKUP_FORMAT = 'pharmfact-backup';
 
@@ -32,7 +37,10 @@ type BackupEnvelope = {
 };
 
 function timestampForFilename(date = new Date()): string {
-  return date.toISOString().replace(/\.\d{3}Z$/, '').replace(/[:T]/g, '-');
+  return date
+    .toISOString()
+    .replace(/\.\d{3}Z$/, '')
+    .replace(/[:T]/g, '-');
 }
 
 function appVersion(): string {
@@ -71,7 +79,10 @@ export async function downloadBackup(backup: BackupFile): Promise<boolean> {
   });
 }
 
-export function parseAndValidateBackup(json: string, currentState: AppState = getAppState()): BackupResult {
+export function parseAndValidateBackup(
+  json: string,
+  currentState: AppState = getAppState(),
+): BackupResult {
   try {
     const parsed = JSON.parse(json) as Partial<BackupEnvelope> | AppState;
     const candidate = 'data' in parsed && parsed.data ? parsed.data : parsed;
@@ -118,22 +129,24 @@ export async function importBackup(result: BackupResult): Promise<BackupResult> 
   if (!result.success) return result;
 
   const safetyBackup = createBackup(getAppState());
-  const saved = await downloadBackup({
-    ...safetyBackup,
-    filename: `pharmfact-securite-avant-restauration-${timestampForFilename(new Date(safetyBackup.createdAt))}.json`,
-  });
-
-  if (!saved) {
-    return {
-      ...result,
-      success: false,
-      errors: ['Restauration annulée : la sauvegarde de sécurité est requise avant import.'],
-    };
+  try {
+    localStorage.setItem(
+      `pharmfact:safety-backup:${safetyBackup.createdAt}`,
+      JSON.stringify({
+        ...safetyBackup,
+        filename: `pharmfact-securite-avant-restauration-${timestampForFilename(new Date(safetyBackup.createdAt))}.json`,
+      }),
+    );
+  } catch {
+    // La restauration ne doit pas échouer seulement parce que le navigateur bloque localStorage.
   }
 
-  setAppState(result.state);
+  await setAppStateAsync(
+    result.state,
+    buildBackupAuditTrailEntry('BACKUP_IMPORTED', 'Restauration de sauvegarde locale.'),
+  );
   return {
     ...result,
-    warnings: [...result.warnings, 'Sauvegarde de sécurité créée avant restauration.'],
+    warnings: [...result.warnings, 'Sauvegarde de sécurité locale créée avant restauration.'],
   };
 }

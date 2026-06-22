@@ -50,12 +50,12 @@ describe('localStore migration', () => {
     Object.defineProperty(globalThis, 'localStorage', { value: originalLocalStorage, writable: true });
   });
 
-  it('migrates v1 flat options to v2 appOptions structure', () => {
+  it('migrates v1 flat options to v3 appOptions structure', () => {
     store['mission-app:v1'] = JSON.stringify(baseV1);
     importAppState(JSON.stringify(baseV1));
     const state = getAppState();
 
-    expect(state.version).toBe(2);
+    expect(state.version).toBe(3);
     expect(state.appOptions.missionDefaults.defaultBreakMinutes).toBe(30);
     expect(state.appOptions.invoiceDefaults.invoiceDueDays).toBe(30);
     expect(state.appOptions.invoiceDefaults.paymentTerms).toBe('Paiement par virement dans les 30 jours.');
@@ -90,14 +90,16 @@ describe('localStore migration', () => {
     });
   });
 
-  it('does not re-migrate v2 state', () => {
-    const v2 = { version: 2, pharmaciens: [], pharmacies: [], missions: [], invoices: [], taxPayments: [], deductibleExpenses: [], expenseReceipts: [], fiscalSettings: { reserveRate: 0.3 }, distanceReferences: [], appOptions: { missionDefaults: { defaultBreakMinutes: 60 }, invoiceDefaults: { invoiceDueDays: 30 }, pdfCalendar: { calendarIcsEnabled: true } }, uiSettings: { themeMode: 'light' }, localDataSettings: { autoBackupEnabled: true }, ui: {} };
+  it('migrates v2 state to v3 invoice missionIds', () => {
+    const v2 = { version: 2, pharmaciens: [], pharmacies: [], missions: [], invoices: [{ id: 'inv1', numero: 'F1', missionId: 'mis1', pharmacienId: 'ph1', pharmacieId: 'pha1', dateFacture: '2026-01-01', dateEcheance: '2026-01-31', status: 'GENERATED', hours: 1, amountCents: 10000, createdAt: '' }], taxPayments: [], deductibleExpenses: [], expenseReceipts: [], fiscalSettings: { reserveRate: 0.3, smallSupplierWarningRate: 80 }, distanceReferences: [], appOptions: { missionDefaults: { defaultBreakMinutes: 60 }, invoiceDefaults: { invoiceDueDays: 30 }, pdfCalendar: { calendarIcsEnabled: true } }, uiSettings: { themeMode: 'light' }, localDataSettings: { autoBackupEnabled: true }, ui: {} };
     store['mission-app:v1'] = JSON.stringify(v2);
     importAppState(JSON.stringify(v2));
     const state = getAppState();
 
-    expect(state.version).toBe(2);
+    expect(state.version).toBe(3);
     expect(state.appOptions.missionDefaults.defaultBreakMinutes).toBe(60);
+    expect(state.invoices[0].missionIds).toEqual(['mis1']);
+    expect(state.fiscalSettings.smallSupplierWarningRate).toBe(0.8);
     expect(state.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
   });
 
@@ -132,7 +134,7 @@ describe('localStore migration', () => {
 
     resetAppState();
     const state = getAppState();
-    expect(state.version).toBe(2);
+    expect(state.version).toBe(3);
     expect(state.pharmaciens).toEqual([]);
     expect(state.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
   });
@@ -176,7 +178,7 @@ describe('localStore state operations', () => {
 
   it('returns seed state when localStorage is empty', () => {
     const state = getAppState();
-    expect(state.version).toBe(2);
+    expect(state.version).toBe(3);
     expect(state.pharmaciens).toEqual([]);
     expect(state.opqPharmacistRegistry.sourceUrl).toBe('https://www.opq.org/trouver-un-pharmacien/');
     expect(state.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
@@ -197,7 +199,7 @@ describe('localStore state operations', () => {
     const json = exportAppState();
     const parsed = JSON.parse(json);
 
-    expect(parsed.version).toBe(2);
+    expect(parsed.version).toBe(3);
     expect(parsed.pharmaciens).toEqual([]);
     expect(parsed.opqPharmacistRegistry.entries.length).toBeGreaterThan(1000);
   });

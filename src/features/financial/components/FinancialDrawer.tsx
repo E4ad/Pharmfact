@@ -25,8 +25,10 @@ export function FinancialModal({ title, open, onClose, children, 'data-testid': 
         paper: {
           sx: {
             maxHeight: '90vh',
-            width: { xs: '100%', sm: 480 },
+            width: { xs: '100%', sm: 560, md: 640 },
             zIndex: 1400,
+            display: 'flex',
+            flexDirection: 'column',
           },
         },
       }}
@@ -41,7 +43,7 @@ export function FinancialModal({ title, open, onClose, children, 'data-testid': 
           <CloseRoundedIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ p: 3 }}>
+      <DialogContent sx={{ p: 3, flex: 1 }}>
         {children}
       </DialogContent>
     </Dialog>

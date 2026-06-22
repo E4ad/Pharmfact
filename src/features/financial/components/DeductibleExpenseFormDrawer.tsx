@@ -3,7 +3,7 @@ import { Button, Stack, TextField, MenuItem, Select, FormControl, InputLabel } f
 import { FinancialDrawer } from './FinancialDrawer';
 import { createId, todayIso } from '../../../services/ids';
 import { eurosToCents } from '../../../services/money';
-import { updateAppState } from '../../../storage/localStore';
+import { updateAppState, useAppState } from '../../../storage/localStore';
 import type { DeductibleExpense } from '../../../storage/schema';
 
 const expenseCategories = [
@@ -28,12 +28,15 @@ interface DeductibleExpenseFormDrawerProps {
 }
 
 export function DeductibleExpenseFormDrawer({ open, onClose, onSubmit, defaultValues }: DeductibleExpenseFormDrawerProps) {
+  const state = useAppState();
   const [form, setForm] = useState<Omit<DeductibleExpense, 'id'> & { amount: string }>({
     date: todayIso(),
     label: '',
     category: 'TRAVEL',
     amountCents: 0,
     taxDeductible: true,
+    missionId: '',
+    receiptId: '',
     hasReceipt: false,
     notes: '',
     amount: '0',
@@ -50,8 +53,11 @@ export function DeductibleExpenseFormDrawer({ open, onClose, onSubmit, defaultVa
       label: form.label,
       category: form.category,
       amountCents,
-      taxDeductible: true,
+      taxDeductible: form.taxDeductible,
+      missionId: form.missionId || undefined,
+      receiptId: form.receiptId || undefined,
       hasReceipt: form.hasReceipt,
+      notes: form.notes,
     };
 
     updateAppState((state) => ({
@@ -59,14 +65,16 @@ export function DeductibleExpenseFormDrawer({ open, onClose, onSubmit, defaultVa
       deductibleExpenses: [...state.deductibleExpenses, expense],
     }));
 
-    setForm((current) => ({ ...current, label: '', amount: '' }));
+    setForm((current) => ({ ...current, label: '', amount: '', notes: '', receiptId: '', missionId: '' }));
     onSubmit(
       {
         date: form.date,
         label: form.label,
         category: form.category,
-        amountCents: eurosToCents(Number(form.amount)),
-        taxDeductible: true,
+        amountCents,
+        taxDeductible: form.taxDeductible,
+        missionId: form.missionId || undefined,
+        receiptId: form.receiptId || undefined,
         hasReceipt: form.hasReceipt,
         notes: form.notes,
       }
@@ -75,7 +83,7 @@ export function DeductibleExpenseFormDrawer({ open, onClose, onSubmit, defaultVa
   }
 
   return (
-    <FinancialDrawer title="Ajouter une dépense" open={open} onClose={onClose}>
+    <FinancialDrawer title="Ajouter une dépense" open={open} onClose={onClose} data-testid="financial-deductible-expense-drawer">
       <form onSubmit={submit}>
         <Stack spacing={3}>
           <TextField
@@ -119,6 +127,35 @@ export function DeductibleExpenseFormDrawer({ open, onClose, onSubmit, defaultVa
           />
 
           <FormControl>
+            <InputLabel>Déductible</InputLabel>
+            <Select
+              label="Déductible"
+              value={form.taxDeductible ? 'yes' : 'no'}
+              onChange={(e) => setForm({ ...form, taxDeductible: e.target.value === 'yes' })}
+              required
+            >
+              <MenuItem value="yes">Oui</MenuItem>
+              <MenuItem value="no">Non</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl>
+            <InputLabel>Mission liée</InputLabel>
+            <Select
+              label="Mission liée"
+              value={form.missionId ?? ''}
+              onChange={(e) => setForm({ ...form, missionId: e.target.value })}
+            >
+              <MenuItem value="">Aucune</MenuItem>
+              {state.missions.map((mission) => (
+                <MenuItem key={mission.id} value={mission.id}>
+                  {mission.missionCode}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl>
             <InputLabel>Justificatif</InputLabel>
             <Select
               label="Justificatif"
@@ -130,6 +167,20 @@ export function DeductibleExpenseFormDrawer({ open, onClose, onSubmit, defaultVa
               <MenuItem value="no">Non</MenuItem>
             </Select>
           </FormControl>
+
+          <TextField
+            label="Référence justificatif"
+            value={form.receiptId ?? ''}
+            onChange={(e) => setForm({ ...form, receiptId: e.target.value, hasReceipt: Boolean(e.target.value.trim()) || form.hasReceipt })}
+          />
+
+          <TextField
+            label="Note"
+            value={form.notes ?? ''}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            multiline
+            minRows={2}
+          />
 
            <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>
             <Button type="button" variant="outlined" onClick={onClose}>

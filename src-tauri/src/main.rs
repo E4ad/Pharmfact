@@ -376,10 +376,16 @@ async fn load_state(app: tauri::AppHandle) -> Result<String, String> {
     let state_path = data_dir.join(STATE_FILE);
 
     if !state_path.exists() {
-        return Ok("{}".to_string());
+        return Ok("null".to_string());
     }
 
-    fs::read_to_string(&state_path).map_err(|e| format!("Erreur de lecture: {}", e))
+    let content = fs::read_to_string(&state_path).map_err(|e| format!("Erreur de lecture: {}", e))?;
+    let trimmed = content.trim();
+    if trimmed.is_empty() || trimmed == "{}" {
+        Ok("null".to_string())
+    } else {
+        Ok(content)
+    }
 }
 
 #[tauri::command]
@@ -398,7 +404,12 @@ async fn save_state(state: String, app: tauri::AppHandle) -> Result<(), String> 
 
 #[tauri::command]
 async fn export_state(app: tauri::AppHandle) -> Result<String, String> {
-    load_state(app).await
+    let state = load_state(app).await?;
+    if state.trim().is_empty() {
+        Ok("null".to_string())
+    } else {
+        Ok(state)
+    }
 }
 
 #[tauri::command]
@@ -487,7 +498,28 @@ fn format_decimal(value: f64, decimals: usize) -> String {
 }
 
 fn format_money_cents(cents: i64) -> String {
-    format!("{:.2} $", cents as f64 / 100.0).replace('.', ",")
+    let absolute = cents.abs();
+    let whole = absolute / 100;
+    let fractional = absolute % 100;
+    let digits = whole.to_string();
+    let integer_part = digits
+        .chars()
+        .rev()
+        .collect::<Vec<char>>()
+        .chunks(3)
+        .map(|chunk| chunk.iter().rev().collect::<String>())
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("\u{202f}");
+    format!(
+        "{}{}.{:02} $",
+        if cents < 0 { "-" } else { "" },
+        integer_part,
+        fractional
+    )
+    .replace('.', ",")
 }
 
 fn money(cents: i64) -> String {
@@ -508,6 +540,109 @@ fn format_rate_cents_per_km(cents: i64) -> String {
 
 fn format_rate_cents(cents: i64) -> String {
     format_rate_cents_per_km(cents)
+}
+
+fn month_name_fr(month: u32) -> &'static str {
+    match month {
+        1 => "janvier",
+        2 => "février",
+        3 => "mars",
+        4 => "avril",
+        5 => "mai",
+        6 => "juin",
+        7 => "juillet",
+        8 => "août",
+        9 => "septembre",
+        10 => "octobre",
+        11 => "novembre",
+        12 => "décembre",
+        _ => "",
+    }
+}
+
+fn parse_iso_date(value: &str) -> Option<(i32, u32, u32)> {
+    let mut parts = value.split('-');
+    let year = parts.next()?.parse::<i32>().ok()?;
+    let month = parts.next()?.parse::<u32>().ok()?;
+    let day = parts.next()?.parse::<u32>().ok()?;
+    Some((year, month, day))
+}
+
+fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
+    let year = year - i32::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let yoe = year - era * 400;
+    let month = month as i32;
+    let day = day as i32;
+    let doy = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    (era * 146097 + doe - 719468) as i64
+}
+
+fn iso_dates_are_consecutive(previous: &str, next: &str) -> bool {
+    match (parse_iso_date(previous), parse_iso_date(next)) {
+        (Some((py, pm, pd)), Some((ny, nm, nd))) => {
+            days_from_civil(ny, nm, nd) - days_from_civil(py, pm, pd) == 1
+        }
+        _ => false,
+    }
+}
+
+fn format_iso_date_fr(value: &str) -> String {
+    if let Some((year, month, day)) = parse_iso_date(value) {
+        let month_name = month_name_fr(month);
+        if !month_name.is_empty() {
+            return format!("{} {} {}", day, month_name, year);
+        }
+    }
+    value.to_string()
+}
+
+fn format_date_span_fr(start: &str, end: &str) -> String {
+    if start.is_empty() {
+        return format_iso_date_fr(end);
+    }
+    if end.is_empty() {
+        return format_iso_date_fr(start);
+    }
+    match (parse_iso_date(start), parse_iso_date(end)) {
+        (Some((sy, sm, sd)), Some((ey, em, ed))) if sy == ey && sm == em => {
+            format!("{} au {} {} {}", sd, ed, month_name_fr(sm), sy)
+        }
+        _ => format!("{} au {}", format_iso_date_fr(start), format_iso_date_fr(end)),
+    }
+}
+
+fn format_date_list_fr(dates: &[String]) -> String {
+    match dates {
+        [] => "—".to_string(),
+        [single] => format_iso_date_fr(single),
+        _ => format_date_span_fr(&dates[0], dates.last().unwrap()),
+    }
+}
+
+fn format_mileage_detail(km: f64, rate_cents: i64, amount_cents: i64) -> String {
+    format!(
+        "{} × {} = {}",
+        format_km(km),
+        format_rate_cents(rate_cents),
+        money(amount_cents)
+    )
+}
+
+fn mission_invoice_label(mission: &serde_json::Value) -> String {
+    let invoice_label = json_str(mission, "invoiceLabel").trim();
+    if !invoice_label.is_empty() {
+        return invoice_label.to_string();
+    }
+    match json_str(mission, "actType") {
+        "REMPLACEMENT_OFFICINE" => "Remplacement en officine".to_string(),
+        "PHARMACIEN_GMF" => "Services professionnels en GMF".to_string(),
+        "CLINIQUE" => "Services professionnels en clinique".to_string(),
+        "TELEPHARMACIE" => "Services de télépharmacie".to_string(),
+        "CONSEIL_FORMATION" => "Conseil et formation".to_string(),
+        _ => "Services professionnels".to_string(),
+    }
 }
 
 fn status_label(status: &str) -> &'static str {
@@ -533,6 +668,7 @@ fn expense_type_label(expense: &serde_json::Value) -> &'static str {
     }
 }
 
+#[cfg(test)]
 fn travel_lines(mission: Option<&serde_json::Value>, billed_mileage_cents: i64) -> Vec<String> {
     if let Some(mission) = mission {
         let km = json_f64(mission, "mileageKm");
@@ -631,10 +767,8 @@ const PAGE_HEIGHT: f64 = 297.0;
 const PAGE_MARGIN_X: f64 = 12.0;
 const PAGE_TOP_Y: f64 = PAGE_HEIGHT - 17.0;
 const CONTENT_WIDTH: f64 = PAGE_WIDTH - (PAGE_MARGIN_X * 2.0);
-const SECTION_GAP: f64 = 7.0;
 // Tableau légèrement plus dense
 const TABLE_HEADER_HEIGHT: f64 = 9.5;
-const TABLE_ROW_HEIGHT: f64 = 9.0;
 const FOOTER_Y: f64 = 18.0;
 const BLUE: (f64, f64, f64) = (0.0, 0.373, 0.561);
 const ROW_LIGHT: (f64, f64, f64) = (0.976, 0.980, 0.984);
@@ -642,6 +776,23 @@ const ROW_LIGHT: (f64, f64, f64) = (0.976, 0.980, 0.984);
 struct PdfFonts<'a> {
     regular: &'a printpdf::IndirectFontRef,
     bold: &'a printpdf::IndirectFontRef,
+}
+
+#[derive(Clone)]
+struct ServiceLine {
+    dates: Vec<String>,
+    description: String,
+    hours: f64,
+    rate_cents: i64,
+    amount_cents: i64,
+}
+
+#[derive(Clone)]
+struct ExpenseLine {
+    date: String,
+    label: String,
+    detail: String,
+    amount_cents: i64,
 }
 
 fn estimate_text_width(text: &str, font_size: f64) -> f64 {
@@ -724,14 +875,11 @@ fn draw_status_badge_right(
     );
 }
 
-fn ensure_space_or_new_page(cursor_y: f64, required_height: f64) -> f64 {
-    cursor_y.max(FOOTER_Y + required_height + SECTION_GAP)
-}
-
 fn draw_footer(
     layer: &printpdf::PdfLayerReference,
     fonts: &PdfFonts,
     collects_taxes: bool,
+    invoice_ref: &str,
     muted: (f64, f64, f64),
     page_number: usize,
     page_total: usize,
@@ -746,12 +894,17 @@ fn draw_footer(
         (0.898, 0.906, 0.922),
         0.2,
     );
+    let footer_right = if page_total > 1 {
+        format!("{} · Page {} / {}", invoice_ref, page_number, page_total)
+    } else {
+        invoice_ref.to_string()
+    };
     draw_text(
         layer,
         if collects_taxes {
             "TPS et TVQ calculées selon les taux applicables."
         } else {
-            "TPS/TVQ non applicables — petit fournisseur."
+            "Petit fournisseur : TPS/TVQ non perçues, sous réserve de votre situation fiscale."
         },
         7.0,
         PAGE_MARGIN_X,
@@ -761,7 +914,7 @@ fn draw_footer(
     );
     draw_text(
         layer,
-        "Facture générée électroniquement — aucune signature requise.",
+        "Facture générée par PharmFact — document conservé localement.",
         7.0,
         PAGE_MARGIN_X,
         FOOTER_Y - 4.5,
@@ -770,12 +923,88 @@ fn draw_footer(
     );
     draw_text_right(
         layer,
-        format!("Page {} / {}", page_number, page_total),
+        footer_right,
         7.0,
         PAGE_WIDTH - PAGE_MARGIN_X,
         FOOTER_Y - 4.5,
         fonts.regular,
         muted,
+    );
+}
+
+fn add_pdf_page(
+    doc: &printpdf::PdfDocumentReference,
+    page_layers: &mut Vec<printpdf::PdfLayerReference>,
+) -> printpdf::PdfLayerReference {
+    use printpdf::Mm;
+
+    let (page, layer) = doc.add_page(
+        Mm(PAGE_WIDTH),
+        Mm(PAGE_HEIGHT),
+        format!("Layer {}", page_layers.len() + 1),
+    );
+    let current_layer = doc.get_page(page).get_layer(layer);
+    page_layers.push(current_layer.clone());
+    current_layer
+}
+
+fn draw_table_header(
+    layer: &printpdf::PdfLayerReference,
+    fonts: &PdfFonts,
+    y: f64,
+) {
+    draw_rect(
+        layer,
+        PAGE_MARGIN_X,
+        y,
+        CONTENT_WIDTH,
+        TABLE_HEADER_HEIGHT,
+        (0.988, 0.992, 0.996),
+        None,
+    );
+    for (label, x) in [
+        ("Date", PAGE_MARGIN_X),
+        ("Prestation", 42.0),
+        ("Heures", 127.0),
+        ("Taux", 156.0),
+        ("Montant", 181.0),
+    ] {
+        draw_text(layer, label, 7.8, x, y - 6.3, fonts.bold, (0.067, 0.094, 0.153));
+    }
+    draw_line(
+        layer,
+        PAGE_MARGIN_X,
+        y - TABLE_HEADER_HEIGHT,
+        PAGE_WIDTH - PAGE_MARGIN_X,
+        y - TABLE_HEADER_HEIGHT,
+        BLUE,
+        0.8,
+    );
+}
+
+fn draw_followup_header(
+    layer: &printpdf::PdfLayerReference,
+    fonts: &PdfFonts,
+    invoice_numero: &str,
+    pharmacie_nom: &str,
+    total_cents: i64,
+    y: f64,
+) {
+    let summary = format!(
+        "Facture {} — {} — Total {}",
+        invoice_numero,
+        truncate_chars(pharmacie_nom, 28),
+        money(total_cents)
+    );
+    draw_text(layer, summary, 10.2, PAGE_MARGIN_X, y, fonts.bold, BLUE);
+    draw_line(
+        layer,
+        PAGE_MARGIN_X,
+        y - 4.5,
+        PAGE_WIDTH - PAGE_MARGIN_X,
+        y - 4.5,
+        BLUE,
+        0.45,
     );
 }
 
@@ -849,6 +1078,9 @@ fn generate_invoice_pdf_bytes(
         .map(|item| json_str(item, "missionCode"))
         .filter(|value| !value.is_empty())
         .unwrap_or(json_str(&invoice, "missionId"));
+    let mission_date_debut = mission.map(|item| json_str(item, "dateDebut")).unwrap_or(invoice_date);
+    let mission_meal_total_cents = mission.map(|item| json_i64(item, "mealTotalCents")).unwrap_or(0);
+    let mission_mileage_total_cents = mission.map(|item| json_i64(item, "mileageTotalCents")).unwrap_or(0);
     let hourly_rate_cents = mission
         .map(|item| json_i64(item, "hourlyRateCents"))
         .filter(|value| *value > 0)
@@ -859,131 +1091,6 @@ fn generate_invoice_pdf_bytes(
                 0
             }
         });
-
-    let mut service_rows: Vec<(String, String, f64, i64, i64)> = Vec::new();
-    if let Some(days) = mission
-        .and_then(|item| item.get("days"))
-        .and_then(|days| days.as_array())
-    {
-        for day in days {
-            let hours = json_f64(day, "hours");
-            let amount = (hours * hourly_rate_cents as f64).round() as i64;
-            service_rows.push((
-                json_str(day, "dateService").to_string(),
-                if json_str(day, "description").is_empty() {
-                    "Mission de remplacement".to_string()
-                } else {
-                    json_str(day, "description").to_string()
-                },
-                hours,
-                hourly_rate_cents,
-                amount,
-            ));
-        }
-    }
-    if service_rows.is_empty() {
-        service_rows.push((
-            invoice_date.to_string(),
-            "Mission de remplacement".to_string(),
-            invoice_hours,
-            hourly_rate_cents,
-            (invoice_hours * hourly_rate_cents as f64).round() as i64,
-        ));
-    }
-
-    let mut expense_rows: Vec<(String, String, String, String, i64)> = Vec::new();
-    if let Some(days) = mission
-        .and_then(|item| item.get("days"))
-        .and_then(|days| days.as_array())
-    {
-        for day in days {
-            if let Some(expenses) = day.get("expenses").and_then(|expenses| expenses.as_array()) {
-                for expense in expenses {
-                    let amount_cents = json_i64(expense, "amountCents");
-                    let detail = if json_str(expense, "typeKey") == "MILEAGE" {
-                        let distance = json_f64(expense, "distanceKm");
-                        let unit_rate = json_i64(expense, "unitRateCents");
-                        if distance > 0.0 && unit_rate > 0 {
-                            format!("{} × {}", format_km(distance), format_rate_cents(unit_rate))
-                        } else {
-                            "—".to_string()
-                        }
-                    } else if !json_str(expense, "notes").is_empty() {
-                        json_str(expense, "notes").to_string()
-                    } else {
-                        "—".to_string()
-                    };
-                    expense_rows.push((
-                        json_str(day, "dateService").to_string(),
-                        expense_type_label(expense).to_string(),
-                        json_str(expense, "label").to_string(),
-                        detail,
-                        amount_cents,
-                    ));
-                }
-            }
-        }
-    }
-    if expense_rows.is_empty() {
-        if let Some(mission) = mission {
-            let meal_total = json_i64(mission, "mealTotalCents");
-            let mileage_total = json_i64(mission, "mileageTotalCents");
-            let date = json_str(mission, "dateDebut").to_string();
-            if meal_total > 0 {
-                expense_rows.push((
-                    date.clone(),
-                    "Repas".to_string(),
-                    "Frais repas forfaitaires".to_string(),
-                    "—".to_string(),
-                    meal_total,
-                ));
-            }
-            if mileage_total > 0 {
-                expense_rows.push((
-                    date,
-                    "Kilométrage".to_string(),
-                    "Kilométrage".to_string(),
-                    format!(
-                        "{} × {}",
-                        format_km(json_f64(mission, "mileageKm")),
-                        format_rate_cents(json_i64(mission, "mileageRateCents"))
-                    ),
-                    mileage_total,
-                ));
-            }
-        }
-    }
-
-    let fee_subtotal_cents: i64 = expense_rows.iter().map(|row| row.4).sum();
-    let service_subtotal_cents = (invoice_amount_cents - fee_subtotal_cents).max(0);
-    let collects_taxes = pharmacien
-        .map(|item| json_str(item, "taxStatus") == "REGISTERED")
-        .unwrap_or(false);
-    let gst_cents = if collects_taxes {
-        (invoice_amount_cents as f64 * 0.05).round() as i64
-    } else {
-        0
-    };
-    let qst_cents = if collects_taxes {
-        (invoice_amount_cents as f64 * 0.09975).round() as i64
-    } else {
-        0
-    };
-    let grand_total_cents = invoice_amount_cents + gst_cents + qst_cents;
-    let billed_mileage_cents: i64 = expense_rows
-        .iter()
-        .filter(|row| row.1 == "Kilométrage")
-        .map(|row| row.4)
-        .sum();
-
-    log::info!(
-        "[PDF] Rendu facture: {}, mission {}, lignes prestations {}, lignes frais {}, total {}",
-        invoice_numero,
-        mission_code,
-        service_rows.len(),
-        expense_rows.len(),
-        money(grand_total_cents)
-    );
 
     let (doc, page1, layer1) =
         PdfDocument::new("Facture_Pharmfact", Mm(210.0), Mm(297.0), "Layer 1");
@@ -1001,7 +1108,6 @@ fn generate_invoice_pdf_bytes(
     let ink = (0.067, 0.094, 0.153);
     let muted = (0.294, 0.333, 0.388);
     let light_border = (0.898, 0.906, 0.922);
-    let dark = (0.067, 0.094, 0.153);
     let fonts = PdfFonts {
         regular: &font,
         bold: &font_bold,
@@ -1108,7 +1214,16 @@ fn generate_invoice_pdf_bytes(
         fonts.regular,
         muted,
     );
-    // Mission - Même alignement que les dates
+    let mission_label = mission.map(mission_invoice_label).unwrap_or_else(|| "Services professionnels".to_string());
+    let mission_period = mission
+        .map(|item| format_date_span_fr(json_str(item, "dateDebut"), json_str(item, "dateFin")))
+        .unwrap_or_else(|| format_iso_date_fr(invoice_date));
+    let mission_days = mission
+        .and_then(|item| item.get("days"))
+        .and_then(|days| days.as_array())
+        .map(|days| days.len())
+        .filter(|count| *count > 0)
+        .unwrap_or(1);
     draw_text(
         &current_layer,
         "Mission :",
@@ -1120,22 +1235,58 @@ fn generate_invoice_pdf_bytes(
     );
     draw_text_right(
         &current_layer,
-        mission_code,
-        9.0,
+        truncate_chars(&mission_label, 28),
+        8.8,
         meta_value_right,
         cursor_y - (meta_line_height * 2.0),
         fonts.regular,
         muted,
     );
+    draw_text(
+        &current_layer,
+        "Période :",
+        9.0,
+        meta_label_x,
+        cursor_y - (meta_line_height * 3.0),
+        fonts.bold,
+        ink,
+    );
+    draw_text_right(
+        &current_layer,
+        truncate_chars(&mission_period, 28),
+        8.8,
+        meta_value_right,
+        cursor_y - (meta_line_height * 3.0),
+        fonts.regular,
+        muted,
+    );
+    draw_text(
+        &current_layer,
+        "Jours / heures :",
+        9.0,
+        meta_label_x,
+        cursor_y - (meta_line_height * 4.0),
+        fonts.bold,
+        ink,
+    );
+    draw_text_right(
+        &current_layer,
+        format!("{} j · {}", mission_days, format_hours(invoice_hours)),
+        8.8,
+        meta_value_right,
+        cursor_y - (meta_line_height * 4.0),
+        fonts.regular,
+        muted,
+    );
 
     // Espace après les métadonnées - légèrement réduit (28.0 au lieu de 34.0)
-    cursor_y -= 28.0;
+    cursor_y -= 32.0;
     let col_gap = 18.0;
     let col_w = (CONTENT_WIDTH - col_gap) / 2.0;
     let issuer_x = PAGE_MARGIN_X;
     let recipient_x = issuer_x + col_w + col_gap;
 
-    for (title, x) in [("Émetteur", issuer_x), ("Destinataire", recipient_x)] {
+    for (title, x) in [("Émetteur", issuer_x), ("Facturé à", recipient_x)] {
         draw_text(&current_layer, title, 9.6, x, cursor_y, fonts.bold, BLUE);
         draw_line(
             &current_layer,
@@ -1246,105 +1397,180 @@ fn generate_invoice_pdf_bytes(
         recipient_y -= if index == 0 { 5.2 } else { 4.5 };
     }
 
-    let travel_lines = travel_lines(mission, billed_mileage_cents);
-    if billed_mileage_cents == 0 && travel_lines.len() > 1 {
-        let note_y = issuer_y.min(recipient_y) - 3.0;
-        draw_rect(
-            &current_layer,
-            PAGE_MARGIN_X,
-            note_y + 3.5,
-            CONTENT_WIDTH,
-            8.0,
-            ROW_LIGHT,
-            Some(light_border),
-        );
-        draw_text(
-            &current_layer,
-            format!("Note mission : Distance indicative : {} — non facturé.", travel_lines[0]),
-            7.8,
-            PAGE_MARGIN_X + 3.0,
-            note_y - 1.5,
-            fonts.regular,
-            muted,
-        );
-        recipient_y = note_y - 8.0;
-        issuer_y = issuer_y.min(note_y - 8.0);
+    cursor_y = issuer_y.min(recipient_y) - 7.0;
+
+    let mut service_lines: Vec<ServiceLine> = Vec::new();
+    if let Some(days) = mission
+        .and_then(|item| item.get("days"))
+        .and_then(|days| days.as_array())
+    {
+        for day in days {
+            let date = json_str(day, "dateService");
+            let hours = json_f64(day, "hours");
+            let description = if json_str(day, "description").is_empty() {
+                "Remplacement en officine".to_string()
+            } else {
+                json_str(day, "description").to_string()
+            };
+            let amount = (hours * hourly_rate_cents as f64).round() as i64;
+            if amount <= 0 {
+                continue;
+            }
+            if let Some(last) = service_lines.last_mut() {
+                let last_date = last.dates.last().cloned().unwrap_or_default();
+                if last.description == description
+                    && (last.hours / last.dates.len() as f64 - hours).abs() < 0.001
+                    && last.rate_cents == hourly_rate_cents
+                    && iso_dates_are_consecutive(&last_date, date)
+                {
+                    last.dates.push(date.to_string());
+                    last.hours += hours;
+                    last.amount_cents += amount;
+                    continue;
+                }
+            }
+
+            service_lines.push(ServiceLine {
+                dates: vec![date.to_string()],
+                description,
+                hours,
+                rate_cents: hourly_rate_cents,
+                amount_cents: amount,
+            });
+        }
+    }
+    if service_lines.is_empty() {
+        service_lines.push(ServiceLine {
+            dates: vec![invoice_date.to_string()],
+            description: "Mission de remplacement".to_string(),
+            hours: invoice_hours,
+            rate_cents: hourly_rate_cents,
+            amount_cents: (invoice_hours * hourly_rate_cents as f64).round() as i64,
+        });
     }
 
-    cursor_y = issuer_y.min(recipient_y) - 11.0;
-    draw_rect(
-        &current_layer,
-        PAGE_MARGIN_X,
-        cursor_y,
-        CONTENT_WIDTH,
-        TABLE_HEADER_HEIGHT,
-        (0.988, 0.992, 0.996),
-        None,
-    );
-    for (label, x) in [
-        ("Date", PAGE_MARGIN_X),
-        ("Description de la mission", 42.0),
-        ("Heures / Qté", 124.0),
-        ("Taux", 153.0),
-        ("Total", 181.0),
-    ] {
-        draw_text(
-            &current_layer,
-            label,
-            7.9,
-            x,
-            cursor_y - 6.4,
-            fonts.bold,
-            dark,
-        );
+    let mut expense_lines: Vec<ExpenseLine> = Vec::new();
+    let mut saw_meal = false;
+    let mut saw_mileage = false;
+    if let Some(days) = mission
+        .and_then(|item| item.get("days"))
+        .and_then(|days| days.as_array())
+    {
+        for day in days {
+            let date = json_str(day, "dateService");
+            if let Some(expenses) = day.get("expenses").and_then(|expenses| expenses.as_array()) {
+                for expense in expenses {
+                    let amount_cents = json_i64(expense, "amountCents");
+                    if amount_cents <= 0 {
+                        continue;
+                    }
+                    let type_key = json_str(expense, "typeKey");
+                    let label = if type_key == "MILEAGE" {
+                        saw_mileage = true;
+                        "Déplacement".to_string()
+                    } else if type_key == "MEAL" {
+                        saw_meal = true;
+                        "Repas".to_string()
+                    } else {
+                        expense_type_label(expense).to_string()
+                    };
+                    let detail = if type_key == "MILEAGE" {
+                        let distance = json_f64(expense, "distanceKm");
+                        let unit_rate = json_i64(expense, "unitRateCents");
+                        format_mileage_detail(distance, unit_rate, amount_cents)
+                    } else if !json_str(expense, "notes").is_empty() {
+                        json_str(expense, "notes").to_string()
+                    } else if type_key == "MEAL" {
+                        "Frais repas forfaitaires".to_string()
+                    } else {
+                        "—".to_string()
+                    };
+                    expense_lines.push(ExpenseLine {
+                        date: format_iso_date_fr(date),
+                        label,
+                        detail,
+                        amount_cents,
+                    });
+                }
+            }
+        }
     }
-    draw_line(
-        &current_layer,
-        PAGE_MARGIN_X,
-        cursor_y - TABLE_HEADER_HEIGHT,
-        PAGE_WIDTH - PAGE_MARGIN_X,
-        cursor_y - TABLE_HEADER_HEIGHT,
-        BLUE,
-        0.9,
+    if !saw_meal && mission_meal_total_cents > 0 {
+        expense_lines.push(ExpenseLine {
+            date: format_iso_date_fr(mission_date_debut),
+            label: "Repas".to_string(),
+            detail: "Frais repas forfaitaires".to_string(),
+            amount_cents: mission_meal_total_cents,
+        });
+    }
+    if !saw_mileage && mission_mileage_total_cents > 0 {
+        expense_lines.push(ExpenseLine {
+            date: format_iso_date_fr(mission_date_debut),
+            label: "Déplacement".to_string(),
+            detail: format_mileage_detail(
+                mission.map(|item| json_f64(item, "mileageKm")).unwrap_or(0.0),
+                mission.map(|item| json_i64(item, "mileageRateCents")).unwrap_or(0),
+                mission_mileage_total_cents,
+            ),
+            amount_cents: mission_mileage_total_cents,
+        });
+    }
+    expense_lines.retain(|line| line.amount_cents > 0);
+    if expense_lines.is_empty() {
+        expense_lines.push(ExpenseLine {
+            date: "—".to_string(),
+            label: "Frais".to_string(),
+            detail: "Aucun frais facturé.".to_string(),
+            amount_cents: 0,
+        });
+    }
+
+    let fee_subtotal_cents: i64 = expense_lines.iter().map(|line| line.amount_cents).sum();
+    let service_subtotal_cents = (invoice_amount_cents - fee_subtotal_cents).max(0);
+    let collects_taxes = pharmacien
+        .map(|item| json_str(item, "taxStatus") == "REGISTERED")
+        .unwrap_or(false);
+    let gst_cents = if collects_taxes {
+        (invoice_amount_cents as f64 * 0.05).round() as i64
+    } else {
+        0
+    };
+    let qst_cents = if collects_taxes {
+        (invoice_amount_cents as f64 * 0.09975).round() as i64
+    } else {
+        0
+    };
+    let grand_total_cents = invoice_amount_cents + gst_cents + qst_cents;
+
+    let invoice_ref = format!("{} · {}", invoice_numero, format_money_cents(grand_total_cents));
+
+    log::info!(
+        "[PDF] Rendu facture: {}, mission {}, lignes prestations {}, lignes frais {}, total {}",
+        invoice_numero,
+        mission_code,
+        service_lines.len(),
+        expense_lines.len(),
+        money(grand_total_cents)
     );
+
+    draw_table_header(&current_layer, &fonts, cursor_y);
     cursor_y -= TABLE_HEADER_HEIGHT;
 
-    for (index, (date, description, hours, rate, amount)) in service_rows.iter().enumerate() {
-        if cursor_y - TABLE_ROW_HEIGHT < FOOTER_Y + 14.0 {
-            let (page, layer) = doc.add_page(
-                Mm(PAGE_WIDTH),
-                Mm(PAGE_HEIGHT),
-                format!("Layer {}", page_layers.len() + 1),
-            );
-            current_layer = doc.get_page(page).get_layer(layer);
-            page_layers.push(current_layer.clone());
+    for (index, line) in service_lines.iter().enumerate() {
+        let row_height = if line.dates.len() > 1 { 11.0 } else { 8.2 };
+        if cursor_y - row_height < FOOTER_Y + 36.0 {
+            current_layer = add_pdf_page(&doc, &mut page_layers);
             cursor_y = PAGE_TOP_Y;
-            for (label, x) in [
-                ("Date", PAGE_MARGIN_X),
-                ("Description de la mission", 42.0),
-                ("Heures / Qté", 124.0),
-                ("Taux", 153.0),
-                ("Total", 181.0),
-            ] {
-                draw_text(
-                    &current_layer,
-                    label,
-                    7.9,
-                    x,
-                    cursor_y - 6.4,
-                    fonts.bold,
-                    dark,
-                );
-            }
-            draw_line(
+            draw_followup_header(
                 &current_layer,
-                PAGE_MARGIN_X,
-                cursor_y - TABLE_HEADER_HEIGHT,
-                PAGE_WIDTH - PAGE_MARGIN_X,
-                cursor_y - TABLE_HEADER_HEIGHT,
-                BLUE,
-                0.9,
+                &fonts,
+                invoice_numero,
+                pharmacie_nom,
+                grand_total_cents,
+                cursor_y,
             );
+            cursor_y -= 8.0;
+            draw_table_header(&current_layer, &fonts, cursor_y);
             cursor_y -= TABLE_HEADER_HEIGHT;
         }
         if index % 2 == 1 {
@@ -1353,15 +1579,15 @@ fn generate_invoice_pdf_bytes(
                 PAGE_MARGIN_X,
                 cursor_y,
                 CONTENT_WIDTH,
-                TABLE_ROW_HEIGHT,
+                row_height,
                 ROW_LIGHT,
                 None,
             );
         }
-        let row_text_y = cursor_y - 6.0;
+        let row_text_y = cursor_y - if line.dates.len() > 1 { 6.8 } else { 5.9 };
         draw_text(
             &current_layer,
-            date,
+            format_date_list_fr(&line.dates),
             7.4,
             PAGE_MARGIN_X,
             row_text_y,
@@ -1370,8 +1596,8 @@ fn generate_invoice_pdf_bytes(
         );
         draw_text(
             &current_layer,
-            truncate_chars(description, 42),
-            7.5,
+            truncate_chars(&line.description, 38),
+            7.4,
             42.0,
             row_text_y,
             fonts.regular,
@@ -1379,17 +1605,17 @@ fn generate_invoice_pdf_bytes(
         );
         draw_text_right(
             &current_layer,
-            format_hours(*hours),
-            7.5,
-            143.0,
+            format_hours(line.hours),
+            7.4,
+            145.0,
             row_text_y,
             fonts.regular,
             ink,
         );
         draw_text_right(
             &current_layer,
-            money(*rate),
-            7.5,
+            money(line.rate_cents),
+            7.4,
             171.0,
             row_text_y,
             fonts.regular,
@@ -1397,237 +1623,214 @@ fn generate_invoice_pdf_bytes(
         );
         draw_text_right(
             &current_layer,
-            money(*amount),
-            7.5,
+            money(line.amount_cents),
+            7.4,
             PAGE_WIDTH - PAGE_MARGIN_X,
             row_text_y,
             fonts.bold,
             ink,
         );
-        // Séparation sous la ligne plus subtile (0.1 au lieu de 0.15)
         draw_line(
             &current_layer,
             PAGE_MARGIN_X,
-            cursor_y - TABLE_ROW_HEIGHT,
+            cursor_y - row_height,
             PAGE_WIDTH - PAGE_MARGIN_X,
-            cursor_y - TABLE_ROW_HEIGHT,
+            cursor_y - row_height,
             light_border,
             0.1,
         );
-        cursor_y -= TABLE_ROW_HEIGHT;
+        cursor_y -= row_height;
     }
-    for (index, (date, type_label, label, detail, amount)) in expense_rows.iter().enumerate() {
-        if cursor_y - TABLE_ROW_HEIGHT < FOOTER_Y + 14.0 {
-            let (page, layer) = doc.add_page(
-                Mm(PAGE_WIDTH),
-                Mm(PAGE_HEIGHT),
-                format!("Layer {}", page_layers.len() + 1),
-            );
-            current_layer = doc.get_page(page).get_layer(layer);
-            page_layers.push(current_layer.clone());
+
+    if !expense_lines.is_empty() {
+        cursor_y -= 2.0;
+        if cursor_y - 7.8 < FOOTER_Y + 36.0 {
+            current_layer = add_pdf_page(&doc, &mut page_layers);
             cursor_y = PAGE_TOP_Y;
-            draw_rect(
+            draw_followup_header(
                 &current_layer,
-                PAGE_MARGIN_X,
+                &fonts,
+                invoice_numero,
+                pharmacie_nom,
+                grand_total_cents,
                 cursor_y,
-                CONTENT_WIDTH,
-                TABLE_HEADER_HEIGHT,
-                (0.988, 0.992, 0.996),
-                None,
             );
-            for (label, x) in [
-                ("Date", PAGE_MARGIN_X),
-                ("Description de la mission", 42.0),
-                ("Heures / Qté", 124.0),
-                ("Taux", 153.0),
-                ("Total", 181.0),
-            ] {
+            cursor_y -= 8.0;
+            draw_table_header(&current_layer, &fonts, cursor_y);
+            cursor_y -= TABLE_HEADER_HEIGHT;
+        }
+        draw_text(
+            &current_layer,
+            "Frais",
+            9.0,
+            PAGE_MARGIN_X,
+            cursor_y,
+            fonts.bold,
+            BLUE,
+        );
+        cursor_y -= 6.0;
+        for (index, line) in expense_lines.iter().enumerate() {
+            let row_height = 7.6;
+            if cursor_y - row_height < FOOTER_Y + 34.0 {
+                current_layer = add_pdf_page(&doc, &mut page_layers);
+                cursor_y = PAGE_TOP_Y;
+                draw_followup_header(
+                    &current_layer,
+                    &fonts,
+                    invoice_numero,
+                    pharmacie_nom,
+                    grand_total_cents,
+                    cursor_y,
+                );
+                cursor_y -= 8.0;
+                draw_table_header(&current_layer, &fonts, cursor_y);
+                cursor_y -= TABLE_HEADER_HEIGHT;
                 draw_text(
                     &current_layer,
-                    label,
-                    7.9,
-                    x,
-                    cursor_y - 6.4,
+                    "Frais",
+                    9.0,
+                    PAGE_MARGIN_X,
+                    cursor_y,
                     fonts.bold,
-                    dark,
+                    BLUE,
+                );
+                cursor_y -= 6.0;
+            }
+            if index % 2 == 1 {
+                draw_rect(
+                    &current_layer,
+                    PAGE_MARGIN_X,
+                    cursor_y,
+                    CONTENT_WIDTH,
+                    row_height,
+                    ROW_LIGHT,
+                    None,
                 );
             }
+            let row_text_y = cursor_y - 5.7;
+            draw_text(
+                &current_layer,
+                line.date.clone(),
+                7.2,
+                PAGE_MARGIN_X,
+                row_text_y,
+                fonts.regular,
+                ink,
+            );
+            draw_text(
+                &current_layer,
+                truncate_chars(&line.label, 18),
+                7.2,
+                42.0,
+                row_text_y,
+                fonts.regular,
+                ink,
+            );
+            draw_text(
+                &current_layer,
+                truncate_chars(&line.detail, 42),
+                7.1,
+                76.0,
+                row_text_y,
+                fonts.regular,
+                muted,
+            );
+            draw_text_right(
+                &current_layer,
+                money(line.amount_cents),
+                7.2,
+                PAGE_WIDTH - PAGE_MARGIN_X,
+                row_text_y,
+                fonts.bold,
+                ink,
+            );
             draw_line(
                 &current_layer,
                 PAGE_MARGIN_X,
-                cursor_y - TABLE_HEADER_HEIGHT,
+                cursor_y - row_height,
                 PAGE_WIDTH - PAGE_MARGIN_X,
-                cursor_y - TABLE_HEADER_HEIGHT,
-                BLUE,
-                0.9,
+                cursor_y - row_height,
+                light_border,
+                0.1,
             );
-            cursor_y -= TABLE_HEADER_HEIGHT;
+            cursor_y -= row_height;
         }
-        if (service_rows.len() + index) % 2 == 1 {
-            draw_rect(
-                &current_layer,
-                PAGE_MARGIN_X,
-                cursor_y,
-                CONTENT_WIDTH,
-                TABLE_ROW_HEIGHT,
-                ROW_LIGHT,
-                None,
-            );
-        }
-        let row_text_y = cursor_y - 6.0;
-        let (quantity, rate_text) = if type_label == "Kilométrage" {
-            let parts: Vec<&str> = detail.split('×').collect();
-            if parts.len() == 2 {
-                (
-                    parts[0].trim().to_string(),
-                    parts[1].trim().replace(" / km", ""),
-                )
-            } else {
-                (detail.to_string(), "—".to_string())
-            }
-        } else {
-            ("—".to_string(), "—".to_string())
-        };
-        draw_text(
-            &current_layer,
-            date,
-            7.4,
-            PAGE_MARGIN_X,
-            row_text_y,
-            fonts.regular,
-            ink,
-        );
-        draw_text(
-            &current_layer,
-            truncate_chars(&format!("{} — {}", type_label, label), 42),
-            7.4,
-            42.0,
-            row_text_y,
-            fonts.regular,
-            ink,
-        );
-        draw_text_right(
-            &current_layer,
-            quantity,
-            7.4,
-            143.0,
-            row_text_y,
-            fonts.regular,
-            ink,
-        );
-        draw_text_right(
-            &current_layer,
-            rate_text,
-            7.4,
-            171.0,
-            row_text_y,
-            fonts.regular,
-            ink,
-        );
-        draw_text_right(
-            &current_layer,
-            money(*amount),
-            7.4,
-            PAGE_WIDTH - PAGE_MARGIN_X,
-            row_text_y,
-            fonts.bold,
-            ink,
-        );
-        // Séparation sous la ligne plus subtile (0.1 au lieu de 0.15)
-        draw_line(
-            &current_layer,
-            PAGE_MARGIN_X,
-            cursor_y - TABLE_ROW_HEIGHT,
-            PAGE_WIDTH - PAGE_MARGIN_X,
-            cursor_y - TABLE_ROW_HEIGHT,
-            light_border,
-            0.1,
-        );
-        cursor_y -= TABLE_ROW_HEIGHT;
     }
 
-    let paid_at = json_str(&invoice, "paidAt");
-    let (payment_title, payment_lines): (&str, Vec<String>) = match invoice_status {
-        "PAID" => (
-            "MODALITÉS DE PAIEMENT",
-            vec![
-                "Facture acquittée.".to_string(),
-                format!(
-                    "Paiement reçu le {}.",
-                    if paid_at.is_empty() {
-                        invoice_date
-                    } else {
-                        paid_at
-                    }
-                ),
-                "Aucun paiement supplémentaire requis.".to_string(),
-            ],
-        ),
-        "VOIDED" => (
-            "FACTURE ANNULÉE",
-            vec![format!("Référence : {}", invoice_numero)],
-        ),
-        "SENT" => (
-            "MODALITÉS DE PAIEMENT",
-            vec![
-                format!("Paiement attendu avant le {}.", invoice_due_date),
-                format!("Référence à indiquer : {}", invoice_numero),
-            ],
-        ),
-        _ => (
-            "MODALITÉS DE PAIEMENT",
-            vec![
-                format!("Paiement attendu avant le {}.", invoice_due_date),
-                format!("Référence à indiquer : {}", invoice_numero),
-            ],
-        ),
+    let payment_lines: Vec<String> = match invoice_status {
+        "PAID" => vec![
+            format!(
+                "Facture acquittée le {}.",
+                if json_str(&invoice, "paidAt").is_empty() {
+                    invoice_date.to_string()
+                } else {
+                    json_str(&invoice, "paidAt").to_string()
+                }
+            ),
+            format!("Référence : {}", invoice_numero),
+        ],
+        "VOIDED" => vec![format!("Référence : {}", invoice_numero)],
+        _ => vec![
+            format!("Paiement exigible au plus tard le {}.", invoice_due_date),
+            "Paiement par virement dans les 30 jours.".to_string(),
+            format!("Référence à indiquer : {}.", invoice_numero),
+        ],
     };
-
-    cursor_y -= 5.0;
-    if cursor_y < FOOTER_Y + 46.0 + SECTION_GAP {
-        let (page, layer) = doc.add_page(
-            Mm(PAGE_WIDTH),
-            Mm(PAGE_HEIGHT),
-            format!("Layer {}", page_layers.len() + 1),
-        );
-        current_layer = doc.get_page(page).get_layer(layer);
-        page_layers.push(current_layer.clone());
+    let payment_note = if collects_taxes {
+        "TPS/TVQ calculées selon les taux applicables.".to_string()
+    } else {
+        invoice
+            .get("smallSupplierMention")
+            .and_then(|value| value.as_str())
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| {
+                "Petit fournisseur : TPS/TVQ non perçues, sous réserve de votre situation fiscale.".to_string()
+            })
+    };
+    let payment_block_height = 8.5
+        + (payment_lines.len() as f64 * 4.6)
+        + 5.0
+        + 8.5;
+    let totals_block_height = 6.2 * 5.0 + 12.0 + payment_block_height;
+    if cursor_y - totals_block_height < FOOTER_Y + 8.0 {
+        current_layer = add_pdf_page(&doc, &mut page_layers);
         cursor_y = PAGE_TOP_Y;
+        draw_followup_header(
+            &current_layer,
+            &fonts,
+            invoice_numero,
+            pharmacie_nom,
+            grand_total_cents,
+            cursor_y,
+        );
+        cursor_y -= 12.0;
     }
-    // Rattacher visuellement le total au tableau (GAP_TABLE_TO_TOTALS: 18.0)
-    cursor_y = ensure_space_or_new_page(cursor_y, 18.0);
-    let totals_w = 86.0;
+
+    let totals_w = 88.0;
     let totals_x = PAGE_WIDTH - PAGE_MARGIN_X - totals_w;
-    let total_label_x = totals_x;
     let total_value_right = PAGE_WIDTH - PAGE_MARGIN_X;
-    let mut totals_line_y = cursor_y;
+    draw_rect(
+        &current_layer,
+        totals_x,
+        cursor_y + 2.0,
+        totals_w,
+        33.0,
+        (0.992, 0.994, 0.997),
+        Some(light_border),
+    );
+    let mut totals_line_y = cursor_y - 2.0;
     for (label, value) in [
-        (
-            "Sous-total",
-            money(service_subtotal_cents + fee_subtotal_cents),
-        ),
-        (
-            "TPS (5 %)",
-            if collects_taxes {
-                money(gst_cents)
-            } else {
-                "Non applicable".to_string()
-            },
-        ),
-        (
-            "TVQ (9,975 %)",
-            if collects_taxes {
-                money(qst_cents)
-            } else {
-                "Non applicable".to_string()
-            },
-        ),
+        ("Sous-total prestations", money(service_subtotal_cents)),
+        ("Frais facturés", money(fee_subtotal_cents)),
+        ("TPS", money(gst_cents)),
+        ("TVQ", money(qst_cents)),
     ] {
         draw_text(
             &current_layer,
             label,
-            8.8,
-            total_label_x,
+            8.3,
+            totals_x + 3.0,
             totals_line_y,
             fonts.regular,
             muted,
@@ -1635,78 +1838,87 @@ fn generate_invoice_pdf_bytes(
         draw_text_right(
             &current_layer,
             value,
-            8.8,
-            total_value_right,
+            8.3,
+            total_value_right - 3.0,
             totals_line_y,
             fonts.regular,
             ink,
         );
-        totals_line_y -= 6.3;
+        totals_line_y -= 5.4;
     }
     draw_line(
         &current_layer,
-        total_label_x,
-        totals_line_y + 1.5,
-        total_value_right,
-        totals_line_y + 1.5,
+        totals_x + 3.0,
+        totals_line_y + 1.8,
+        total_value_right - 3.0,
+        totals_line_y + 1.8,
         BLUE,
-        0.9,
+        0.7,
     );
     draw_text(
         &current_layer,
-        "TOTAL",
-        18.0,
-        total_label_x,
-        totals_line_y - 9.0,
+        "TOTAL À PAYER",
+        13.5,
+        totals_x + 3.0,
+        totals_line_y - 6.0,
         fonts.bold,
         BLUE,
     );
     draw_text_right(
         &current_layer,
         money(grand_total_cents),
-        18.0,
-        total_value_right,
-        totals_line_y - 9.0,
+        15.0,
+        total_value_right - 3.0,
+        totals_line_y - 6.0,
         fonts.bold,
         BLUE,
     );
-
-    let bottom_y = (totals_line_y - 29.0).max(FOOTER_Y + 28.0);
     draw_text(
         &current_layer,
-        payment_title,
-        8.5,
+        payment_note,
+        7.3,
         PAGE_MARGIN_X,
-        bottom_y,
+        totals_line_y - 11.0,
+        fonts.regular,
+        muted,
+    );
+
+    let payment_box_top = (totals_line_y - 18.0).max(FOOTER_Y + 26.0);
+    draw_text(
+        &current_layer,
+        "MODALITÉS DE PAIEMENT",
+        8.6,
+        PAGE_MARGIN_X,
+        payment_box_top,
         fonts.bold,
         BLUE,
     );
-    let mut payment_y = bottom_y - 6.0;
+    let mut payment_y = payment_box_top - 5.2;
     for line in payment_lines {
         draw_text(
             &current_layer,
             line,
-            8.0,
+            7.8,
             PAGE_MARGIN_X,
             payment_y,
             fonts.regular,
             muted,
         );
-        payment_y -= 5.0;
+        payment_y -= 4.6;
     }
     draw_text_right(
         &current_layer,
         "Merci de votre confiance.",
-        15.0,
+        10.0,
         PAGE_WIDTH - PAGE_MARGIN_X,
-        bottom_y,
+        payment_box_top,
         fonts.bold,
         ink,
     );
 
     let page_total = page_layers.len();
     for (index, layer) in page_layers.iter().enumerate() {
-        draw_footer(layer, &fonts, collects_taxes, muted, index + 1, page_total);
+        draw_footer(layer, &fonts, collects_taxes, &invoice_ref, muted, index + 1, page_total);
     }
 
     // Finaliser le PDF
@@ -1820,9 +2032,11 @@ mod tests {
     #[test]
     fn pdf_numbers_use_french_formatting() {
         assert_eq!(format_money_cents(88000), "880,00 $");
+        assert_eq!(format_money_cents(123456), format!("1\u{202f}234,56 $"));
         assert_eq!(format_hours(8.0), "8,00 h");
         assert_eq!(format_km(36.5), "36,5 km");
         assert_eq!(format_rate_cents_per_km(61), "0,61 $ / km");
+        assert_eq!(format_date_span_fr("2026-06-18", "2026-06-25"), "18 au 25 juin 2026");
     }
 
     #[test]

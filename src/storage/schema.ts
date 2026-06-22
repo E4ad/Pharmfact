@@ -1,13 +1,39 @@
 export const APP_STORAGE_KEY = 'mission-app:v1';
-export const APP_SCHEMA_VERSION = 2;
+export const APP_SCHEMA_VERSION = 3;
 
 export type TaxStatus = 'SMALL_SUPPLIER' | 'REGISTERED';
 
-export type MissionStatus = 'DRAFT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'ARCHIVED' | 'CANCELLED';
+export type MissionStatus =
+  | 'DRAFT'
+  | 'CONFIRMED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'ARCHIVED'
+  | 'CANCELLED';
 
 export type InvoiceStatus = 'GENERATED' | 'SENT' | 'PAID' | 'ARCHIVED' | 'VOIDED';
 
-export type MissionEventType = 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'INVOICE_CREATED' | 'INVOICE_UPDATED';
+export type ActType =
+  | 'REMPLACEMENT_OFFICINE'
+  | 'PHARMACIEN_GMF'
+  | 'CLINIQUE'
+  | 'TELEPHARMACIE'
+  | 'CONSEIL_FORMATION'
+  | 'AUTRE';
+
+export type TaxClassification =
+  | 'TAXABLE_SUPPLY'
+  | 'EXEMPT_SUPPLY'
+  | 'ZERO_RATED_SUPPLY'
+  | 'OUT_OF_SCOPE'
+  | 'TO_VALIDATE';
+
+export type MissionEventType =
+  | 'CREATED'
+  | 'UPDATED'
+  | 'STATUS_CHANGED'
+  | 'INVOICE_CREATED'
+  | 'INVOICE_UPDATED';
 
 export type Pharmacien = {
   id: string;
@@ -57,6 +83,12 @@ export type Pharmacie = {
   lng?: number;
   telephone: string;
   email: string;
+  billingContactName?: string;
+  billingEmail?: string;
+  billingPhone?: string;
+  usualHourlyRateCents?: number;
+  paymentTerms?: string;
+  distanceKm?: number;
   defaultBreakMinutes: number;
   defaultMissionType?: string;
   notes?: string;
@@ -192,8 +224,13 @@ export type Mission = {
   pharmacienId: string;
   pharmacieId: string;
   status: MissionStatus;
+  actType?: ActType | string;
+  invoiceLabel?: string;
+  suggestedTaxClassification?: TaxClassification;
+  taxClassificationOverride?: TaxClassification;
   dateDebut: string;
   dateFin: string;
+  excludedDates?: string[];
   days: MissionDay[];
   hourlyRateCents: number;
   mealFeeCents: number;
@@ -214,7 +251,9 @@ export type Mission = {
 export type Invoice = {
   id: string;
   numero: string;
-  missionId: string;
+  missionIds?: string[];
+  missionId?: string;
+  correctedFromInvoiceId?: string;
   pharmacienId: string;
   pharmacieId: string;
   dateFacture: string;
@@ -222,8 +261,11 @@ export type Invoice = {
   status: InvoiceStatus;
   hours: number;
   amountCents: number;
+  paymentTerms?: string;
+  smallSupplierMention?: string;
   sentAt?: string;
   paidAt?: string;
+  paidAmountCents?: number;
   archivedAt?: string;
   createdAt: string;
 };
@@ -246,6 +288,8 @@ export type DeductibleExpense = {
     | 'OTHER';
   amountCents: number;
   taxDeductible: boolean;
+  missionId?: string;
+  receiptId?: string;
   hasReceipt?: boolean;
   notes?: string;
 };
@@ -293,10 +337,31 @@ export type FiscalSettings = {
   otherNonDeductibleRate?: number;
 };
 
+export type RuntimeShadowIntensity = 'none' | 'soft' | 'elevated';
+
+export type RuntimeDesignTokenOverrides = {
+  surfaceRadius?: number;
+  controlRadius?: number;
+  iconRadius?: number;
+  borderWidth?: number;
+  primaryHue?: number;
+  shadowIntensity?: RuntimeShadowIntensity;
+};
+
 export type UiSettings = {
   themeMode: 'light' | 'dark' | 'system';
   primaryColor?: string;
   secondaryColor?: string;
+  designTokenOverrides?: RuntimeDesignTokenOverrides;
+};
+
+export type AuditTrailEntry = {
+  id: string;
+  eventType: 'STATE_UPDATED' | 'BACKUP_IMPORTED' | 'STATE_RESET';
+  scope: 'missions' | 'invoices' | 'references' | 'data' | 'backup';
+  label: string;
+  detail: string;
+  eventDate: string;
 };
 
 export type LocalDataSettings = {
@@ -304,7 +369,7 @@ export type LocalDataSettings = {
 };
 
 export type AppState = {
-  version: 2;
+  version: 2 | 3;
   activePharmacienId: string | null;
   pharmaciens: Pharmacien[];
   pharmacies: Pharmacie[];
@@ -322,5 +387,6 @@ export type AppState = {
   ui: {
     missionFilters: Record<string, unknown>;
     lastVisitedAt?: string;
+    auditTrail?: AuditTrailEntry[];
   };
 };

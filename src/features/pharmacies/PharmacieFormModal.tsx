@@ -1,5 +1,5 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Stack, TextField, Typography, useTheme } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { FormEvent, useState, useEffect } from 'react';
 import { PharmacyRegistryAutocompleteInput } from '../../components/PharmacyRegistryAutocompleteInput';
@@ -9,7 +9,6 @@ import { createId } from '../../services/ids';
 import { getPlatform } from '../../services/platformService';
 import { buildSantePharmacyNotes, getSantePharmacyAddressParts, type SantePharmacyRegistryEntry } from '../../services/santePharmacyRegistry';
 import { findDuplicatePharmacy } from '../../services/entityDuplicates';
-import { borderRadiusScale } from '../../design-system/tokens';
 
 interface PharmacieFormModalProps {
   open: boolean;
@@ -18,6 +17,7 @@ interface PharmacieFormModalProps {
 }
 
 export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieFormModalProps) {
+  const theme = useTheme();
   const state = useAppState();
   const existingPharmacie = pharmacieId ? state.pharmacies.find(p => p.id === pharmacieId) : undefined;
   const formId = 'pharmacie-modal-form';
@@ -34,6 +34,12 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
     lng: undefined as number | undefined,
     telephone: '',
     email: '',
+    billingContactName: '',
+    billingEmail: '',
+    billingPhone: '',
+    usualHourlyRate: '',
+    paymentTerms: '',
+    distanceKm: '',
     defaultBreakMinutes: '60',
     notes: ''
   });
@@ -53,6 +59,12 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
         lng: existingPharmacie.lng,
         telephone: existingPharmacie.telephone || '',
         email: existingPharmacie.email || '',
+        billingContactName: existingPharmacie.billingContactName || '',
+        billingEmail: existingPharmacie.billingEmail || '',
+        billingPhone: existingPharmacie.billingPhone || '',
+        usualHourlyRate: existingPharmacie.usualHourlyRateCents ? String(existingPharmacie.usualHourlyRateCents / 100) : '',
+        paymentTerms: existingPharmacie.paymentTerms || '',
+        distanceKm: existingPharmacie.distanceKm ? String(existingPharmacie.distanceKm) : '',
         defaultBreakMinutes: String(existingPharmacie.defaultBreakMinutes || '60'),
         notes: existingPharmacie.notes || ''
       });
@@ -70,6 +82,12 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
         lng: undefined,
         telephone: '',
         email: '',
+        billingContactName: '',
+        billingEmail: '',
+        billingPhone: '',
+        usualHourlyRate: '',
+        paymentTerms: '',
+        distanceKm: '',
         defaultBreakMinutes: '60',
         notes: ''
       });
@@ -137,6 +155,12 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
       lng: form.lng,
       telephone: form.telephone.trim(),
       email: form.email.trim(),
+      billingContactName: form.billingContactName.trim() || undefined,
+      billingEmail: form.billingEmail.trim() || undefined,
+      billingPhone: form.billingPhone.trim() || undefined,
+      usualHourlyRateCents: form.usualHourlyRate ? Math.round(Number(form.usualHourlyRate.replace(',', '.')) * 100) : undefined,
+      paymentTerms: form.paymentTerms.trim() || undefined,
+      distanceKm: form.distanceKm ? Number(form.distanceKm.replace(',', '.')) : undefined,
       defaultBreakMinutes: Math.max(Number(form.defaultBreakMinutes) || 0, 0),
       notes: form.notes.trim(),
     };
@@ -158,12 +182,15 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
       fullWidth
       aria-labelledby="pharmacy-form-title"
       aria-describedby="pharmacy-form-description"
+      data-testid="pharmacie-form-modal"
       slotProps={{
         paper: {
           sx: {
             maxHeight: '90vh',
-            width: { xs: '100%', md: 'min(600px, 100%)' },
+            width: { xs: '100%', sm: 620, md: 720 },
             zIndex: 1400,
+            display: 'flex',
+            flexDirection: 'column',
           },
         },
       }}
@@ -180,7 +207,7 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
           <CloseRoundedIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto' }}>
+      <DialogContent sx={{ p: 3, pt: 0, overflowY: 'auto', flex: 1 }}>
         <Typography id="pharmacy-form-description" variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
           Complétez les informations utilisées pour les missions et les factures.
         </Typography>
@@ -224,7 +251,13 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
             <TextField label="Ville" value={form.ville} onChange={(e) => update('ville', e.target.value)} />
             <TextField label="Téléphone" value={form.telephone} onChange={(e) => update('telephone', e.target.value)} />
             <TextField label="Email" type="email" value={form.email} onChange={(e) => update('email', e.target.value)} />
+            <TextField label="Contact facturation" value={form.billingContactName} onChange={(e) => update('billingContactName', e.target.value)} />
+            <TextField label="Email facturation" type="email" value={form.billingEmail} onChange={(e) => update('billingEmail', e.target.value)} />
+            <TextField label="Téléphone facturation" value={form.billingPhone} onChange={(e) => update('billingPhone', e.target.value)} />
+            <TextField label="Taux horaire habituel" type="number" value={form.usualHourlyRate} onChange={(e) => update('usualHourlyRate', e.target.value)} />
+            <TextField label="Distance habituelle (km)" type="number" value={form.distanceKm} onChange={(e) => update('distanceKm', e.target.value)} />
             <TextField label="Pause non payée par défaut (minutes)" type="number" value={form.defaultBreakMinutes} onChange={(e) => update('defaultBreakMinutes', e.target.value)} helperText="Cette valeur sera utilisée par défaut lors de la création de missions" />
+            <TextField label="Conditions de paiement" value={form.paymentTerms} onChange={(e) => update('paymentTerms', e.target.value)} multiline minRows={2} sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }} />
             <TextField label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} multiline minRows={4} sx={{ gridColumn: { xs: 'auto', md: 'span 2' } }} />
           </Stack>
         </Stack>
@@ -235,10 +268,10 @@ export function PharmacieFormModal({ open, onClose, pharmacieId }: PharmacieForm
             Supprimer
           </Button>
         )}
-        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: borderRadiusScale.full }}>
+        <Button variant="outlined" onClick={onClose} sx={{ borderRadius: theme.runtimeTokens.controlRadius }}>
           Annuler
         </Button>
-        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacy)} sx={{ borderRadius: borderRadiusScale.full }}>
+        <Button variant="contained" type="submit" form={formId} startIcon={<SaveRoundedIcon />} disabled={!form.nom.trim() || Boolean(duplicatePharmacy)} sx={{ borderRadius: theme.runtimeTokens.controlRadius }}>
           {existingPharmacie ? 'Enregistrer les modifications' : 'Enregistrer'}
         </Button>
       </DialogActions>
