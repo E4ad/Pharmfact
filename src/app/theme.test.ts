@@ -13,8 +13,8 @@ describe('application theme', () => {
     expect(darkTheme.palette.primary.contrastText).toBe('#000000');
   });
 
-  it('uses the component radius token as the default shape radius', () => {
-    expect(lightTheme.shape.borderRadius).toBe(componentBorderRadius.card);
+  it('uses the surface radius runtime token as the default shape radius', () => {
+    expect(lightTheme.shape.borderRadius).toBe(lightTheme.runtimeTokens.surfaceRadius);
   });
 
   it('applies safe runtime token overrides to the theme', () => {
