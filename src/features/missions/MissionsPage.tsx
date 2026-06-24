@@ -38,7 +38,7 @@ import { formatMoney } from '../../services/money';
 import { daysBetween } from '../../services/missionCalculator';
 import { missionStatusLabels, missionStatusTone } from '../../services/missionStatus';
 import { updateAppState, useAppState } from '../../storage/localStore';
-import type { AppState, Invoice, InvoicePayment, InvoiceStatus, Mission, MissionStatus, MissionDay, MissionEvent, Pharmacie, PharmacyWeeklySchedule, Pharmacien } from '../../storage/schema';
+import type { AppState, Invoice, InvoiceStatus, Mission, MissionStatus, MissionEvent, Pharmacie } from '../../storage/schema';
 import { downloadInvoicePdf } from '../../services/downloadInvoicePdf';
 import { logMappedError, mapError } from '../../services/errorMapper';
 import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
@@ -561,7 +561,6 @@ export function MissionsPage() {
           mission={selected}
           pharmacy={findPharmacie(state, selected.pharmacieId)}
           invoice={selectedInvoice}
-          payments={selectedInvoice?.payments}
           onClose={closeMission}
           onEditMission={(missionId) => navigate(`/missions/${missionId}/edit`)}
           onOpenInvoice={(missionId) => navigate(`/missions/${missionId}/invoice`)}
@@ -738,7 +737,6 @@ function MissionDetailModal({
   mission,
   pharmacy,
   invoice,
-  payments,
   onClose,
   onEditMission,
   onOpenInvoice,
@@ -749,7 +747,6 @@ function MissionDetailModal({
   mission: Mission;
   pharmacy?: Pharmacie;
   invoice?: Invoice;
-  payments?: InvoicePayment[];
   onClose: () => void;
   onEditMission: (missionId: string) => void;
   onOpenInvoice: (missionId: string) => void;
@@ -886,11 +883,6 @@ function MissionDetailModal({
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2.5 }}>
-          {pharmacy?.weeklySchedule ? (
-            <SurfaceCard contentSx={{ p: 2 }}>
-              <MissionDetailScheduleTable schedule={pharmacy.weeklySchedule} />
-            </SurfaceCard>
-          ) : null}
           <SurfaceCard contentSx={{ p: 2 }}>
             <MissionDetailDays mission={mission} />
           </SurfaceCard>
@@ -899,67 +891,22 @@ function MissionDetailModal({
               <MissionDetailFees mission={mission} />
             </SurfaceCard>
           ) : null}
-          <MissionDetailActions
-            mission={mission}
-            invoice={invoice}
-            payments={payments}
-            onEditMission={onEditMission}
-            onOpenInvoice={onOpenInvoice}
-            onDownloadPdf={onDownloadPdf}
-            onDownloadIcs={onDownloadIcs}
-          />
           <SurfaceCard contentSx={{ p: 2 }}>
             <MissionDetailHistory events={mission.events} />
           </SurfaceCard>
         </Box>
       </DialogContent>
+      <MissionDetailFooter
+        mission={mission}
+        invoice={invoice}
+        onEditMission={onEditMission}
+        onOpenInvoice={onOpenInvoice}
+      />
     </Dialog>
   );
 }
 
 
-function MissionDetailScheduleTable({ schedule }: { schedule: PharmacyWeeklySchedule }) {
-  const days = [
-    { key: 'monday', label: 'Lundi' },
-    { key: 'tuesday', label: 'Mardi' },
-    { key: 'wednesday', label: 'Mercredi' },
-    { key: 'thursday', label: 'Jeudi' },
-    { key: 'friday', label: 'Vendredi' },
-    { key: 'saturday', label: 'Samedi' },
-    { key: 'sunday', label: 'Dimanche' },
-  ] as const;
-
-  return (
-    <Box>
-      <Typography variant="subtitle2" sx={{ fontWeight: 750, mb: 1, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        Horaire de la pharmacie
-      </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 1fr) 60px 80px 80px', gap: 1, fontSize: '0.85rem' }}>
-        <Box sx={{ fontWeight: 800, color: 'text.secondary', pb: 0.5, borderBottom: '2px solid', borderColor: 'divider' }}>Jour</Box>
-        <Box sx={{ fontWeight: 800, color: 'text.secondary', pb: 0.5, borderBottom: '2px solid', borderColor: 'divider' }}>Ouvert</Box>
-        <Box sx={{ fontWeight: 800, color: 'text.secondary', pb: 0.5, borderBottom: '2px solid', borderColor: 'divider' }}>Début</Box>
-        <Box sx={{ fontWeight: 800, color: 'text.secondary', pb: 0.5, borderBottom: '2px solid', borderColor: 'divider' }}>Fin</Box>
-        {days.map(({ key, label }) => {
-          const day = schedule[key];
-          const open = day?.enabled ?? false;
-          return (
-            <>
-              <Box key={`${key}-label`} sx={{ py: 0.5, borderBottom: '1px solid', borderColor: 'divider', fontWeight: 650 }}>{label}</Box>
-              <Box key={`${key}-open`} sx={{ py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>{open ? 'Oui' : 'Non'}</Box>
-              <Box key={`${key}-start`} sx={{ py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>{open ? (day.startTime || '—') : '—'}</Box>
-              <Box key={`${key}-end`} sx={{ py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>{open ? (day.endTime || '—') : '—'}</Box>
-            </>
-          );
-        })}
-      </Box>
-      {schedule.sourceLabel ? (
-        <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
-          Horaire importé depuis {schedule.sourceLabel}. À vérifier.
-        </Typography>
-      ) : null}
-    </Box>
-  );
-}
 
 function MissionDetailDays({ mission }: { mission: Mission }) {
   const sortedDays = mission.days.slice().sort((a, b) => `${a.dateService}${a.startTime}`.localeCompare(`${b.dateService}${b.startTime}`));
@@ -1025,63 +972,102 @@ function MissionDetailFees({ mission }: { mission: Mission }) {
   );
 }
 
-function MissionDetailActions({
+
+function MissionDetailFooter({
   mission,
   invoice,
-  payments,
   onEditMission,
   onOpenInvoice,
-  onDownloadPdf,
-  onDownloadIcs,
 }: {
   mission: Mission;
   invoice?: Invoice;
-  payments?: InvoicePayment[];
   onEditMission: (missionId: string) => void;
   onOpenInvoice: (missionId: string) => void;
-  onDownloadPdf: (invoiceId: string) => void;
-  onDownloadIcs: (mission: Mission) => void;
 }) {
-  const businessStatus = deriveMissionBusinessStatus(mission, invoice);
+  if (mission.status === 'ARCHIVED' || mission.status === 'CANCELLED') return null;
 
-  const actions: Array<{ label: string; variant: 'text' | 'outlined' | 'contained'; primary?: boolean; onClick: () => void }> = [];
+  let statusLabel = '';
+  let primaryLabel: string | null = null;
+  let primaryAction: (() => void) | null = null;
 
   if (mission.status === 'DRAFT') {
-    actions.push({ label: 'Modifier la mission', variant: 'outlined', onClick: () => onEditMission(mission.id) });
-    actions.push({ label: 'Valider', variant: 'contained', primary: true, onClick: () => onEditMission(mission.id) });
+    statusLabel = 'Mission en brouillon';
+  } else if (mission.status === 'CONFIRMED') {
+    statusLabel = 'Mission planifiée';
+  } else if (mission.status === 'IN_PROGRESS') {
+    statusLabel = 'Mission en cours';
   } else if (mission.status === 'COMPLETED' && !invoice) {
-    actions.push({ label: 'Continuer vers la facturation', variant: 'contained', primary: true, onClick: () => onOpenInvoice(mission.id) });
-    actions.push({ label: 'Modifier la mission', variant: 'outlined', onClick: () => onEditMission(mission.id) });
+    statusLabel = 'Prête à facturer';
+    primaryLabel = 'Générer la facture';
+    primaryAction = () => onOpenInvoice(mission.id);
   } else if (invoice) {
     if (invoice.status === 'draft' || invoice.status === 'ready_to_send' || invoice.status === 'GENERATED') {
-      actions.push({ label: 'Ouvrir la facturation', variant: 'outlined', primary: true, onClick: () => onOpenInvoice(mission.id) });
-      actions.push({ label: 'Marquer comme envoyée', variant: 'outlined', onClick: () => onOpenInvoice(mission.id) });
+      statusLabel = 'Facture à finaliser';
+      primaryLabel = 'Ouvrir la facture';
+      primaryAction = () => onOpenInvoice(mission.id);
     } else if (invoice.status === 'SENT' || invoice.status === 'sent') {
-      const paidAmount = invoice.paidAmountCents ?? 0;
-      const remaining = invoice.amountCents - paidAmount;
-      if (remaining > 0) {
-        actions.push({ label: 'Ajouter un paiement', variant: 'contained', primary: true, onClick: () => onOpenInvoice(mission.id) });
-      }
-      actions.push({ label: 'Marquer comme payée', variant: 'outlined', onClick: () => onOpenInvoice(mission.id) });
-    } else if (invoice.status === 'PAID') {
-      actions.push({ label: 'Archiver', variant: 'outlined', onClick: () => onOpenInvoice(mission.id) });
+      statusLabel = 'Facture envoyée';
+      primaryLabel = 'Enregistrer le paiement';
+      primaryAction = () => onOpenInvoice(mission.id);
+    } else if (invoice.status === 'PAID' || invoice.paymentStatus === 'paid') {
+      statusLabel = 'Mission payée';
+      primaryLabel = 'Archiver';
+      primaryAction = () => onOpenInvoice(mission.id);
     }
   }
 
-  if (actions.length === 0) return null;
+  const isDraft = mission.status === 'DRAFT';
 
   return (
-    <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-      {actions.map((action) => (
-        <Button
-          key={action.label}
-          variant={action.variant}
-          onClick={action.onClick}
-          sx={{ borderRadius: borderRadiusScale.full, fontWeight: 800, ...(action.primary ? { bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } } : {}) }}
-        >
-          {action.label}
-        </Button>
-      ))}
+    <Box
+      sx={{
+        px: 2.5,
+        py: 1.5,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 2,
+        flexShrink: 0,
+        minHeight: 64,
+      }}
+    >
+      <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 650, fontSize: '0.82rem' }}>
+        {statusLabel}
+      </Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        {isDraft ? (
+          <Button
+            variant="contained"
+            onClick={() => onEditMission(mission.id)}
+            sx={{ fontWeight: 800, borderRadius: borderRadiusScale.full }}
+          >
+            Modifier la mission
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => onEditMission(mission.id)}
+              sx={{ fontWeight: 700, color: 'text.secondary' }}
+            >
+              Modifier
+            </Button>
+            {primaryLabel && primaryAction ? (
+              <Button
+                variant="contained"
+                onClick={primaryAction}
+                sx={{ fontWeight: 800, borderRadius: borderRadiusScale.full, whiteSpace: 'nowrap' }}
+              >
+                {primaryLabel} →
+              </Button>
+            ) : null}
+          </>
+        )}
+      </Stack>
     </Box>
   );
 }

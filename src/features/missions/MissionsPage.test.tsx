@@ -195,7 +195,7 @@ describe('MissionsPage render', () => {
     expect(screen.getByText('Aucune mission dans ce filtre.')).toBeInTheDocument();
   });
 
-  it('shows invoice action in modal when mission is completed without invoice', () => {
+  it('shows sticky footer with billing CTA for completed missions without invoice', () => {
     currentState = { ...baseState, missions: [mission({ status: 'COMPLETED', invoiceId: undefined })] };
     renderMissionsPage();
     const card = screen.getByText('MIS-2026-001').closest('[role="button"]');
@@ -203,26 +203,24 @@ describe('MissionsPage render', () => {
     fireEvent.click(card!);
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Continuer vers la facturation' })).toBeInTheDocument();
+    expect(within(dialog).getByText('Prête à facturer')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Générer la facture →' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
+  });
+
+  it('shows Modifier button in footer for confirmed missions', () => {
+    renderMissionsPage();
+    const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
+    expect(card).toBeTruthy();
+    fireEvent.click(card!);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /Générer/ })).not.toBeInTheDocument();
   });
 
   it('has a Créer une mission button that is clickable', () => {
     renderMissionsPage();
     expect(screen.getByRole('button', { name: 'Créer une mission' })).toBeInTheDocument();
-  });
-
-  it('shows pharmacy schedule table in modal', () => {
-    currentState = { ...baseState, missions: [mission({ status: 'COMPLETED', invoiceId: undefined })] };
-    renderMissionsPage();
-    const card = screen.getByText('MIS-2026-001').closest('[role="button"]');
-    expect(card).toBeTruthy();
-    fireEvent.click(card!);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText('Horaire de la pharmacie')).toBeInTheDocument();
-    expect(within(dialog).getByText('Lundi')).toBeInTheDocument();
-    expect(within(dialog).getByText('Jeudi')).toBeInTheDocument();
-    expect(within(dialog).queryByText('Pause')).not.toBeInTheDocument();
   });
 
   it('shows dark summary card with mission totals in modal', () => {
