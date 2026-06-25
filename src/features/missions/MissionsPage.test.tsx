@@ -135,17 +135,21 @@ describe('MissionsPage render', () => {
     expect(screen.queryByText('Repères propriétaires')).not.toBeInTheDocument();
   });
 
-  it('renders compact KPI cards', () => {
+  it('renders 7 KPI cards', () => {
     renderMissionsPage();
-    expect(screen.getByText('À venir — 7 jours')).toBeInTheDocument();
-    expect(screen.getByText('Montant estimé — 7 jours')).toBeInTheDocument();
+    expect(screen.getByText('À valider')).toBeInTheDocument();
+    expect(screen.getByText('À venir — 7j')).toBeInTheDocument();
+    expect(screen.getAllByText('En cours').length).toBeGreaterThanOrEqual(1); // KPI + filter chip
     expect(screen.getByText('À facturer')).toBeInTheDocument();
     expect(screen.getByText('Factures à finaliser')).toBeInTheDocument();
+    expect(screen.getByText('À encaisser')).toBeInTheDocument();
+    expect(screen.getByText('En retard')).toBeInTheDocument();
   });
 
-  it('renders filter chips', () => {
+  it('renders filter chips including Actives (default) and Toutes', () => {
     renderMissionsPage();
     expect(screen.getByRole('group', { name: /Filtrer les missions/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Actives' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Toutes' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Brouillon' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Planifiée' })).toBeInTheDocument();
@@ -158,28 +162,55 @@ describe('MissionsPage render', () => {
     expect(screen.getByText(/PJC 092 - Martin Chao/)).toBeInTheDocument();
     expect(screen.getByText(/4466, rue Beaubien Est/)).toBeInTheDocument();
     expect(screen.getByText('MIS-2026-001')).toBeInTheDocument();
-    expect(screen.getByText('18 juin 2026')).toBeInTheDocument();
     expect(screen.getByText('11,00 h payées')).toBeInTheDocument();
     expect(screen.getAllByText('Planifiée').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows ICS action in the mission detail modal', () => {
+  it('hides ARCHIVED missions by default (ACTIVE filter)', () => {
+    currentState = {
+      ...baseState,
+      missions: [
+        mission({ status: 'CONFIRMED' }),
+        mission({ id: 'mis_2', missionCode: 'MIS-2026-002', status: 'ARCHIVED' }),
+      ],
+    };
     renderMissionsPage();
-    const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
-    expect(card).toBeTruthy();
-    fireEvent.click(card!);
-    expect(screen.getByLabelText('Télécharger le calendrier ICS')).toBeInTheDocument();
+    expect(screen.getByText('MIS-2026-001')).toBeInTheDocument();
+    expect(screen.queryByText('MIS-2026-002')).not.toBeInTheDocument();
   });
 
-  it('opens mission detail modal on card click', () => {
+  it('shows ARCHIVED missions when Toutes filter is selected', () => {
+    currentState = {
+      ...baseState,
+      missions: [
+        mission({ status: 'CONFIRMED' }),
+        mission({ id: 'mis_2', missionCode: 'MIS-2026-002', status: 'ARCHIVED' }),
+      ],
+    };
+    renderMissionsPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Toutes' }));
+    expect(screen.getByText('MIS-2026-001')).toBeInTheDocument();
+    expect(screen.getByText('MIS-2026-002')).toBeInTheDocument();
+  });
+
+  it('shows ICS action in the mission detail drawer', () => {
     renderMissionsPage();
     const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
     expect(card).toBeTruthy();
     fireEvent.click(card!);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getByLabelText('Fermer le détail de la mission')).toBeInTheDocument();
-    expect(screen.getByLabelText('Télécharger le calendrier ICS')).toBeInTheDocument();
+    const drawer = screen.getByTestId('mission-drawer');
+    expect(within(drawer).getByLabelText('Télécharger le calendrier ICS')).toBeInTheDocument();
+  });
+
+  it('opens mission detail drawer on card click', () => {
+    renderMissionsPage();
+    const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
+    expect(card).toBeTruthy();
+    fireEvent.click(card!);
+    const drawer = screen.getByTestId('mission-drawer');
+    expect(drawer).toBeInTheDocument();
+    expect(within(drawer).getByLabelText('Fermer le panneau')).toBeInTheDocument();
+    expect(within(drawer).getByLabelText('Télécharger le calendrier ICS')).toBeInTheDocument();
   });
 
   it('shows empty state when no missions', () => {
@@ -195,27 +226,26 @@ describe('MissionsPage render', () => {
     expect(screen.getByText('Aucune mission dans ce filtre.')).toBeInTheDocument();
   });
 
-  it('shows sticky footer with billing CTA for completed missions without invoice', () => {
+  it('shows generate invoice CTA in drawer for completed missions without invoice', () => {
     currentState = { ...baseState, missions: [mission({ status: 'COMPLETED', invoiceId: undefined })] };
     renderMissionsPage();
     const card = screen.getByText('MIS-2026-001').closest('[role="button"]');
     expect(card).toBeTruthy();
     fireEvent.click(card!);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText('Prête à facturer')).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Générer la facture →' })).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
+    const drawer = screen.getByTestId('mission-drawer');
+    expect(drawer).toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Générer la facture' })).toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Modifier la mission' })).toBeInTheDocument();
   });
 
-  it('shows Modifier button in footer for confirmed missions', () => {
+  it('shows Modifier la mission button in drawer footer for confirmed missions', () => {
     renderMissionsPage();
     const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
     expect(card).toBeTruthy();
     fireEvent.click(card!);
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: /Générer/ })).not.toBeInTheDocument();
+    const drawer = screen.getByTestId('mission-drawer');
+    expect(within(drawer).getByRole('button', { name: 'Modifier la mission' })).toBeInTheDocument();
+    expect(within(drawer).queryByRole('button', { name: 'Générer la facture' })).not.toBeInTheDocument();
   });
 
   it('has a Créer une mission button that is clickable', () => {
@@ -223,24 +253,43 @@ describe('MissionsPage render', () => {
     expect(screen.getByRole('button', { name: 'Créer une mission' })).toBeInTheDocument();
   });
 
-  it('shows dark summary card with mission totals in modal', () => {
+  it('shows dark summary card with mission totals in drawer', () => {
     currentState = { ...baseState, missions: [mission({ status: 'COMPLETED', invoiceId: undefined })] };
     renderMissionsPage();
     const card = screen.getByText('MIS-2026-001').closest('[role="button"]');
     fireEvent.click(card!);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText('Résumé')).toBeInTheDocument();
-    expect(within(dialog).getByText(/900,00\s*\$/)).toBeInTheDocument();
+    const drawer = screen.getByTestId('mission-drawer');
+    expect(drawer).toBeInTheDocument();
+    expect(within(drawer).getByText('Résumé')).toBeInTheDocument();
+    expect(within(drawer).getByText(/900,00\s*\$/)).toBeInTheDocument();
   });
 
-  it('shows worked days in modal', () => {
+  it('shows worked days in drawer', () => {
     currentState = { ...baseState, missions: [mission({ status: 'COMPLETED', invoiceId: undefined })] };
     renderMissionsPage();
     const card = screen.getByText('MIS-2026-001').closest('[role="button"]');
     fireEvent.click(card!);
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getAllByText('Jours travaillés').length).toBeGreaterThanOrEqual(1);
-    expect(within(dialog).getAllByText('11,00 h').length).toBeGreaterThanOrEqual(1);
+    const drawer = screen.getByTestId('mission-drawer');
+    expect(within(drawer).getAllByText('Jours travaillés').length).toBeGreaterThanOrEqual(1);
+    expect(within(drawer).getAllByText('11,00 h').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows status change buttons for confirmed mission in drawer', () => {
+    renderMissionsPage();
+    const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
+    fireEvent.click(card!);
+    const drawer = screen.getByTestId('mission-drawer');
+    expect(within(drawer).getByRole('button', { name: 'En cours' })).toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Annulée' })).toBeInTheDocument();
+  });
+
+  it('shows confirmation dialog when clicking Annuler in drawer', () => {
+    renderMissionsPage();
+    const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
+    fireEvent.click(card!);
+    const drawer = screen.getByTestId('mission-drawer');
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Annulée' }));
+    expect(screen.getByText('Annuler la mission ?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: "Confirmer l'annulation" })).toBeInTheDocument();
   });
 });

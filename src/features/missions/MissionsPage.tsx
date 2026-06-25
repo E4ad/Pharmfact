@@ -1,14 +1,10 @@
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   IconButton,
   Stack,
   Tooltip,
@@ -16,29 +12,27 @@ import {
   useTheme,
 } from '@mui/material';
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
-import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { brandColors, borderWidth, borderRadiusScale, typographyScale } from '../../design-system/tokens';
 import { FadeIn } from '../../components/FadeIn';
-import { MissionSummaryPanel } from './components/MissionSummaryPanel';
-import { LoadingButton } from '../../components/LoadingButton';
 import { StatusChip } from '../../components/StatusChip';
 import { useNotifications } from '../../components/NotificationSystem';
 import { PageHeader } from '../../components/PageHeader';
 import { PageSection } from '../../components/PageSection';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { MetricCard } from '../../components/MetricCard';
+import { MissionDrawer } from './MissionDrawer';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
 import { createId } from '../../services/ids';
-import { expenseTypeConfig } from '../../services/expenseTypes';
-import { createInvoiceFromMission, createInvoiceFromMissions, transitionInvoice } from '../../services/invoiceWorkflow';
+import { createInvoiceFromMission, createInvoiceFromMissions, createInvoicePayment, addPaymentToInvoice } from '../../services/invoiceWorkflow';
 import type { BusinessMissionStatus } from '../../services/businessRules';
-import { businessMissionStatusLabels, businessMissionStatusTone, deriveMissionBusinessStatus, missionsReadyToInvoice } from '../../services/businessRules';
+import { businessMissionStatusTone, deriveMissionBusinessStatus, missionsReadyToInvoice } from '../../services/businessRules';
 import { buildMissionWindowMetrics } from '../../services/dashboardMetrics';
 import { formatMoney } from '../../services/money';
 import { daysBetween } from '../../services/missionCalculator';
-import { missionStatusLabels, missionStatusTone } from '../../services/missionStatus';
+import { missionStatusLabels } from '../../services/missionStatus';
 import { updateAppState, useAppState } from '../../storage/localStore';
-import type { AppState, Invoice, InvoiceStatus, Mission, MissionStatus, MissionEvent, Pharmacie } from '../../storage/schema';
+import type { AppState, Invoice, InvoicePayment, Mission, MissionStatus, Pharmacie } from '../../storage/schema';
 import { downloadInvoicePdf } from '../../services/downloadInvoicePdf';
 import { logMappedError, mapError } from '../../services/errorMapper';
 import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
@@ -47,37 +41,23 @@ import { todayIso } from '../../services/ids';
 
 type MissionFocus = 'all' | 'upcoming7d' | 'estimated7d' | 'toInvoice' | 'toFinalize';
 
-type MissionFilterStatus = MissionStatus | 'ALL' | 'ready_to_invoice' | 'invoice_draft' | 'invoice_sent';
+type MissionFilterStatus = MissionStatus | 'ACTIVE' | 'ARCHIVED_ONLY' | 'ALL' | 'ready_to_invoice' | 'invoice_draft' | 'invoice_sent' | 'paid';
 const missionFilterOptions: Array<{ value: MissionFilterStatus; label: string }> = [
+  { value: 'ACTIVE', label: 'Actives' },
   { value: 'ALL', label: 'Toutes' },
+  { value: 'ARCHIVED_ONLY', label: 'Archivées' },
   { value: 'DRAFT', label: 'Brouillon' },
   { value: 'CONFIRMED', label: 'Planifiée' },
   { value: 'IN_PROGRESS', label: 'En cours' },
   { value: 'COMPLETED', label: 'Terminée' },
   { value: 'ready_to_invoice', label: 'Prêt à facturer' },
   { value: 'invoice_draft', label: 'Facture à finaliser' },
-  { value: 'invoice_sent', label: 'Facturée' },
-  { value: 'ARCHIVED', label: 'Archivée' },
-  { value: 'CANCELLED', label: 'Annulée' },
+  { value: 'invoice_sent', label: 'Envoyée' },
+  { value: 'paid', label: 'Payée' },
 ];
-
-function missionStatusDisplayLabel(mission: Mission, invoice?: Invoice): string {
-  return businessMissionStatusLabels[deriveMissionBusinessStatus(mission, invoice)];
-}
 
 function formatShortDate(date: string): string {
   return new Intl.DateTimeFormat('fr-CA', { day: 'numeric', month: 'short' }).format(new Date(`${date}T00:00:00`));
-}
-
-function isSingleDayMission(mission: Mission): boolean {
-  return mission.dateDebut === mission.dateFin || mission.days.length <= 1;
-}
-
-function firstShiftLabel(mission: Mission, options?: { includeHours?: boolean }): string {
-  const firstDay = [...mission.days].sort((a, b) => `${a.dateService}${a.startTime}`.localeCompare(`${b.dateService}${b.startTime}`))[0];
-  if (!firstDay) return `${formatShortDate(mission.dateDebut)} · heure à préciser`;
-  const workedHours = options?.includeHours ? ` (${hoursLabel(firstDay.hours)})` : '';
-  return `${formatShortDate(firstDay.dateService)} · ${firstDay.startTime}–${firstDay.endTime}${workedHours}`;
 }
 
 function hoursLabel(hours: number): string {
@@ -106,10 +86,6 @@ function formatMissionDatesSummary(dates: string[]): string {
     return `${parts.slice(0, -1).join(', ')}${parts.length > 1 ? ' et ' : ''}${parts.at(-1)} ${new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' }).format(new Date(`${first}T00:00:00`))}`;
   }
   return `${sorted.length} jours sélectionnés`;
-}
-
-function formatEventDate(value: string): string {
-  return new Intl.DateTimeFormat('fr-CA', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value));
 }
 
 function parseMissionFocus(value: string | null): MissionFocus {
@@ -152,6 +128,8 @@ function matchesMissionFocus(
 
 function matchesMissionStatusFilter(mission: Mission, filter: MissionFilterStatus, state: AppState): boolean {
   if (filter === 'ALL') return true;
+  if (filter === 'ACTIVE') return mission.status !== 'ARCHIVED' && mission.status !== 'CANCELLED';
+  if (filter === 'ARCHIVED_ONLY') return mission.status === 'ARCHIVED' || mission.status === 'CANCELLED';
   if (filter === 'ready_to_invoice') return mission.status === 'COMPLETED' && !mission.invoiceId;
   if (filter === 'invoice_draft') {
     const invoice = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
@@ -159,7 +137,11 @@ function matchesMissionStatusFilter(mission: Mission, filter: MissionFilterStatu
   }
   if (filter === 'invoice_sent') {
     const invoice = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
-    return Boolean(invoice && (invoice.status === 'SENT' || invoice.status === 'GENERATED'));
+    return Boolean(invoice && (invoice.status === 'SENT' || invoice.status === 'sent' || invoice.status === 'GENERATED'));
+  }
+  if (filter === 'paid') {
+    const invoice = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
+    return invoice?.paymentStatus === 'paid';
   }
   return mission.status === filter;
 }
@@ -170,18 +152,23 @@ export function MissionsPage() {
   const { notify } = useNotifications();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get('selected'));
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<MissionFilterStatus>('ALL');
+  const [statusFilter, setStatusFilter] = useState<MissionFilterStatus>('ACTIVE');
   const [focusFilter, setFocusFilter] = useState<MissionFocus>(() => parseMissionFocus(searchParams.get('filter') ?? searchParams.get('focus')));
   const today = todayIso();
   const missionMetrics = useMemo(() => buildMissionWindowMetrics(state, today), [state, today]);
 
-  const invoicesToFinalizeCount = useMemo(
-    () => state.invoices.filter((inv) => inv.status === 'draft' || inv.status === 'ready_to_send').length,
+  const draftCount = useMemo(() => state.missions.filter((m) => m.status === 'DRAFT').length, [state.missions]);
+  const inProgressCount = useMemo(() => state.missions.filter((m) => m.status === 'IN_PROGRESS').length, [state.missions]);
+  const toCollectCount = useMemo(
+    () => state.invoices.filter((inv) => (inv.status === 'sent' || inv.status === 'SENT') && inv.paymentStatus !== 'paid').length,
     [state.invoices],
   );
-  const invoicesToFinalizeCents = useMemo(
-    () => state.invoices.filter((inv) => inv.status === 'draft' || inv.status === 'ready_to_send').reduce((sum, inv) => sum + inv.amountCents, 0),
+  const overdueCount = useMemo(
+    () => state.invoices.filter((inv) => (inv.status === 'sent' || inv.status === 'SENT') && inv.dateEcheance < today).length,
+    [state.invoices, today],
+  );
+  const invoicesToFinalizeCount = useMemo(
+    () => state.invoices.filter((inv) => inv.status === 'draft' || inv.status === 'ready_to_send').length,
     [state.invoices],
   );
 
@@ -242,7 +229,6 @@ export function MissionsPage() {
           next.delete('selected');
           return next;
         });
-        setHistoryOpen(false);
       }
     }
     window.addEventListener('keydown', closeWithEscape);
@@ -256,7 +242,6 @@ export function MissionsPage() {
       next.set('selected', missionId);
       return next;
     });
-    setHistoryOpen(false);
   }
 
   function closeMission() {
@@ -266,7 +251,6 @@ export function MissionsPage() {
       next.delete('selected');
       return next;
     });
-    setHistoryOpen(false);
   }
 
   function setMissionFocus(focus: MissionFocus) {
@@ -351,32 +335,6 @@ export function MissionsPage() {
     notify({ severity: 'success', message: `Facture ${invoice.numero} générée pour ${groupMissions.length} mission(s).` });
   }
 
-  function updateInvoiceStatus(invoiceId: string, status: InvoiceStatus) {
-    const previousInvoice = state.invoices.find((invoice) => invoice.id === invoiceId);
-    if (!previousInvoice || previousInvoice.status === status) return;
-
-    updateAppState((current) => ({
-      ...current,
-      invoices: current.invoices.map((invoice) => (invoice.id === invoiceId ? transitionInvoice(invoice, status) : invoice)),
-    }));
-
-    const undoId = undoManager.add({
-      description: `Restaurer la facture ${previousInvoice.numero}`,
-      undo: () => {
-        updateAppState((current) => ({
-          ...current,
-          invoices: current.invoices.map((invoice) => (invoice.id === invoiceId ? previousInvoice : invoice)),
-        }));
-      },
-    });
-
-    notify({
-      severity: 'success',
-      message: `Facture ${previousInvoice.numero} passée en « ${previousInvoice.status === 'GENERATED' ? 'Brouillon' : previousInvoice.status === 'SENT' ? 'Envoyée' : previousInvoice.status === 'PAID' ? 'Payée' : previousInvoice.status === 'ARCHIVED' ? 'Archivée' : previousInvoice.status} ».`,
-      onUndo: () => undoManager.undo(undoId),
-    });
-  }
-
   function downloadCalendar(mission: Mission) {
     const pharmacien = findPharmacien(state, mission.pharmacienId);
     const pharmacie = findPharmacie(state, mission.pharmacieId);
@@ -410,6 +368,40 @@ export function MissionsPage() {
         item.id === pharmacieId ? { ...item, isFavorite: !item.isFavorite } : item,
       ),
     }));
+  }
+
+  function updateMissionStatus(missionId: string, status: MissionStatus) {
+    const previous = state.missions.find((m) => m.id === missionId);
+    if (!previous || previous.status === status) return;
+    updateAppState((current) => ({
+      ...current,
+      missions: current.missions.map((m) =>
+        m.id === missionId
+          ? {
+              ...m,
+              status,
+              events: [
+                ...m.events,
+                { id: createId('evt'), eventType: 'STATUS_CHANGED' as const, label: `Statut changé : ${missionStatusLabels[status]}`, eventDate: new Date().toISOString() },
+              ],
+            }
+          : m,
+      ),
+    }));
+    const undoId = undoManager.add({
+      description: `Restaurer le statut de ${previous.missionCode}`,
+      undo: () => updateAppState((current) => ({ ...current, missions: current.missions.map((m) => (m.id === missionId ? previous : m)) })),
+    });
+    notify({ severity: 'success', message: `${previous.missionCode} → ${missionStatusLabels[status]}.`, onUndo: () => undoManager.undo(undoId) });
+  }
+
+  function savePayment(invoiceId: string, input: Omit<InvoicePayment, 'id' | 'createdAt'>) {
+    const invoice = state.invoices.find((inv) => inv.id === invoiceId);
+    if (!invoice) return;
+    const payment = createInvoicePayment(invoice, input);
+    const updatedInvoice = addPaymentToInvoice(invoice, payment, invoice.amountCents);
+    updateAppState((current) => ({ ...current, invoices: current.invoices.map((inv) => (inv.id === invoiceId ? updatedInvoice : inv)) }));
+    notify({ severity: 'success', message: `Paiement de ${formatMoney(input.amount)} enregistré.` });
   }
 
   const compactHeaderSx = {
@@ -447,21 +439,24 @@ export function MissionsPage() {
 
       <PageSection
         title="Pilotage des missions"
-        description="Repérez les missions à venir, les missions à facturer et les montants à suivre."
+        description="Cliquez sur un KPI pour filtrer la liste."
         spacing={2}
       >
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2)', md: 'repeat(4)' },
+            gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)', lg: 'repeat(7, 1fr)' },
             gap: 1.5,
           }}
         >
           {[
-            { label: 'À venir — 7 jours', value: String(missionMetrics.upcomingCount), helper: focusFilter === 'upcoming7d' ? 'Filtre actif sur la liste' : 'Cliquez pour filtrer la file', tone: 'primary' as const, action: () => setMissionFocus('upcoming7d') },
-            { label: 'Montant estimé — 7 jours', value: formatMoney(missionMetrics.estimatedCents), helper: focusFilter === 'estimated7d' ? 'Filtre actif sur la liste' : 'Missions actives dans la fenêtre', tone: 'success' as const, action: () => setMissionFocus('estimated7d') },
-            { label: 'À facturer', value: String(missionMetrics.toInvoiceCount), helper: focusFilter === 'toInvoice' ? 'Filtre actif sur la liste' : formatMoney(missionMetrics.toInvoiceCents), tone: 'warning' as const, action: () => setMissionFocus('toInvoice') },
-            { label: 'Factures à finaliser', value: String(invoicesToFinalizeCount), helper: formatMoney(invoicesToFinalizeCents), tone: 'default' as const, action: undefined },
+            { label: 'À valider', value: String(draftCount), helper: 'Brouillons', tone: 'default' as const, action: () => { setMissionStatusFilter('DRAFT'); setMissionFocus('all'); } },
+            { label: 'À venir — 7j', value: String(missionMetrics.upcomingCount), helper: focusFilter === 'upcoming7d' ? 'Filtre actif' : 'Confirmées', tone: 'primary' as const, action: () => { setMissionFocus('upcoming7d'); setMissionStatusFilter('ACTIVE'); } },
+            { label: 'En cours', value: String(inProgressCount), helper: 'En cours', tone: 'warning' as const, action: () => { setMissionStatusFilter('IN_PROGRESS'); setMissionFocus('all'); } },
+            { label: 'À facturer', value: String(missionMetrics.toInvoiceCount), helper: formatMoney(missionMetrics.toInvoiceCents), tone: 'warning' as const, action: () => { setMissionFocus('toInvoice'); setMissionStatusFilter('ACTIVE'); } },
+            { label: 'Factures à finaliser', value: String(invoicesToFinalizeCount), helper: 'Brouillons', tone: 'default' as const, action: () => { setMissionFocus('toFinalize'); setMissionStatusFilter('ACTIVE'); } },
+            { label: 'À encaisser', value: String(toCollectCount), helper: 'Envoyées', tone: 'primary' as const, action: () => { setMissionStatusFilter('invoice_sent'); setMissionFocus('all'); } },
+            { label: 'En retard', value: String(overdueCount), helper: 'Échues', tone: 'error' as const, action: () => { setMissionStatusFilter('invoice_sent'); setMissionFocus('all'); } },
           ].map((kpi) => (
             <Box key={kpi.label} sx={{ borderRadius: 8, overflow: 'hidden' }}>
               <MetricCard
@@ -543,8 +538,8 @@ export function MissionsPage() {
                     selected={selectedId === mission.id}
                     onClick={() => openMission(mission.id)}
                     onToggleFavorite={() => toggleFavoritePharmacie(mission.pharmacieId)}
-                    onInvoiceAction={updateInvoiceStatus}
-                    onGenerateInvoice={() => generateInvoice(mission)}
+                    onDownloadPdf={downloadPdf}
+                    onDownloadIcs={downloadCalendar}
                   />
                 ))}
               </Stack>
@@ -555,19 +550,20 @@ export function MissionsPage() {
         </FadeIn>
       </PageSection>
 
-      {selected ? (
-        <MissionDetailModal
-          open={!!selected}
-          mission={selected}
-          pharmacy={findPharmacie(state, selected.pharmacieId)}
-          invoice={selectedInvoice}
-          onClose={closeMission}
-          onEditMission={(missionId) => navigate(`/missions/${missionId}/edit`)}
-          onOpenInvoice={(missionId) => navigate(`/missions/${missionId}/invoice`)}
-          onDownloadPdf={downloadPdf}
-          onDownloadIcs={downloadCalendar}
-        />
-      ) : null}
+      <MissionDrawer
+        open={!!selected}
+        mission={selected ?? null}
+        pharmacy={selected ? findPharmacie(state, selected.pharmacieId) : undefined}
+        invoice={selectedInvoice}
+        onClose={closeMission}
+        onEditMission={(missionId) => navigate(`/missions/${missionId}/edit`)}
+        onOpenInvoice={(missionId) => navigate(`/missions/${missionId}/invoice`)}
+        onDownloadPdf={downloadPdf}
+        onDownloadIcs={downloadCalendar}
+        onChangeMissionStatus={updateMissionStatus}
+        onGenerateInvoice={generateInvoice}
+        onSavePayment={savePayment}
+      />
     </Stack>
   );
 }
@@ -603,8 +599,8 @@ function MissionCard({
   selected,
   onClick,
   onToggleFavorite,
-  onInvoiceAction,
-  onGenerateInvoice,
+  onDownloadPdf,
+  onDownloadIcs,
 }: {
   mission: Mission;
   invoice?: Invoice;
@@ -613,14 +609,16 @@ function MissionCard({
   selected: boolean;
   onClick: () => void;
   onToggleFavorite: () => void;
-  onInvoiceAction: (invoiceId: string, status: InvoiceStatus) => void;
-  onGenerateInvoice: () => void;
+  onDownloadPdf: (invoiceId: string) => void;
+  onDownloadIcs: (mission: Mission) => void;
 }) {
   const theme = useTheme();
   const businessStatus = deriveMissionBusinessStatus(mission, invoice);
   const tone = businessMissionStatusTone(businessStatus);
   const totalHours = mission.days.reduce((sum, day) => sum + day.hours, 0);
   const dateSummary = formatMissionDatesSummary(mission.days.map((d) => d.dateService));
+  const canDownloadPdf = Boolean(invoice);
+  const canDownloadIcs = mission.status === 'CONFIRMED' || mission.status === 'COMPLETED';
 
   const accentColor =
     tone === 'primary' ? theme.palette.primary.main
@@ -642,8 +640,8 @@ function MissionCard({
       }}
       sx={(theme) => ({
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(260px, 1.4fr) minmax(240px, 1fr) auto' },
-        gap: { xs: 2, md: 3 },
+        gridTemplateColumns: { xs: '1fr', md: 'minmax(260px, 1.4fr) minmax(200px, 1fr) auto auto' },
+        gap: { xs: 2, md: 2.5 },
         p: { xs: 2, md: 2.5 },
         borderBottom: '1px solid',
         borderColor: 'divider',
@@ -715,402 +713,41 @@ function MissionCard({
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-        <Typography
-          variant="body1"
-          sx={{
-            fontWeight: 800,
-            fontVariantNumeric: 'tabular-nums',
-            textAlign: 'right',
-            minWidth: 100,
-          }}
-        >
-          {formatMoney(mission.totalCents)}
-        </Typography>
-      </Box>
-    </Box>
-  );
-}
-
-
-function MissionDetailModal({
-  open,
-  mission,
-  pharmacy,
-  invoice,
-  onClose,
-  onEditMission,
-  onOpenInvoice,
-  onDownloadPdf,
-  onDownloadIcs,
-}: {
-  open: boolean;
-  mission: Mission;
-  pharmacy?: Pharmacie;
-  invoice?: Invoice;
-  onClose: () => void;
-  onEditMission: (missionId: string) => void;
-  onOpenInvoice: (missionId: string) => void;
-  onDownloadPdf: (invoiceId: string) => void;
-  onDownloadIcs: (mission: Mission) => void;
-}) {
-  const totalHours = mission.days.reduce((sum, day) => sum + day.hours, 0);
-  const businessStatus = deriveMissionBusinessStatus(mission, invoice);
-  const canDownloadPdf = Boolean(invoice);
-  const canDownloadIcs = mission.status === 'CONFIRMED' || mission.status === 'COMPLETED';
-  const hasFees = mission.days.flatMap((d) => d.expenses ?? []).some((e) => e.amountCents > 0);
-
-  const topBar = (
-    <>
-      {canDownloadPdf && invoice ? (
-        <IconButton
-          aria-label="Télécharger le PDF"
-          size="small"
-          onClick={() => onDownloadPdf(invoice.id)}
-          sx={{
-            width: 32,
-            height: 32,
-            borderRadius: borderRadiusScale.full,
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
-            color: 'common.white',
-            '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.18)' },
-          }}
-        >
-          <PictureAsPdfRoundedIcon sx={{ fontSize: typographyScale.base }} />
-          <Typography component="span" sx={{ fontSize: '0.65rem', fontWeight: 800, ml: 0.25 }}>PDF</Typography>
-        </IconButton>
-      ) : null}
-      {canDownloadIcs ? (
-        <IconButton
-          aria-label="Télécharger le calendrier ICS"
-          size="small"
-          onClick={() => onDownloadIcs(mission)}
-          sx={{
-            width: 32,
-            height: 32,
-            borderRadius: borderRadiusScale.full,
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
-            color: 'common.white',
-            '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.18)' },
-          }}
-        >
-          <CalendarMonthRoundedIcon sx={{ fontSize: typographyScale.base }} />
-          <Typography component="span" sx={{ fontSize: '0.65rem', fontWeight: 800, ml: 0.25 }}>ICS</Typography>
-        </IconButton>
-      ) : null}
-      <IconButton
-        aria-label="Fermer le détail de la mission"
-        size="small"
-        onClick={onClose}
-        sx={{
-          width: 32,
-          height: 32,
-          borderRadius: borderRadiusScale.full,
-          backgroundColor: 'rgba(255, 255, 255, 0.12)',
-          color: 'common.white',
-          '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.18)' },
-        }}
-      >
-        <CloseRoundedIcon sx={{ fontSize: typographyScale.base }} />
-      </IconButton>
-    </>
-  );
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      aria-labelledby="mission-detail-title"
-      aria-describedby="mission-detail-description"
-      slotProps={{
-        paper: {
-          sx: {
-            height: { xs: '100vh', sm: '90vh' },
-            maxHeight: { xs: '100vh', sm: '90vh' },
-            width: { xs: '100%', md: 'min(680px, 100%)' },
-            zIndex: 1400,
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        },
-      }}
-    >
-      <DialogTitle id="mission-detail-title" sx={{ p: 2.5, pb: 0 }}>
-        <MissionSummaryPanel
-          topBar={topBar}
-          missionCode={mission.missionCode}
-          pharmacyName={pharmacy ? pharmacieDisplayName(pharmacy) : 'Mission pharmacie'}
-          pharmacyAddress={addressLabel(pharmacy)}
-          dates={formatMissionDatesSummary(mission.days.map((d) => d.dateService))}
-          daysWorked={mission.days.length}
-          paidHours={totalHours}
-          hourlyRateCents={mission.hourlyRateCents}
-          subtotalCents={mission.subtotalCents}
-          expensesCents={mission.mealTotalCents + mission.mileageTotalCents}
-          totalCents={mission.totalCents}
-        >
-          <Box sx={{ pt: 1.5, borderTop: '1px solid', borderColor: 'rgba(255,255,255,0.18)' }}>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-              <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.55)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Mission</Typography>
-              <StatusChip kind="businessMission" status={businessStatus} />
-              {invoice ? (
-                <>
-                  <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.55)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Facture</Typography>
-                  <StatusChip kind="invoice" status={invoice.status} />
-                  {invoice.paymentStatus && (
-                    <>
-                      <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.55)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Paiement</Typography>
-                      <StatusChip kind="payment" status={invoice.paymentStatus} />
-                    </>
-                  )}
-                </>
-              ) : null}
-            </Stack>
-          </Box>
-        </MissionSummaryPanel>
-      </DialogTitle>
-      <DialogContent
-        id="mission-detail-description"
-        sx={{
-          p: 0,
-          overflowY: 'auto',
-          flex: 1,
-          minHeight: 0,
-          overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2.5 }}>
-          <SurfaceCard contentSx={{ p: 2 }}>
-            <MissionDetailDays mission={mission} />
-          </SurfaceCard>
-          {hasFees ? (
-            <SurfaceCard contentSx={{ p: 2 }}>
-              <MissionDetailFees mission={mission} />
-            </SurfaceCard>
-          ) : null}
-          <SurfaceCard contentSx={{ p: 2 }}>
-            <MissionDetailHistory events={mission.events} />
-          </SurfaceCard>
-        </Box>
-      </DialogContent>
-      <MissionDetailFooter
-        mission={mission}
-        invoice={invoice}
-        onEditMission={onEditMission}
-        onOpenInvoice={onOpenInvoice}
-      />
-    </Dialog>
-  );
-}
-
-
-
-function MissionDetailDays({ mission }: { mission: Mission }) {
-  const sortedDays = mission.days.slice().sort((a, b) => `${a.dateService}${a.startTime}`.localeCompare(`${b.dateService}${b.startTime}`));
-
-  return (
-    <Box>
-      <Typography variant="subtitle2" sx={{ fontWeight: 750, mb: 1, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        Jours travaillés
-      </Typography>
-      <Stack spacing={0.5}>
-        {sortedDays.map((day) => (
-          <Box key={day.id} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '140px 1fr auto' }, gap: 1.5, alignItems: 'center', p: 1, borderRadius: 8, bgcolor: 'action.hover' }}>
-            <Typography variant="body2" sx={{ fontWeight: 750 }}>{formatShortDate(day.dateService)}</Typography>
-            <Typography variant="body2">
-              {day.startTime}–{day.endTime}
-              {day.unpaidBreakMinutes > 0 ? ` · pause ${day.unpaidBreakMinutes} min` : ''}
-              {day.description ? ` · ${day.description}` : ''}
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 800, textAlign: { xs: 'left', sm: 'right' } }}>
-              {hoursLabel(day.hours)}
-            </Typography>
-          </Box>
-        ))}
-      </Stack>
-    </Box>
-  );
-}
-
-function MissionDetailFees({ mission }: { mission: Mission }) {
-  const expenses = mission.days.flatMap((day) => day.expenses ?? []);
-  const hasFees = expenses.some((e) => e.amountCents > 0);
-
-  if (!hasFees) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 650 }}>
-        Aucun frais
-      </Typography>
-    );
-  }
-
-  const feeItems = expenses.filter((e) => e.amountCents > 0);
-
-  return (
-    <Box>
-      <Typography variant="subtitle2" sx={{ fontWeight: 750, mb: 1, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        Frais
-      </Typography>
-      <Stack spacing={0.5}>
-        {feeItems.map((expense) => {
-          const config = expenseTypeConfig(expense.typeKey);
-          const detail = expense.typeKey === 'MILEAGE' && expense.distanceKm
-            ? `${config.label} · ${expense.distanceKm.toLocaleString('fr-CA')} km AR`
-            : config.label;
-          return (
-            <Box key={expense.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 650 }}>{detail}</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{formatMoney(expense.amountCents)}</Typography>
-            </Box>
-          );
-        })}
-      </Stack>
-    </Box>
-  );
-}
-
-
-function MissionDetailFooter({
-  mission,
-  invoice,
-  onEditMission,
-  onOpenInvoice,
-}: {
-  mission: Mission;
-  invoice?: Invoice;
-  onEditMission: (missionId: string) => void;
-  onOpenInvoice: (missionId: string) => void;
-}) {
-  if (mission.status === 'ARCHIVED' || mission.status === 'CANCELLED') return null;
-
-  let statusLabel = '';
-  let primaryLabel: string | null = null;
-  let primaryAction: (() => void) | null = null;
-
-  if (mission.status === 'DRAFT') {
-    statusLabel = 'Mission en brouillon';
-  } else if (mission.status === 'CONFIRMED') {
-    statusLabel = 'Mission planifiée';
-  } else if (mission.status === 'IN_PROGRESS') {
-    statusLabel = 'Mission en cours';
-  } else if (mission.status === 'COMPLETED' && !invoice) {
-    statusLabel = 'Prête à facturer';
-    primaryLabel = 'Générer la facture';
-    primaryAction = () => onOpenInvoice(mission.id);
-  } else if (invoice) {
-    if (invoice.status === 'draft' || invoice.status === 'ready_to_send' || invoice.status === 'GENERATED') {
-      statusLabel = 'Facture à finaliser';
-      primaryLabel = 'Ouvrir la facture';
-      primaryAction = () => onOpenInvoice(mission.id);
-    } else if (invoice.status === 'SENT' || invoice.status === 'sent') {
-      statusLabel = 'Facture envoyée';
-      primaryLabel = 'Enregistrer le paiement';
-      primaryAction = () => onOpenInvoice(mission.id);
-    } else if (invoice.status === 'PAID' || invoice.paymentStatus === 'paid') {
-      statusLabel = 'Mission payée';
-      primaryLabel = 'Archiver';
-      primaryAction = () => onOpenInvoice(mission.id);
-    }
-  }
-
-  const isDraft = mission.status === 'DRAFT';
-
-  return (
-    <Box
-      sx={{
-        px: 2.5,
-        py: 1.5,
-        borderTop: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 2,
-        flexShrink: 0,
-        minHeight: 64,
-      }}
-    >
-      <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 650, fontSize: '0.82rem' }}>
-        {statusLabel}
-      </Typography>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-        {isDraft ? (
-          <Button
-            variant="contained"
-            onClick={() => onEditMission(mission.id)}
-            sx={{ fontWeight: 800, borderRadius: borderRadiusScale.full }}
+        <Stack spacing={0.5} sx={{ alignItems: { xs: 'flex-start', md: 'flex-end' } }}>
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}
           >
-            Modifier la mission
-          </Button>
-        ) : (
-          <>
-            <Button
-              variant="text"
-              size="small"
-              onClick={() => onEditMission(mission.id)}
-              sx={{ fontWeight: 700, color: 'text.secondary' }}
-            >
-              Modifier
-            </Button>
-            {primaryLabel && primaryAction ? (
-              <Button
-                variant="contained"
-                onClick={primaryAction}
-                sx={{ fontWeight: 800, borderRadius: borderRadiusScale.full, whiteSpace: 'nowrap' }}
-              >
-                {primaryLabel} →
-              </Button>
-            ) : null}
-          </>
-        )}
-      </Stack>
-    </Box>
-  );
-}
+            {formatMoney(mission.totalCents)}
+          </Typography>
+          {invoice?.paymentStatus ? (
+            <StatusChip kind="payment" status={invoice.paymentStatus} />
+          ) : null}
+        </Stack>
+      </Box>
 
-function MissionDetailHistory({ events }: { events: MissionEvent[] }) {
-  const [open, setOpen] = useState(false);
-
-  if (!events.length) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 650 }}>
-        Aucun événement enregistré.
-      </Typography>
-    );
-  }
-
-  return (
-    <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-      <Button
-        fullWidth
-        variant="text"
-        onClick={() => setOpen((prev) => !prev)}
-        sx={{
-          justifyContent: 'space-between',
-          fontSize: '0.9rem',
-          fontWeight: 750,
-          p: 0,
-          minHeight: 'auto',
-          color: 'text.secondary',
-        }}
-        endIcon={open ? '▴' : '▾'}
-        aria-expanded={open}
-      >
-        Historique
-      </Button>
-      {open ? (
-        <Box sx={{ mt: 1.5 }}>
-          {events.slice().reverse().map((event) => (
-            <Typography key={event.id} variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-              {formatEventDate(event.eventDate)} · {event.label}
-            </Typography>
-          ))}
-        </Box>
-      ) : null}
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+        {canDownloadPdf && invoice ? (
+          <IconButton
+            aria-label="Télécharger le PDF"
+            size="small"
+            onClick={(e: MouseEvent) => { e.stopPropagation(); onDownloadPdf(invoice.id); }}
+            sx={{ width: 30, height: 30, borderRadius: borderRadiusScale.full, bgcolor: 'action.hover', color: 'text.secondary', '&:hover': { bgcolor: 'action.selected' } }}
+          >
+            <PictureAsPdfRoundedIcon sx={{ fontSize: typographyScale.sm }} />
+          </IconButton>
+        ) : null}
+        {canDownloadIcs ? (
+          <IconButton
+            aria-label="Télécharger le calendrier ICS"
+            size="small"
+            onClick={(e: MouseEvent) => { e.stopPropagation(); onDownloadIcs(mission); }}
+            sx={{ width: 30, height: 30, borderRadius: borderRadiusScale.full, bgcolor: 'action.hover', color: 'text.secondary', '&:hover': { bgcolor: 'action.selected' } }}
+          >
+            <CalendarMonthRoundedIcon sx={{ fontSize: typographyScale.sm }} />
+          </IconButton>
+        ) : null}
+      </Box>
     </Box>
   );
 }
