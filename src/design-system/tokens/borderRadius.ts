@@ -9,7 +9,6 @@ export const borderRadiusScale = {
   full: 9999,
 } as const;
 
-// Component border radius defaults - using 1px for sharp corners
 export const componentBorderRadius = {
   input: borderRadiusScale.xs,
   select: borderRadiusScale.xs,
@@ -18,11 +17,11 @@ export const componentBorderRadius = {
     default: borderRadiusScale.xs,
     square: borderRadiusScale.none,
   },
-  card: borderRadiusScale.xs,
-  dashboardCard: borderRadiusScale.xs,
-  settingsCard: borderRadiusScale.xs,
-  hero: borderRadiusScale.xs,
-  paper: borderRadiusScale.xs,
+  card: 10,
+  dashboardCard: 10,
+  settingsCard: 10,
+  hero: 10,
+  paper: 10,
   container: borderRadiusScale.none,
   chip: borderRadiusScale.full,
   badge: borderRadiusScale.full,

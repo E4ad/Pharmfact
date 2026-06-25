@@ -29,7 +29,7 @@ export function getInvoiceEditImpact(invoice?: Invoice): InvoiceEditImpact {
     };
   }
 
-  if (invoice.status === 'GENERATED') {
+  if (invoice.status === 'GENERATED' || invoice.status === 'draft') {
     return {
       level: 'warning',
       message: 'Cette mission possède déjà une facture générée. Les modifications peuvent recalculer la facture liée.',
@@ -40,7 +40,7 @@ export function getInvoiceEditImpact(invoice?: Invoice): InvoiceEditImpact {
     };
   }
 
-  if (invoice.status === 'SENT') {
+  if (invoice.status === 'SENT' || invoice.status === 'sent') {
     return {
       level: 'danger',
       message: 'Attention : cette facture a déjà été envoyée au paiement. Toute modification peut nécessiter de transmettre un nouveau PDF au client.',
@@ -51,7 +51,7 @@ export function getInvoiceEditImpact(invoice?: Invoice): InvoiceEditImpact {
     };
   }
 
-  if (invoice.status === 'PAID') {
+  if (invoice.status === 'PAID' || invoice.paymentStatus === 'paid') {
     return {
       level: 'danger',
       message: 'Attention : cette facture est payée. La correction doit créer une nouvelle version plutôt que remplacer le document réglé.',
@@ -62,7 +62,7 @@ export function getInvoiceEditImpact(invoice?: Invoice): InvoiceEditImpact {
     };
   }
 
-  if (invoice.status === 'ARCHIVED') {
+  if (invoice.status === 'ARCHIVED' || invoice.status === 'archived') {
     return {
       level: 'warning',
       message: 'Cette facture est archivée. Les corrections doivent créer une version corrigée ou rester internes selon le besoin métier.',
@@ -88,28 +88,28 @@ export function getAvailableEditActions(invoice?: Invoice): MissionEditActionDef
     return [{ action: 'save', label: 'Sauvegarder les modifications', primary: true }];
   }
 
-  if (invoice.status === 'GENERATED') {
+  if (invoice.status === 'GENERATED' || invoice.status === 'draft') {
     return [
       { action: 'save', label: 'Sauvegarder' },
       { action: 'save_regenerate', label: 'Sauvegarder et rééditer facture', primary: true },
     ];
   }
 
-  if (invoice.status === 'SENT') {
+  if (invoice.status === 'SENT' || invoice.status === 'sent') {
     return [
       { action: 'save', label: 'Sauvegarder sans rééditer' },
       { action: 'save_regenerate', label: 'Sauvegarder et télécharger le nouveau PDF', primary: true },
     ];
   }
 
-  if (invoice.status === 'PAID') {
+  if (invoice.status === 'PAID' || invoice.paymentStatus === 'paid') {
     return [
       { action: 'create_corrected_version', label: 'Créer une version corrigée', primary: true },
       { action: 'save_internal', label: 'Sauvegarder correction interne' },
     ];
   }
 
-  if (invoice.status === 'ARCHIVED') {
+  if (invoice.status === 'ARCHIVED' || invoice.status === 'archived') {
     return [
       { action: 'create_corrected_version', label: 'Créer une version corrigée', primary: true },
       { action: 'save_internal', label: 'Sauvegarder correction interne' },

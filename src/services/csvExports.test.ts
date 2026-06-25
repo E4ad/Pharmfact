@@ -9,7 +9,7 @@ const state: AppState = {
   pharmaciens: [],
   pharmacies: [{ id: 'pha1', nom: 'Pharmacie A', adresse: '', ville: 'Montréal', codePostal: 'H2X 1A1', telephone: '', email: 'a@example.com', billingEmail: 'factures@example.com', defaultBreakMinutes: 30 }],
   missions: [],
-  invoices: [{ id: 'inv1', numero: 'F1', missionIds: ['mis1'], pharmacienId: 'ph1', pharmacieId: 'pha1', dateFacture: '2026-06-01', dateEcheance: '2026-07-01', status: 'PAID', hours: 2, amountCents: 12345, paidAt: '2026-06-10', createdAt: '' }],
+  invoices: [{ id: 'inv1', numero: 'F1', missionIds: ['mis1'], missionId: 'mis1', pharmacienId: 'ph1', pharmacieId: 'pha1', dateFacture: '2026-06-01', dateEcheance: '2026-07-01', status: 'sent', paymentStatus: 'paid', hours: 2, amountCents: 12345, paidAmountCents: 12345, balanceDue: 0, paidAt: '2026-06-10', createdAt: '' }],
   taxPayments: [],
   deductibleExpenses: [{ id: 'exp1', date: '2026-06-02', label: 'Logiciel', category: 'SOFTWARE', amountCents: 1999, taxDeductible: true, missionId: 'mis1', hasReceipt: true }],
   expenseReceipts: [],

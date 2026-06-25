@@ -25,7 +25,16 @@ import { activePharmacien } from '../../storage/selectors';
 import { buildInvoicePipelineMetrics, buildMissionWindowMetrics } from '../../services/dashboardMetrics';
 import { formatMoney } from '../../services/money';
 import { todayIso } from '../../services/ids';
-import type { QuickAction } from './types';
+
+type QuickAction = {
+  title: string;
+  description?: string;
+  href: string;
+  icon: ReactNode;
+  badge?: string;
+  testId: string;
+  primary?: boolean;
+};
 
 function getTileHoverBg(theme: Theme): string {
   return theme.palette.mode === 'dark'

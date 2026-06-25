@@ -107,7 +107,7 @@ function generateMonthlyWarnings(data: {
   const monthInvoices = data.invoices.filter((invoice) => invoice.dateFacture.startsWith(month));
 
   const overdueInvoices = monthInvoices.filter(
-    (invoice) => invoice.status === 'SENT' && new Date(data.todayIso) > new Date(invoice.dateEcheance),
+    (invoice) => (invoice.status === 'SENT' || invoice.status === 'sent') && invoice.paymentStatus !== 'paid' && new Date(data.todayIso) > new Date(invoice.dateEcheance),
   );
 
   if (overdueInvoices.length > 0) {
@@ -120,7 +120,7 @@ function generateMonthlyWarnings(data: {
     });
   }
 
-  const missingReceipts = monthInvoices.filter((invoice) => invoice.status === 'SENT');
+  const missingReceipts = monthInvoices.filter((invoice) => (invoice.status === 'SENT' || invoice.status === 'sent') && invoice.paymentStatus !== 'paid');
 
   if (missingReceipts.length > 0) {
     warnings.push({
@@ -220,10 +220,10 @@ export function buildMonthlyFinancialSnapshots(data: {
     ).filter((e) => e.date.startsWith(month));
 
     const invoicedCents = invoices.reduce((sum, invoice) => sum + invoice.amountCents, 0);
-    const collectedCents = invoices.reduce((sum, invoice) => (invoice.status === 'PAID' ? sum + invoice.amountCents : sum), 0);
-    const receivableCents = invoices.reduce((sum, invoice) => (invoice.status === 'SENT' ? sum + invoice.amountCents : sum), 0);
+    const collectedCents = invoices.reduce((sum, invoice) => ((invoice.status === 'PAID' || invoice.paymentStatus === 'paid') ? sum + invoice.amountCents : sum), 0);
+    const receivableCents = invoices.reduce((sum, invoice) => ((invoice.status === 'SENT' || invoice.status === 'sent') && invoice.paymentStatus !== 'paid' ? sum + (invoice.balanceDue ?? invoice.amountCents) : sum), 0);
     const overdueCents = invoices.reduce(
-      (sum, invoice) => (invoice.status === 'SENT' && new Date(data.todayIso) > new Date(invoice.dateEcheance) ? sum + invoice.amountCents : sum),
+      (sum, invoice) => ((invoice.status === 'SENT' || invoice.status === 'sent') && invoice.paymentStatus !== 'paid' && new Date(data.todayIso) > new Date(invoice.dateEcheance) ? sum + (invoice.balanceDue ?? invoice.amountCents) : sum),
       0,
     );
 
@@ -540,8 +540,6 @@ export function buildAnnualExpenseRows({
       }
     }
 
-    // Calculer la date de début du mois (YYYY-MM-01)
-    const monthStartDate = new Date(year, index, 1);
     const monthStart = `${year}-${String(index + 1).padStart(2, '0')}-01`;
     
     // Calculer la date de fin du mois (YYYY-MM-dd)

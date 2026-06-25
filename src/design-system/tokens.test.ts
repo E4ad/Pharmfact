@@ -23,12 +23,11 @@ describe('design tokens', () => {
     expect(spacingScalePx['3xl']).toBe(48);
   });
 
-  it('uses 1px border radius as default for sharp corners', () => {
-    // Card and surface components use 1px for sharp corners
-    expect(componentBorderRadius.card).toBe(1);
-    expect(componentBorderRadius.hero).toBe(1);
-    expect(componentBorderRadius.dashboardCard).toBe(1);
-    expect(componentBorderRadius.settingsCard).toBe(1);
+  it('uses 10px border radius for rounded surfaces', () => {
+    expect(componentBorderRadius.card).toBe(10);
+    expect(componentBorderRadius.hero).toBe(10);
+    expect(componentBorderRadius.dashboardCard).toBe(10);
+    expect(componentBorderRadius.settingsCard).toBe(10);
     
     // Buttons use 1px for sharp corners
     expect(componentBorderRadius.button.default).toBe(1);

@@ -1,5 +1,5 @@
 export const APP_STORAGE_KEY = 'mission-app:v1';
-export const APP_SCHEMA_VERSION = 3;
+export const APP_SCHEMA_VERSION = 4;
 
 export type TaxStatus = 'SMALL_SUPPLIER' | 'REGISTERED';
 
@@ -11,7 +11,66 @@ export type MissionStatus =
   | 'ARCHIVED'
   | 'CANCELLED';
 
-export type InvoiceStatus = 'GENERATED' | 'SENT' | 'PAID' | 'ARCHIVED' | 'VOIDED';
+export type InvoiceStatus =
+  | 'draft'
+  | 'ready_to_send'
+  | 'sent'
+  | 'replaced'
+  | 'archived'
+  | 'GENERATED'
+  | 'SENT'
+  | 'PAID'
+  | 'VOIDED'
+  | 'ARCHIVED';
+
+export type PaymentStatus =
+  | 'to_collect'
+  | 'partial'
+  | 'paid';
+
+export type PaymentMethod =
+  | 'transfer'
+  | 'cheque'
+  | 'direct_deposit'
+  | 'interac'
+  | 'cash'
+  | 'other'
+  | 'VIREMENT'
+  | 'CHEQUE'
+  | 'INTERAC'
+  | 'COMPTANT'
+  | 'AUTRE';
+
+export type InvoicePayment = {
+  id: string;
+  amount: number;
+  receivedAt: string;
+  method: PaymentMethod;
+  note?: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export type InvoiceVersionInfo = {
+  baseNumber: string;
+  version: number;
+  replacesInvoiceId?: string;
+  replacedByInvoiceId?: string;
+  isActiveVersion: boolean;
+};
+
+export type InvoiceCorrectionState = {
+  missionChangedAfterDraft?: boolean;
+  pdfNeedsRegeneration?: boolean;
+  correctionRequired?: boolean;
+};
+
+export type InvoiceOverpaymentState = {
+  amount: number;
+  manuallyHandled: boolean;
+  handledAt?: string;
+  note?: string;
+};
 
 export type ActType =
   | 'REMPLACEMENT_OFFICINE'
@@ -49,6 +108,8 @@ export type Pharmacien = {
   codePostal: string;
   lat?: number;
   lng?: number;
+  geocodedAt?: string;
+  geocodedAddressHash?: string;
   telephone: string;
   email: string;
   hourlyRateCents: number;
@@ -81,6 +142,8 @@ export type Pharmacie = {
   codePostal: string;
   lat?: number;
   lng?: number;
+  geocodedAt?: string;
+  geocodedAddressHash?: string;
   telephone: string;
   email: string;
   billingContactName?: string;
@@ -91,7 +154,47 @@ export type Pharmacie = {
   distanceKm?: number;
   defaultBreakMinutes: number;
   defaultMissionType?: string;
+  franchise?: PharmacyFranchise;
+  franchiseLabel?: string;
+  weeklySchedule?: PharmacyWeeklySchedule;
+  isFavorite?: boolean;
+  favoriteRank?: number;
+  lastUsedAt?: string;
   notes?: string;
+};
+
+export type Weekday =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+export type PharmacyFranchise =
+  | 'jean_coutu'
+  | 'familiprix'
+  | 'uniprix'
+  | 'brunet'
+  | 'pharmaprix'
+  | 'proxim'
+  | 'acces_pharma'
+  | 'independent'
+  | 'other'
+  | 'unknown';
+
+export type PharmacyDaySchedule = {
+  enabled: boolean;
+  startTime?: string;
+  endTime?: string;
+};
+
+export type PharmacyWeeklySchedule = Record<Weekday, PharmacyDaySchedule> & {
+  source?: 'manual' | 'notes_migration' | 'unknown';
+  extractedFromNotes?: boolean;
+  sourceLabel?: string;
+  updatedAt?: string;
 };
 
 export type DistanceReference = {
@@ -100,10 +203,17 @@ export type DistanceReference = {
   pharmacieId: string;
   distanceKm: number;
   distanceAllerKm?: number;
-  pharmacienAddressKey?: string;
-  pharmacieAddressKey?: string;
-  source: 'calculated' | 'manual';
+  fromAddressHash: string;
+  toAddressHash: string;
+  provider?: 'osrm' | 'manual';
+  computedAt: string;
+  errorReason?: string;
+  source: 'route' | 'manual' | 'cached';
   updatedAt: string;
+  /** @deprecated Use fromAddressHash. Preserved for legacy migration compatibility. */
+  pharmacienAddressKey?: string;
+  /** @deprecated Use toAddressHash. Preserved for legacy migration compatibility. */
+  pharmacieAddressKey?: string;
 };
 
 export type OpqPharmacistRegistryEntry = {
@@ -259,15 +369,26 @@ export type Invoice = {
   dateFacture: string;
   dateEcheance: string;
   status: InvoiceStatus;
+  paymentStatus: PaymentStatus;
   hours: number;
   amountCents: number;
+  paidAmountCents?: number;
+  balanceDue?: number;
   paymentTerms?: string;
   smallSupplierMention?: string;
   sentAt?: string;
   paidAt?: string;
-  paidAmountCents?: number;
   archivedAt?: string;
+  pdfGeneratedAt?: string;
+  pdfPath?: string;
+  payments?: InvoicePayment[];
+  versionInfo?: InvoiceVersionInfo;
+  correctionState?: InvoiceCorrectionState;
+  previousPaidAmount?: number;
+  remainingBalanceFromCorrection?: number;
+  overpayment?: InvoiceOverpaymentState;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type DeductibleExpense = {
@@ -369,7 +490,7 @@ export type LocalDataSettings = {
 };
 
 export type AppState = {
-  version: 2 | 3;
+  version: 2 | 3 | 4;
   activePharmacienId: string | null;
   pharmaciens: Pharmacien[];
   pharmacies: Pharmacie[];

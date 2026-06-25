@@ -10,8 +10,6 @@ import type {
   Pharmacien,
   Pharmacie,
   TaxPayment,
-  UiSettings,
-  LocalDataSettings,
   OpqPharmacistRegistry,
 } from './schema';
 import { addDaysIso, createId, todayIso } from '../services/ids';
@@ -203,14 +201,18 @@ const invoice: Invoice = {
   pharmacieId: completedMission.pharmacieId,
   dateFacture: yesterday,
   dateEcheance: addDaysIso(yesterday, 30),
-  status: 'SENT',
+  status: 'sent',
+  paymentStatus: 'to_collect',
   hours: completedMission.totalHours,
   amountCents: completedMission.totalCents,
+  paidAmountCents: 0,
+  balanceDue: completedMission.totalCents,
   paymentTerms: 'Paiement par virement dans les 30 jours.',
   smallSupplierMention:
     'Petit fournisseur: TPS/TVQ non applicables, à valider selon votre situation fiscale.',
   sentAt: today,
   createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 };
 
 completedMission.invoiceId = invoice.id;
@@ -320,7 +322,7 @@ export function createDefaultAppOptions(): AppOptions {
 
 export function createSeedState(): AppState {
   return {
-    version: 3,
+    version: 4,
     activePharmacienId: '',
     pharmaciens: [],
     pharmacies: [],
@@ -349,7 +351,7 @@ export function createSeedState(): AppState {
 
 export function createDemoState(): AppState {
   return {
-    version: 3,
+    version: 4,
     activePharmacienId: 'ph_amelie',
     pharmaciens,
     pharmacies,

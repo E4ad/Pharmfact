@@ -17,9 +17,12 @@ const invoice: Invoice = {
   pharmacieId: 'pha_1',
   dateFacture: '2026-06-05',
   dateEcheance: '2026-07-05',
-  status: 'GENERATED',
+  status: 'draft',
+  paymentStatus: 'to_collect',
   hours: 8,
   amountCents: 80000,
+  paidAmountCents: 0,
+  balanceDue: 80000,
   createdAt: '2026-06-05T00:00:00.000Z',
 };
 

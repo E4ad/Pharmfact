@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, type CardProps, type SxProps, type Theme } from '@mui/material';
+import { Box, Card, type CardProps, type SxProps, type Theme } from '@mui/material';
 import type { ReactNode } from 'react';
 import { spacingScale, componentBorderRadius } from '../design-system/tokens';
 
@@ -18,12 +18,11 @@ type SurfaceCardProps = Omit<CardProps, 'children'> & {
   contentSx?: SxProps<Theme>;
   flush?: boolean;
   radius?: SurfaceRadius;
+  lift?: boolean;
 };
 
-export function SurfaceCard({ children, contentSx, flush = false, radius = 'card', sx, ...props }: SurfaceCardProps) {
-  // Use the radius prop to select the appropriate border radius
+export function SurfaceCard({ children, contentSx, flush = false, radius = 'card', lift = false, sx, ...props }: SurfaceCardProps) {
   const surfaceRadius = surfaceRadiusMap[radius];
-  const clickable = Boolean(props.onClick);
 
   return (
     <Card
@@ -39,7 +38,7 @@ export function SurfaceCard({ children, contentSx, flush = false, radius = 'card
           '@media (prefers-reduced-motion: reduce)': {
             transition: 'none',
           },
-          ...(clickable
+          ...(lift
             ? {
                 '&:hover': {
                   boxShadow: theme.runtimeTokens.shadows.card[theme.palette.mode === 'dark' ? 'elevatedDark' : 'elevatedLight'],
@@ -61,15 +60,14 @@ export function SurfaceCard({ children, contentSx, flush = false, radius = 'card
       ]}
       {...props}
     >
-      <CardContent
-        sx={{
-          p: flush ? 0 : { xs: spacingScale.md, md: spacingScale.lg },
-          '&:last-child': { pb: flush ? 0 : { xs: spacingScale.md, md: spacingScale.lg } },
-          ...contentSx,
-        }}
+      <Box
+        sx={[
+          { p: flush ? 0 : { xs: spacingScale.md, md: spacingScale.lg } },
+          contentSx ?? {},
+        ]}
       >
         {children}
-      </CardContent>
+      </Box>
     </Card>
   );
 }

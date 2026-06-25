@@ -23,10 +23,6 @@ export type MissionCalculation = {
   totalCents: number;
 };
 
-// ============================================================================
-// Fonctions de base (existantes)
-// ============================================================================
-
 function minutesFromTime(value: string): number | null {
   const [hours, minutes] = value.split(':').map(Number);
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
@@ -57,10 +53,6 @@ export function calculateMission(input: MissionCalculationInput): MissionCalcula
   };
 }
 
-// ============================================================================
-// Types pour le formulaire
-// ============================================================================
-
 export type MissionDayFormValue = {
   id: string;
   dateService: string;
@@ -90,10 +82,6 @@ export type MissionFormValues = {
   notes: string;
 };
 
-// ============================================================================
-// Fonctions utilitaires monétaires
-// ============================================================================
-
 export function moneyToCents(value: number): number {
   return Math.round((Number(value) || 0) * 100);
 }
@@ -105,10 +93,6 @@ export function centsToMoney(cents: number): number {
 export function parseMoney(value: string): number {
   return Number(value.replace(',', '.')) || 0;
 }
-
-// ============================================================================
-// Fonctions utilitaires de dates
-// ============================================================================
 
 export function dayName(dateIso: string): string {
   return new Intl.DateTimeFormat('fr-CA', { weekday: 'long', day: '2-digit', month: 'short' }).format(
@@ -126,19 +110,7 @@ export function daysBetween(startIso: string, endIso: string): string[] {
   return days;
 }
 
-// ============================================================================
-// Fonctions utilitaires d'adresses et distance
-// ============================================================================
-
-// addressOf et estimateDistanceKm sont importées depuis distanceCalculator.ts
-
-// ============================================================================
-// Fonctions de création d'expenses et de jours
-// ============================================================================
-
 export type ExpenseType = 'REPAS' | 'KM' | 'AUTRE';
-
-const fallbackMealRule = { mealAutoEnabled: true, mealThresholdHours: 8, mealDefaultAmount: 20 };
 
 export function createExpense(type: ExpenseType, overrides: Partial<MissionExpense> = {}): MissionExpense {
   const typeKey = type === 'REPAS' ? 'MEAL' : type === 'KM' ? 'MILEAGE' : 'OTHER_NON_DEDUCTIBLE';
@@ -148,14 +120,9 @@ export function createExpense(type: ExpenseType, overrides: Partial<MissionExpen
 export function createDay(
   dateService: string,
   values: Pick<MissionFormValues, 'defaultStartTime' | 'defaultEndTime' | 'defaultUnpaidBreakMinutes'>,
-  expenses: MissionExpense[] = [],
-  mealRule = fallbackMealRule
+  expenses: MissionExpense[] = []
 ): MissionDayFormValue {
   const paidHours = calculateDayHours(values.defaultStartTime, values.defaultEndTime, values.defaultUnpaidBreakMinutes);
-  const autoMeal =
-    mealRule.mealAutoEnabled && paidHours > mealRule.mealThresholdHours
-      ? [createExpense('REPAS', { amount: mealRule.mealDefaultAmount })]
-      : [];
   return {
     id: createId('day'),
     dateService,
@@ -163,13 +130,9 @@ export function createDay(
     endTime: values.defaultEndTime,
     unpaidBreakMinutes: values.defaultUnpaidBreakMinutes,
     paidHours,
-    expenses: expenses.length ? expenses : autoMeal,
+    expenses,
   };
 }
-
-// ============================================================================
-// Conversion Mission <-> Form
-// ============================================================================
 
 export function missionToForm(mission: Mission): MissionFormValues {
   return {
@@ -261,17 +224,13 @@ export function buildMissionFromForm(values: MissionFormValues, existing?: Missi
   };
 }
 
-// ============================================================================
-// Fonctions utilitaires pour le formulaire
-// ============================================================================
-
 export function recalcDay(day: MissionDayFormValue): MissionDayFormValue {
   return { ...day, paidHours: calculateDayHours(day.startTime, day.endTime, day.unpaidBreakMinutes) };
 }
 
 export function regenerateDays(
   source: MissionFormValues,
-  defaults: {
+  _defaults: {
     mealDefaults: { enabled: boolean; thresholdHours: number; amountCents: number };
   }
 ): MissionFormValues {
@@ -281,12 +240,8 @@ export function regenerateDays(
     if (excludedDates.has(date)) return null;
     const existingDay = source.days.find((day) => day.dateService === date);
     return existingDay
-      ? recalcDay({ ...existingDay, startTime: source.defaultStartTime, endTime: source.defaultEndTime, unpaidBreakMinutes: source.defaultUnpaidBreakMinutes })
-      : createDay(date, source, [], {
-          mealAutoEnabled: defaults.mealDefaults.enabled,
-          mealThresholdHours: defaults.mealDefaults.thresholdHours,
-          mealDefaultAmount: centsToMoney(defaults.mealDefaults.amountCents),
-        });
+      ? recalcDay(existingDay)
+      : createDay(date, source, []);
   }).filter((day): day is MissionDayFormValue => Boolean(day));
   return { ...source, dateFin: end || source.dateDebut, days: nextDays };
 }

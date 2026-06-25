@@ -46,14 +46,14 @@ describe('distanceReferences', () => {
   });
 
   it('reuses a distance reference for the same address pair', () => {
-    const reference = createDistanceReference({ pharmacien, pharmacie, distanceKm: 12.34, distanceAllerKm: 6.17 });
+    const reference = createDistanceReference({ pharmacien, pharmacie, distanceKm: 12.34, distanceAllerKm: 6.17, source: 'route' });
     const state = upsertDistanceReference(baseState, reference);
 
     expect(findReusableDistanceReference(state, pharmacien, pharmacie)?.distanceKm).toBe(12);
   });
 
   it('does not reuse a reference when an address changes', () => {
-    const reference = createDistanceReference({ pharmacien, pharmacie, distanceKm: 12.3, distanceAllerKm: 6.1 });
+    const reference = createDistanceReference({ pharmacien, pharmacie, distanceKm: 12.3, distanceAllerKm: 6.1, source: 'route' });
     const state = upsertDistanceReference(baseState, reference);
     const movedPharmacie = { ...pharmacie, adresse: '300 rue Ontario' };
 

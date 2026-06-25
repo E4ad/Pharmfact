@@ -58,11 +58,12 @@ import { todayIso } from '../../services/ids';
 
 const queueLabels: Record<InvoiceQueue, string> = {
   all: 'Toutes',
+  active: 'Actives',
+  archived: 'Archivées',
   to_send: 'À envoyer',
   overdue: 'En retard',
   sent: 'À encaisser',
   paid: 'Payées',
-  archived: 'Archivées',
   attention: 'À vérifier',
   corrected_originals: 'Originaux corrigés',
   corrected_versions: 'Versions à transmettre',
@@ -619,20 +620,22 @@ export function InvoicesPage() {
                                       Envoyer
                                     </Button>
                                   ) : null}
-                                  {invoice.status !== 'PAID' &&
-                                  invoice.status !== 'ARCHIVED' &&
-                                  invoice.status !== 'VOIDED' ? (
-                                    <Button
-                                      size="small"
-                                      startIcon={<PaidRoundedIcon />}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        setStatus(invoice.id, 'PAID');
-                                      }}
-                                    >
-                                      Payée
-                                    </Button>
-                                  ) : null}
+{invoice.status !== 'sent' &&
+                                   invoice.status !== 'archived' &&
+                                   invoice.status !== 'VOIDED' &&
+                                   invoice.status !== 'GENERATED' &&
+                                   invoice.status !== 'PAID' ? (
+                                     <Button
+                                       size="small"
+                                       startIcon={<PaidRoundedIcon />}
+                                       onClick={(event) => {
+                                         event.stopPropagation();
+                                         setStatus(invoice.id, 'sent');
+                                       }}
+                                     >
+                                       Payée
+                                     </Button>
+                                   ) : null}
                                   <LoadingButton
                                     size="small"
                                     variant="contained"
@@ -646,19 +649,19 @@ export function InvoicesPage() {
                                   >
                                     Télécharger PDF
                                   </LoadingButton>
-                                  {invoice.status !== 'ARCHIVED' ? (
-                                    <Button
-                                      size="small"
-                                      color="inherit"
-                                      startIcon={<ArchiveRoundedIcon />}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        setStatus(invoice.id, 'ARCHIVED');
-                                      }}
-                                    >
-                                      Archiver
-                                    </Button>
-                                  ) : null}
+{invoice.status !== 'archived' && invoice.status !== 'ARCHIVED' ? (
+                                     <Button
+                                       size="small"
+                                       color="inherit"
+                                       startIcon={<ArchiveRoundedIcon />}
+                                       onClick={(event) => {
+                                         event.stopPropagation();
+                                         setStatus(invoice.id, 'archived');
+                                       }}
+                                     >
+                                       Archiver
+                                     </Button>
+                                   ) : null}
                                 </Stack>
                               </TableCell>
                             </TableRow>

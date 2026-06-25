@@ -9,6 +9,7 @@ import { PageSection } from '../../components/PageSection';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { buildPharmacyMetrics } from '../../services/dashboardMetrics';
 import { formatMoney } from '../../services/money';
+import { formatPharmacyWeeklySchedule, getPharmacyFranchiseLabel } from '../../services/pharmacyMetadata';
 import { useAppState } from '../../storage/localStore';
 import { pharmacieDisplayName } from '../../storage/selectors';
 
@@ -57,7 +58,13 @@ export function PharmaciesPage() {
                       <TableCell>
                         <Box>
                           <Typography variant="body2" sx={{ fontWeight: 800 }}>{pharmacieDisplayName(pharmacie)}</Typography>
-                          <Typography variant="caption" color="text.secondary">{pharmacie.ville || 'Ville non renseignée'} · {pharmacie.codePostal || 'Code postal manquant'}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {getPharmacyFranchiseLabel(pharmacie)}
+                            {formatPharmacyWeeklySchedule(pharmacie.weeklySchedule) ? ` · ${formatPharmacyWeeklySchedule(pharmacie.weeklySchedule)}` : ''}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {pharmacie.adresse || pharmacie.ville || 'Adresse non renseignée'}{pharmacie.codePostal ? ` · ${pharmacie.codePostal}` : ''}
+                          </Typography>
                         </Box>
                       </TableCell>
                       <TableCell>

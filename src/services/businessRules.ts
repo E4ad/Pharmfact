@@ -32,6 +32,21 @@ export const businessMissionStatusLabels: Record<BusinessMissionStatus, string> 
   archived: 'Archivée',
 };
 
+export function businessMissionStatusTone(status: BusinessMissionStatus): 'default' | 'primary' | 'warning' | 'success' | 'error' {
+  switch (status) {
+    case 'draft': return 'default';
+    case 'planned': return 'primary';
+    case 'in_progress': return 'warning';
+    case 'completed': return 'success';
+    case 'invoiced': return 'success';
+    case 'sent': return 'primary';
+    case 'paid': return 'success';
+    case 'archived': return 'default';
+    default: return 'default';
+  }
+}
+
+
 export function invoiceMissionIds(invoice: Pick<Invoice, 'missionIds' | 'missionId'>): string[] {
   return invoice.missionIds?.length
     ? invoice.missionIds
@@ -127,7 +142,7 @@ export function buildBusinessAlerts(state: AppState, nowIso = todayIso()): Busin
         href: '/invoices',
       });
     }
-    if (invoice.status === 'SENT' && invoice.dateEcheance < nowIso) {
+    if ((invoice.status === 'SENT' || invoice.status === 'sent') && invoice.dateEcheance < nowIso) {
       alerts.push({
         id: `invoice-overdue-${invoice.id}`,
         severity: 'warning',

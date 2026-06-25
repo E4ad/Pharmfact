@@ -16,6 +16,7 @@ import { RouteErrorPage } from '../pages/errors/RouteErrorPage';
 const MissionsPage = lazy(() => import('../features/missions/MissionsPage').then(m => ({ default: m.MissionsPage })));
 const InvoicesPage = lazy(() => import('../features/invoices/InvoicesPage').then(m => ({ default: m.InvoicesPage })));
 const MissionFormPageLazy = lazy(() => import('../features/missions/MissionFormPage').then(m => ({ default: m.MissionFormPage })));
+const MissionInvoicePage = lazy(() => import('../features/missions/MissionInvoicePage').then(m => ({ default: m.MissionInvoicePage })));
 
 function shell(element: ReactElement) {
   return <AppShell>{element}</AppShell>;
@@ -43,8 +44,8 @@ export const router = createBrowserRouter([
   route('/welcome', shell(<OnboardingPage />)),
   route('/activity', shell(<ActivityPage />)),
   lazyRoute('/mission/new', shell(<MissionFormPageLazy mode="create" />)),
-  lazyRoute('/missions/new', shell(<MissionFormPageLazy mode="create" />)),
   lazyRoute('/missions/:missionId/edit', shell(<MissionFormPageLazy mode="edit" />)),
+  lazyRoute('/missions/:missionId/invoice', shell(<MissionInvoicePage />)),
   lazyRoute('/missions', <MissionsPage />),
   lazyRoute('/invoices', shell(<InvoicesPage />)),
   route('/invoices/:invoiceId/print', <InvoicePrintPage />),

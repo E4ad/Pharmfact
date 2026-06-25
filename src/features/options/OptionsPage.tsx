@@ -69,6 +69,7 @@ import { formatBytes } from '../../services/formatting';
 import { useNotifications } from '../../components/NotificationSystem';
 import { buildDataHealthSummary } from '../../services/dataHealth';
 import { formatAuditDate } from '../../services/auditTrail';
+import { formatPharmacyWeeklySchedule, getPharmacyFranchiseLabel } from '../../services/pharmacyMetadata';
 import {
   defaultRuntimeDesignTokenOverrides,
   normalizeRuntimeDesignTokenOverrides,
@@ -1771,6 +1772,10 @@ export function OptionsPage() {
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
                       {pharmacie.adresse}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {getPharmacyFranchiseLabel(pharmacie)}
+                      {formatPharmacyWeeklySchedule(pharmacie.weeklySchedule) ? ` · ${formatPharmacyWeeklySchedule(pharmacie.weeklySchedule)}` : ''}
                     </Typography>
                   </SurfaceCard>
                 ))}

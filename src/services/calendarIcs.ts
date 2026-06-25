@@ -57,14 +57,16 @@ function fallbackMissionDay(mission: Mission): MissionDay {
 export function buildMissionIcs(mission: Mission, pharmacien?: Pharmacien, pharmacie?: Pharmacie): string {
   const missionDays = mission.days.length > 0 ? mission.days : [fallbackMissionDay(mission)];
   const dtStamp = compactTimestamp(new Date());
-  const summary = `Mission pharmacie${pharmacie ? ` - ${pharmacieDisplayName(pharmacie)}` : ''}`;
+  const pharmacyName = pharmacie ? pharmacieDisplayName(pharmacie) : 'Pharmacie';
+  const summary = `Remplacement — ${pharmacyName}`;
   const location = pharmacie ? `${pharmacie.adresse}, ${pharmacie.ville} ${pharmacie.codePostal}` : '';
   const events = missionDays.flatMap((day, index) => {
     const description = [
-      pharmacien ? `Pharmacien: ${pharmacien.nom}` : '',
-      day.description ? `Mission: ${day.description}` : '',
-      `Heures: ${day.hours} h`,
-      `Montant: ${(mission.totalCents / 100).toFixed(2)} CAD`,
+      'Mission PharmFact',
+      `Pharmacie : ${pharmacyName}`,
+      `Horaire : ${day.startTime || '09:00'}–${day.endTime || '17:00'}`,
+      `Pause : ${day.unpaidBreakMinutes} min`,
+      pharmacien ? `Pharmacien : ${pharmacien.nom}` : '',
       mission.notes ? `Notes: ${mission.notes}` : '',
     ].filter(Boolean).join('\n');
 
@@ -77,6 +79,11 @@ export function buildMissionIcs(mission: Mission, pharmacien?: Pharmacien, pharm
       `SUMMARY:${escapeIcs(summary)}`,
       `DESCRIPTION:${escapeIcs(description)}`,
       `LOCATION:${escapeIcs(location)}`,
+      'BEGIN:VALARM',
+      'TRIGGER:-PT1H',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:${escapeIcs(summary)}`,
+      'END:VALARM',
       'END:VEVENT',
     ];
   });
@@ -100,4 +107,44 @@ export function downloadIcs(filename: string, ics: string): void {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function slugify(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+export function buildMissionIcsFilename(mission: Mission, pharmacie?: Pharmacie): string {
+  const pharmacySlug = slugify(pharmacie ? pharmacieDisplayName(pharmacie) : 'mission');
+  const sortedDates = [...new Set((mission.days.length ? mission.days.map((day) => day.dateService) : [mission.dateDebut]))].sort();
+  const first = sortedDates[0] ?? mission.dateDebut;
+  const last = sortedDates.at(-1) ?? first;
+  const month = new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' })
+    .format(new Date(`${first}T00:00:00`))
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+
+  if (sortedDates.length <= 1) {
+    return `${pharmacySlug}-${first}.ics`;
+  }
+
+  const consecutive = sortedDates.every((date, index) => {
+    if (index === 0) return true;
+    const previous = new Date(`${sortedDates[index - 1]}T00:00:00`);
+    previous.setDate(previous.getDate() + 1);
+    return previous.toISOString().slice(0, 10) === date;
+  });
+
+  if (consecutive) {
+    return `${pharmacySlug}-${first.slice(8, 10)}-${last.slice(8, 10)}-${month}.ics`;
+  }
+
+  return `${pharmacySlug}-${sortedDates.length}-jours-${month}.ics`;
 }

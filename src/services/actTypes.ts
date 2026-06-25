@@ -13,7 +13,7 @@ const fiscalWarning = 'À valider selon votre situation fiscale.';
 export const actTypeCatalog: ActTypeDefinition[] = [
   {
     value: 'REMPLACEMENT_OFFICINE',
-    label: 'Remplacement officine',
+    label: 'Remplacement en officine',
     defaultInvoiceLabel: 'Remplacement en officine',
     suggestedTaxClassification: 'TO_VALIDATE',
     fiscalWarning,
@@ -62,4 +62,3 @@ export function getActTypeDefinition(value?: string): ActTypeDefinition {
 export function getMissionInvoiceLabel(mission: Pick<Mission, 'actType' | 'invoiceLabel'>): string {
   return mission.invoiceLabel?.trim() || getActTypeDefinition(mission.actType).defaultInvoiceLabel;
 }
-

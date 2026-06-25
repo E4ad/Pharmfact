@@ -1,8 +1,8 @@
-import { Box, Stack, Typography, type SxProps, type Theme } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { alpha, Box, Button, Stack, Typography, type SxProps, type Theme } from '@mui/material';
+import { brandColors, borderWidth, spacingScale, spacingFractional, borderRadiusScale } from '../design-system/tokens';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import type { ReactNode } from 'react';
-import { brandColors, neutralColors, componentBorderRadius, borderWidth, spacingScale, spacingFractional } from '../design-system/tokens';
-import { BackHomeButton } from './BackHomeButton';
+import { Link as RouterLink } from 'react-router-dom';
 
 type PageHeaderProps = {
   eyebrow: string;
@@ -20,13 +20,16 @@ export function PageHeader({
   eyebrow,
   title,
   description,
-  backTo = '/activity',
-  backLabel = 'Accueil',
+  backTo,
+  backLabel,
   actions,
   children,
   'data-testid': testId,
   sx,
 }: PageHeaderProps) {
+  // No back button if backTo is not provided
+  const showBackButton = Boolean(backTo);
+
   return (
     <Box
       component="header"
@@ -34,23 +37,15 @@ export function PageHeader({
         (theme) => ({
           position: 'relative',
           overflow: 'hidden',
-          borderRadius: componentBorderRadius.card,
+          borderRadius: borderRadiusScale.xs,
           minHeight: { xs: 128, md: 144 },
           px: { xs: spacingScale.md, md: spacingScale.lg },
           py: { xs: spacingScale.md, md: spacingScale.lg },
           color: 'common.white',
           background:
             theme.palette.mode === 'dark'
-              ? `linear-gradient(135deg, ${brandColors.primary[950]} 0%, ${neutralColors.slate[800]} 100%)`
+              ? `linear-gradient(135deg, ${brandColors.primary[950]} 0%, #334155 100%)`
               : `linear-gradient(135deg, ${brandColors.primary[600]} 0%, ${brandColors.primary[800]} 100%)`,
-          boxShadow: theme.runtimeTokens.shadows.pageHeader[theme.palette.mode === 'dark' ? 'dark' : 'light'],
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(circle at top right, rgba(255,255,255,0.12), transparent 45%)',
-            pointerEvents: 'none',
-          },
         }),
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
@@ -66,23 +61,33 @@ export function PageHeader({
             justifyContent: 'space-between',
           }}
         >
-          <BackHomeButton
-            to={backTo}
-            label={backLabel}
-            data-testid={testId ? `${testId}-back-home` : undefined}
-              buttonProps={{
-                size: 'small',
-                sx: (theme) => ({
-                  color: 'inherit',
-                  bgcolor: alpha(theme.palette.common.white, 0.12),
-                  border: `${borderWidth.thin}px solid ${alpha(theme.palette.common.white, 0.2)}`,
-                  borderRadius: theme.runtimeTokens.controlRadius,
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.common.white, 0.18),
-                  },
-                }),
-              }}
-          />
+          {showBackButton && backTo && backLabel ? (
+            <Button
+              aria-label={backLabel}
+              component={RouterLink}
+              to={backTo}
+              size="small"
+              startIcon={<ArrowBackRoundedIcon fontSize="small" />}
+              data-testid={testId ? `${testId}-back-home` : undefined}
+              sx={(theme) => ({
+                alignSelf: 'flex-start',
+                height: 32,
+                minWidth: 0,
+                px: 1.2,
+                color: 'common.white',
+                bgcolor: alpha(theme.palette.common.white, 0.12),
+                border: `${borderWidth.thin}px solid ${alpha(theme.palette.common.white, 0.2)}`,
+                borderRadius: borderRadiusScale.xs,
+                fontWeight: 800,
+                textTransform: 'none',
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.common.white, 0.18),
+                },
+              })}
+            >
+              {backLabel}
+            </Button>
+          ) : null}
           {actions ? (
             <Box sx={{
               flexShrink: 0,

@@ -41,6 +41,7 @@ const invoice: Invoice = {
   dateFacture: '2026-06-06',
   dateEcheance: '2026-07-06',
   status: 'SENT',
+  paymentStatus: 'to_collect',
   hours: 8,
   amountCents: 64000,
   createdAt: '2026-06-06T00:00:00.000Z',
@@ -51,6 +52,7 @@ const paidInvoice: Invoice = {
   id: 'inv_paid',
   numero: 'FAC-2026-PAID',
   status: 'PAID',
+  paymentStatus: 'paid',
   paidAt: '2026-06-10',
 };
 
@@ -109,7 +111,7 @@ describe('MissionFormPage buildNextMissionState', () => {
       pendingReceipts: [],
     });
 
-    expect(result.regeneratedInvoice?.status).toBe('GENERATED');
+    expect(result.regeneratedInvoice?.status).toBe('draft');
     expect(result.regeneratedInvoice?.correctedFromInvoiceId).toBe(paidInvoice.id);
     expect(result.state.invoices).toHaveLength(2);
     expect(result.state.invoices[0]).toBe(paidInvoice);

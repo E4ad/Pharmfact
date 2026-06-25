@@ -62,7 +62,7 @@ describe('businessRules', () => {
   it('derives invoice-driven mission status', () => {
     const item = mission('mis1');
     expect(deriveMissionBusinessStatus(item)).toBe('completed');
-    expect(deriveMissionBusinessStatus(item, { id: 'inv1', numero: 'F1', missionIds: ['mis1'], pharmacienId: 'ph1', pharmacieId: 'pha1', dateFacture: '2026-06-01', dateEcheance: '2026-07-01', status: 'SENT', hours: 7.5, amountCents: 75000, createdAt: '' })).toBe('sent');
+    expect(deriveMissionBusinessStatus(item, { id: 'inv1', numero: 'F1', missionIds: ['mis1'], pharmacienId: 'ph1', pharmacieId: 'pha1', dateFacture: '2026-06-01', dateEcheance: '2026-07-01', status: 'SENT', paymentStatus: 'to_collect', hours: 7.5, amountCents: 75000, createdAt: '' })).toBe('sent');
   });
 
   it('creates a multi-mission invoice for one pharmacy', () => {
@@ -82,8 +82,8 @@ describe('businessRules', () => {
     const appState = state({
       missions: [mission('mis1', 'pha1', { hourlyRateCents: 0, dateFin: '2026-05-31' })],
       invoices: [
-        { id: 'inv1', numero: 'F1', missionIds: ['misx'], pharmacienId: 'ph1', pharmacieId: '', dateFacture: '2026-06-10', dateEcheance: '2026-06-01', status: 'SENT', hours: 1, amountCents: 10000, createdAt: '' },
-        { id: 'inv2', numero: 'F1', missionIds: ['misy'], pharmacienId: 'ph1', pharmacieId: 'pha1', dateFacture: '2026-06-01', dateEcheance: '2026-06-30', status: 'SENT', hours: -1, amountCents: 0, createdAt: '' },
+        { id: 'inv1', numero: 'F1', missionIds: ['misx'], pharmacienId: 'ph1', pharmacieId: '', dateFacture: '2026-06-10', dateEcheance: '2026-06-01', status: 'sent', paymentStatus: 'to_collect', hours: 1, amountCents: 10000, createdAt: '' },
+        { id: 'inv2', numero: 'F1', missionIds: ['misy'], pharmacienId: 'ph1', pharmacieId: 'pha1', dateFacture: '2026-06-01', dateEcheance: '2026-06-30', status: 'sent', paymentStatus: 'to_collect', hours: -1, amountCents: 0, createdAt: '' },
       ],
     });
     const ids = buildBusinessAlerts(appState, '2026-07-01').map((alert) => alert.id);

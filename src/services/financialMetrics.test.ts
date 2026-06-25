@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
 import { buildFinancialMetrics, buildMonthlyFinancialSnapshots, buildQuarterlyFinancialSnapshots, buildAnnualFinancialSnapshot, collectMissionDeductibleExpenseRows, buildAnnualExpenseRows } from './financialMetrics';
+import type { Invoice } from '../storage/schema';
 
 // Minimal settings for testing
 const baseSettings = {
@@ -26,18 +27,23 @@ const baseSettings = {
 } as any;
 
 // Helper to create minimal invoice objects for testing
-const createInvoice = (overrides: Record<string, unknown> = {}) => ({
-  id: 'test-inv',
-  numero: 'F001',
-  dateFacture: '2026-06-10',
-  dateEcheance: '2026-06-30',
-  status: 'PAID' as const,
-  amountCents: 100_000,
-  missionId: 'm1',
+const createInvoice = (overrides: Partial<Invoice> = {}): Invoice => ({
+  id: 'test-invoice',
+  numero: 'FAC-2026-0001',
+  missionId: 'mission1',
+  missionIds: ['mission1'],
   pharmacienId: 'ph1',
-  pharmacieId: 'p1',
+  pharmacieId: 'pharm1',
+  dateFacture: '2026-06-10',
+  dateEcheance: '2026-07-10',
+  status: 'sent',
+  paymentStatus: 'paid',
   hours: 8,
+  amountCents: 800_00,
+  paidAmountCents: 800_00,
+  balanceDue: 0,
   createdAt: '2026-06-10',
+  updatedAt: '2026-06-10',
   ...overrides,
 });
 
@@ -81,9 +87,9 @@ describe('financialMetrics compatibility', () => {
   test('separates collected, receivable, overdue, and recovery rate', () => {
     const metrics = buildFinancialMetrics({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', status: 'PAID', amountCents: 100_000 }),
-        createInvoice({ id: 'inv2', dateFacture: '2026-01-20', status: 'PAID', amountCents: 70_000 }),
-        createInvoice({ id: 'inv3', dateFacture: '2026-02-01', status: 'SENT', amountCents: 40_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', paymentStatus: 'paid', amountCents: 100_000, paidAmountCents: 100_000, balanceDue: 0 }),
+        createInvoice({ id: 'inv2', dateFacture: '2026-01-20', paymentStatus: 'paid', amountCents: 70_000, paidAmountCents: 70_000, balanceDue: 0 }),
+        createInvoice({ id: 'inv3', dateFacture: '2026-02-01', paymentStatus: 'to_collect', amountCents: 40_000, paidAmountCents: 0, balanceDue: 40_000 }),
       ],
       taxPayments: [],
       expenses: [],
@@ -102,8 +108,8 @@ describe('structured financial snapshots', () => {
   test('calculates monthly collected revenue, deductible expenses, net profit, reserve, instalments and remaining provision', () => {
     const june = buildMonthlyFinancialSnapshots({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', status: 'PAID', amountCents: 70_000, dateEcheance: '2026-06-30' }),
-        createInvoice({ id: 'inv2', dateFacture: '2026-06-20', status: 'PAID', amountCents: 60_000, dateEcheance: '2026-06-30' }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', paymentStatus: 'paid', amountCents: 70_000, dateEcheance: '2026-06-30' }),
+        createInvoice({ id: 'inv2', dateFacture: '2026-06-20', paymentStatus: 'paid', amountCents: 60_000, dateEcheance: '2026-06-30' }),
       ],
       taxPayments: [{ id: 'pay1', date: '2026-06', amountCents: 6_000, period: '2026-06', authority: 'CRA', type: 'INCOME_TAX_INSTALMENT' }],
       expenses: [createExpense({ id: 'exp1', amountCents: 10_000 })],
@@ -136,10 +142,10 @@ describe('structured financial snapshots', () => {
   test('calculates rolling four quarters taxable supplies and UNDER_THRESHOLD status', () => {
     const annual = buildAnnualFinancialSnapshot({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv2', dateFacture: '2026-02-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv3', dateFacture: '2026-03-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv4', dateFacture: '2026-04-10', status: 'PAID', amountCents: 9_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv2', dateFacture: '2026-02-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv3', dateFacture: '2026-03-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv4', dateFacture: '2026-04-10', paymentStatus: 'paid', amountCents: 9_000 }),
       ],
       taxPayments: [],
       expenses: [],
@@ -155,14 +161,14 @@ describe('structured financial snapshots', () => {
   test('marks small supplier status as NEAR_LIMIT at 80 percent', () => {
     const annual = buildAnnualFinancialSnapshot({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv2', dateFacture: '2026-02-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv3', dateFacture: '2026-03-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv4', dateFacture: '2026-04-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv5', dateFacture: '2026-05-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv6', dateFacture: '2026-06-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv7', dateFacture: '2026-07-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv8', dateFacture: '2026-08-10', status: 'PAID', amountCents: 30_001 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv2', dateFacture: '2026-02-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv3', dateFacture: '2026-03-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv4', dateFacture: '2026-04-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv5', dateFacture: '2026-05-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv6', dateFacture: '2026-06-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv7', dateFacture: '2026-07-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv8', dateFacture: '2026-08-10', paymentStatus: 'paid', amountCents: 30_001 }),
       ],
       taxPayments: [],
       expenses: [],
@@ -177,10 +183,10 @@ describe('structured financial snapshots', () => {
   test('marks small supplier status as THRESHOLD_REACHED', () => {
     const annual = buildAnnualFinancialSnapshot({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-09-10', status: 'PAID', amountCents: 15_000 }),
-        createInvoice({ id: 'inv2', dateFacture: '2026-10-10', status: 'PAID', amountCents: 15_000 }),
-        createInvoice({ id: 'inv3', dateFacture: '2026-11-10', status: 'PAID', amountCents: 15_000 }),
-        createInvoice({ id: 'inv4', dateFacture: '2026-12-10', status: 'PAID', amountCents: 16_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-09-10', paymentStatus: 'paid', amountCents: 15_000 }),
+        createInvoice({ id: 'inv2', dateFacture: '2026-10-10', paymentStatus: 'paid', amountCents: 15_000 }),
+        createInvoice({ id: 'inv3', dateFacture: '2026-11-10', paymentStatus: 'paid', amountCents: 15_000 }),
+        createInvoice({ id: 'inv4', dateFacture: '2026-12-10', paymentStatus: 'paid', amountCents: 16_000 }),
       ],
       taxPayments: [],
       expenses: [],
@@ -210,7 +216,7 @@ describe('structured financial snapshots', () => {
   test('generates missing mission receipt warnings for recommended expenses', () => {
     const annual = buildAnnualFinancialSnapshot({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', status: 'PAID', amountCents: 10_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', paymentStatus: 'paid', amountCents: 10_000 }),
       ],
       taxPayments: [],
       expenses: [],
@@ -249,7 +255,7 @@ describe('structured financial snapshots', () => {
   test('keeps low income without instalment as a calm small-supplier scenario', () => {
     const annual = buildAnnualFinancialSnapshot({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', status: 'PAID', amountCents: 8_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', paymentStatus: 'paid', amountCents: 8_000 }),
       ],
       taxPayments: [],
       expenses: [],
@@ -264,7 +270,7 @@ describe('structured financial snapshots', () => {
   test('ignores non-deductible expenses in net profit', () => {
     const june = buildMonthlyFinancialSnapshots({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', status: 'PAID', amountCents: 70_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', paymentStatus: 'paid', amountCents: 70_000 }),
       ],
       taxPayments: [],
       expenses: [
@@ -282,7 +288,7 @@ describe('structured financial snapshots', () => {
   test('sets GST/QST collected to zero for small suppliers', () => {
     const june = buildMonthlyFinancialSnapshots({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', status: 'PAID', amountCents: 100_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', paymentStatus: 'paid', amountCents: 100_000 }),
       ],
       taxPayments: [],
       expenses: [],
@@ -311,7 +317,7 @@ describe('structured financial snapshots', () => {
   test('uses configured reserve rate in annual snapshots', () => {
     const annual = buildAnnualFinancialSnapshot({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', status: 'PAID', amountCents: 100_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-06-10', paymentStatus: 'paid', amountCents: 100_000 }),
       ],
       taxPayments: [],
       expenses: [createExpense({ id: 'exp1', amountCents: 10_000 })],
@@ -325,10 +331,10 @@ describe('structured financial snapshots', () => {
   test('uses configured small supplier warning rate', () => {
     const annual = buildAnnualFinancialSnapshot({
       invoices: [
-        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv2', dateFacture: '2026-02-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv3', dateFacture: '2026-03-10', status: 'PAID', amountCents: 10_000 }),
-        createInvoice({ id: 'inv4', dateFacture: '2026-04-10', status: 'PAID', amountCents: 10_000 }),
+        createInvoice({ id: 'inv1', dateFacture: '2026-01-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv2', dateFacture: '2026-02-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv3', dateFacture: '2026-03-10', paymentStatus: 'paid', amountCents: 10_000 }),
+        createInvoice({ id: 'inv4', dateFacture: '2026-04-10', paymentStatus: 'paid', amountCents: 10_000 }),
       ],
       taxPayments: [],
       expenses: [],

@@ -21,16 +21,16 @@ function money(cents: number): string {
 }
 
 function invoiceStatusLabel(invoice: Invoice): string {
-  if (invoice.status === 'PAID') return 'PAYÉE';
-  if (invoice.status === 'ARCHIVED') return 'ARCHIVÉE';
+  if (invoice.status === 'PAID' || invoice.paymentStatus === 'paid') return 'PAYÉE';
+  if (invoice.status === 'archived' || invoice.status === 'ARCHIVED') return 'ARCHIVÉE';
   if (invoice.status === 'VOIDED') return 'ANNULÉE';
-  if (invoice.status === 'SENT') return 'ENVOYÉE AU PAIEMENT';
+  if (invoice.status === 'SENT' || invoice.status === 'sent') return 'ENVOYÉE AU PAIEMENT';
   return 'À PAYER';
 }
 
 function invoiceStatusClass(invoice: Invoice): string {
-  if (invoice.status === 'PAID') return 'invoice-status is-paid';
-  if (invoice.status === 'ARCHIVED') return 'invoice-status is-archived';
+  if (invoice.status === 'PAID' || invoice.paymentStatus === 'paid') return 'invoice-status is-paid';
+  if (invoice.status === 'archived' || invoice.status === 'ARCHIVED') return 'invoice-status is-archived';
   if (invoice.status === 'VOIDED') return 'invoice-status is-voided';
   return 'invoice-status';
 }
@@ -243,8 +243,8 @@ function InvoiceTotalsBox({ taxes, feeSubtotalCents, serviceSubtotalCents }: { t
 function InvoicePaymentTerms({ invoice }: { invoice: Invoice }) {
   const smallSupplier = invoice.smallSupplierMention ? <p>{invoice.smallSupplierMention}</p> : null;
   const terms = invoice.paymentTerms ? <p>{invoice.paymentTerms}</p> : null;
-  if (invoice.status === 'PAID') return <section className="invoice-payment-box"><h3>Modalités de paiement</h3><p>Facture acquittée le {invoice.paidAt ?? invoice.dateFacture}.</p><p>Référence : {invoice.numero}</p>{smallSupplier}</section>;
+  if (invoice.status === 'PAID' || invoice.paymentStatus === 'paid') return <section className="invoice-payment-box"><h3>Modalités de paiement</h3><p>Facture acquittée le {invoice.paidAt ?? invoice.dateFacture}.</p><p>Référence : {invoice.numero}</p>{smallSupplier}</section>;
   if (invoice.status === 'VOIDED') return <section className="invoice-payment-box"><h3>Statut de la facture</h3><p>Facture annulée.</p><p>Référence : {invoice.numero}</p></section>;
-  if (invoice.status === 'SENT') return <section className="invoice-payment-box"><h3>Modalités de paiement</h3><p>Paiement attendu avant le {invoice.dateEcheance}.</p>{terms}<p>Référence à indiquer : {invoice.numero}</p>{smallSupplier}</section>;
+  if (invoice.status === 'SENT' || invoice.status === 'sent') return <section className="invoice-payment-box"><h3>Modalités de paiement</h3><p>Paiement attendu avant le {invoice.dateEcheance}.</p>{terms}<p>Référence à indiquer : {invoice.numero}</p>{smallSupplier}</section>;
   return <section className="invoice-payment-box"><h3>Modalités de paiement</h3><p>Paiement exigible avant le {invoice.dateEcheance}.</p>{terms}<p>Référence à indiquer : {invoice.numero}</p>{smallSupplier}</section>;
 }

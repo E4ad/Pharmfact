@@ -372,9 +372,7 @@ const tauriApiAdapter: AppApiAdapter = {
   async uploadExpenseReceipt(expenseId: string, file: File): Promise<ExpenseReceipt> {
     await initTauriApis();
     
-    // Pour l'instant, créer un receipt local
-    // TODO: Sauvegarder le fichier dans le système de fichiers Tauri
-    // et mettre à jour storageUrl avec le chemin réel
+    // NOT_IMPLEMENTED: sauvegarde du fichier dans le système de fichiers Tauri
     const receipt: ExpenseReceipt = {
       id: createId('rec'),
       expenseId,
@@ -390,15 +388,13 @@ const tauriApiAdapter: AppApiAdapter = {
     return receipt;
   },
 
-  async getExpenseReceipts(expenseId: string): Promise<ExpenseReceipt[]> {
-    // TODO: Implémenter la récupération depuis le système de fichiers
-    // Pour l'instant, retourner vide
+  async getExpenseReceipts(_expenseId: string): Promise<ExpenseReceipt[]> {
+    // NOT_IMPLEMENTED: récupération depuis le système de fichiers Tauri
     return [];
   },
 
-  async deleteExpenseReceipt(receiptId: string): Promise<void> {
-    // TODO: Supprimer le fichier du système de fichiers
-    console.warn('[Tauri] Suppression des reçus non implémentée');
+  async deleteExpenseReceipt(_receiptId: string): Promise<void> {
+    // NOT_IMPLEMENTED: suppression depuis le système de fichiers Tauri
   },
 
   getReceiptDownloadUrl(receiptId: string): string {

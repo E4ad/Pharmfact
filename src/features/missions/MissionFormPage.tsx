@@ -1,32 +1,33 @@
 import { useEffect, useState, type Dispatch, type KeyboardEvent as ReactKeyboardEvent, type SetStateAction, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
+  alpha,
   Box,
   Button,
-  Checkbox,
-  Divider,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
-  Stack,
   TextField,
   Typography,
-  Chip,
   Alert,
-  IconButton,
-  Tooltip,
   useTheme,
   SvgIcon,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
 } from '@mui/material';
 import { PageHeader } from '../../components/PageHeader';
 import { NotFoundState } from '../../components/NotFoundState';
 import { useNotifications } from '../../components/NotificationSystem';
 import { createId } from '../../services/ids';
-import { createInvoiceFromMission, invoiceStatusLabels } from '../../services/invoiceWorkflow';
+import { createInvoiceFromMission } from '../../services/invoiceWorkflow';
 import { formatMoney } from '../../services/money';
 import { 
   calculateDayHours,
+  createDay,
+  daysBetween,
   dayName,
   centsToMoney,
   moneyToCents,
@@ -43,21 +44,211 @@ import { actTypeCatalog, getActTypeDefinition } from '../../services/actTypes';
 import { invoiceForMission, invoiceMissionIds } from '../../services/businessRules';
 import { getAvailableEditActions, getInvoiceEditImpact, type MissionEditAction } from '../../services/missionEditRules';
 import type { AuditTrailInput } from '../../services/auditTrail';
-import { setAppStateAsync, useAppState } from '../../storage/localStore';
-import type { AppState, ExpenseReceipt, Invoice, Mission, MissionExpense, MissionStatus } from '../../storage/schema';
-import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
+import { setAppStateAsync, updateAppState, useAppState } from '../../storage/localStore';
+import type { AppState, ExpenseReceipt, Invoice, Mission, MissionExpense, MissionStatus, Pharmacien, Pharmacie, PharmacyWeeklySchedule } from '../../storage/schema';
+import { findInvoice, missionInvoice, pharmacieDisplayName } from '../../storage/selectors';
 import './MissionFormPage.css';
+import { MissionSummaryPanel } from './components/MissionSummaryPanel';
 import { getPlatform } from '../../services/platformService';
 import { PharmacieFormModal } from '../pharmacies/PharmacieFormModal';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import StarRoundedIcon from '@mui/icons-material/StarRounded';
+import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded';
 import { downloadInvoicePdf } from '../../services/downloadInvoicePdf';
 import { logMappedError, mapError } from '../../services/errorMapper';
+import { formatPharmacyScheduleForDate, getPharmacyFranchiseLabel, getPharmacyScheduleForDate } from '../../services/pharmacyMetadata';
 
 type MissionExpenseFormValue = MissionExpense;
-type WorkflowAction = 'save_draft' | 'confirm' | 'confirm_generate' | MissionEditAction;
+type WorkflowAction = 'save_draft' | 'confirm' | MissionEditAction;
 
 const missionTypes = actTypeCatalog.map((actType) => ({ value: actType.value, label: actType.label }));
+
+function normalizeSearchText(value: string | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function pharmacyContextFranchiseLabel(pharmacie?: Pharmacie): string {
+  const label = getPharmacyFranchiseLabel(pharmacie);
+  return !label || label === 'Non renseignée' ? 'Bannière non renseignée' : label;
+}
+
+function pharmacyContextAddress(pharmacie?: Pharmacie): string {
+  return addressOf(pharmacie) || 'Adresse non renseignée';
+}
+
+function compareOptionalDateDesc(left?: string, right?: string): number {
+  const leftTime = left ? Date.parse(left) : 0;
+  const rightTime = right ? Date.parse(right) : 0;
+  return rightTime - leftTime;
+}
+
+function sortPharmaciesForPicker(pharmacies: Pharmacie[]): Pharmacie[] {
+  return [...pharmacies].sort((left, right) => {
+    if (Boolean(left.isFavorite) !== Boolean(right.isFavorite)) {
+      return left.isFavorite ? -1 : 1;
+    }
+
+    if (left.isFavorite && right.isFavorite && left.favoriteRank !== right.favoriteRank) {
+      if (left.favoriteRank === undefined) return 1;
+      if (right.favoriteRank === undefined) return -1;
+      return left.favoriteRank - right.favoriteRank;
+    }
+
+    const recentCompare = compareOptionalDateDesc(left.lastUsedAt, right.lastUsedAt);
+    if (recentCompare !== 0) return recentCompare;
+
+    return pharmacieDisplayName(left).localeCompare(pharmacieDisplayName(right), 'fr', { sensitivity: 'base' });
+  });
+}
+
+function searchPharmacies(pharmacies: Pharmacie[], query: string): Pharmacie[] {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return pharmacies;
+
+  return pharmacies.filter((pharmacie) => {
+    const searchable = [
+      pharmacieDisplayName(pharmacie),
+      pharmacyContextFranchiseLabel(pharmacie),
+      pharmacie.adresse,
+      pharmacie.ville,
+      pharmacie.codePostal,
+      pharmacie.notes,
+    ].map(normalizeSearchText).join(' ');
+
+    return searchable.includes(normalizedQuery);
+  });
+}
+
+function searchPharmaciens(pharmaciens: Pharmacien[], query: string): Pharmacien[] {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return pharmaciens;
+
+  return pharmaciens.filter((pharmacien) => {
+    const searchable = [
+      pharmacien.nom,
+      pharmacien.adresse,
+      pharmacien.ville,
+      pharmacien.codePostal,
+      pharmacien.email,
+      pharmacien.telephone,
+      pharmacien.opqLicenseNumber,
+    ].map(normalizeSearchText).join(' ');
+
+    return searchable.includes(normalizedQuery);
+  });
+}
+
+function selectedDatesFromPeriod(values: Pick<MissionFormValues, 'dateDebut' | 'dateFin' | 'isMultiDay' | 'excludedDates'>): string[] {
+  const end = values.isMultiDay ? values.dateFin : values.dateDebut;
+  const excluded = new Set(values.excludedDates ?? []);
+  return daysBetween(values.dateDebut, end || values.dateDebut).filter((date) => !excluded.has(date));
+}
+
+function buildPeriodFromSelectedDates(current: MissionFormValues, selectedDates: string[]): MissionFormValues {
+  const sorted = [...new Set(selectedDates)].sort();
+  const fallback = current.dateDebut || new Date().toISOString().slice(0, 10);
+  const first = sorted[0] ?? fallback;
+  const last = sorted.at(-1) ?? first;
+  const allRangeDates = daysBetween(first, last);
+  return {
+    ...current,
+    dateDebut: first,
+    dateFin: last,
+    isMultiDay: first !== last,
+    excludedDates: allRangeDates.filter((date) => !sorted.includes(date)),
+  };
+}
+
+function buildMissionValuesFromSelectedDates(
+  current: MissionFormValues,
+  selectedDates: string[],
+  pharmacyWeeklySchedule?: PharmacyWeeklySchedule,
+  restoredDay?: MissionDayFormValue,
+): MissionFormValues {
+  const sorted = [...new Set(selectedDates)].sort();
+  if (!sorted.length) return current;
+
+  const first = sorted[0];
+  const last = sorted.at(-1) ?? first;
+  const allRangeDates = daysBetween(first, last);
+  const restoredByDate = restoredDay ? { [restoredDay.dateService]: restoredDay } : {};
+  const days = sorted.map((date) => {
+    const existingDay = current.days.find((day) => day.dateService === date) ?? restoredByDate[date];
+    if (existingDay) return existingDay;
+
+    const schedule = getPharmacyScheduleForDate(pharmacyWeeklySchedule, date);
+    const dayDefaults = schedule?.enabled && schedule.startTime && schedule.endTime
+      ? { ...current, defaultStartTime: schedule.startTime, defaultEndTime: schedule.endTime }
+      : current;
+    return createDay(date, dayDefaults, []);
+  });
+
+  return {
+    ...current,
+    dateDebut: first,
+    dateFin: last,
+    isMultiDay: first !== last,
+    excludedDates: allRangeDates.filter((date) => !sorted.includes(date)),
+    days,
+  };
+}
+
+function formatMissionDatesSummary(values: MissionFormValues): string {
+  const dates = [...new Set(values.days.map((day) => day.dateService))].sort();
+  if (!dates.length) return 'Dates à choisir';
+  const formatter = new Intl.DateTimeFormat('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dayFormatter = new Intl.DateTimeFormat('fr-CA', { day: 'numeric' });
+  const monthYearFormatter = new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' });
+
+  if (dates.length === 1) return formatter.format(new Date(`${dates[0]}T00:00:00`));
+
+  const first = dates[0];
+  const last = dates.at(-1) ?? first;
+  const consecutive = daysBetween(first, last).length === dates.length;
+  if (consecutive) {
+    return `du ${dayFormatter.format(new Date(`${first}T00:00:00`))} au ${formatter.format(new Date(`${last}T00:00:00`))}`;
+  }
+
+  const sameMonth = dates.every((date) => date.slice(0, 7) === first.slice(0, 7));
+  if (dates.length <= 4 && sameMonth) {
+    const parts = dates.map((date) => dayFormatter.format(new Date(`${date}T00:00:00`)));
+    const lastPart = parts.pop();
+    return `${parts.join(', ')}${parts.length ? ' et ' : ''}${lastPart} ${monthYearFormatter.format(new Date(`${first}T00:00:00`))}`;
+  }
+
+  return `${dates.length} jours sélectionnés`;
+}
+
+function monthLabel(dateIso: string): string {
+  return new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' }).format(new Date(`${dateIso}T00:00:00`));
+}
+
+function addMonthsIso(dateIso: string, offset: number): string {
+  const date = new Date(`${dateIso}T00:00:00`);
+  date.setMonth(date.getMonth() + offset, 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function calendarDaysForMonth(monthIso: string): Array<{ date: string; dayNumber: number } | null> {
+  const base = new Date(`${monthIso.slice(0, 7)}-01T00:00:00`);
+  const firstWeekdayIndex = (base.getDay() + 6) % 7;
+  const nextMonth = new Date(base);
+  nextMonth.setMonth(base.getMonth() + 1, 1);
+  const daysInMonth = Math.round((nextMonth.getTime() - base.getTime()) / 86_400_000);
+  return [
+    ...Array.from({ length: firstWeekdayIndex }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => {
+      const dayNumber = index + 1;
+      const date = `${monthIso.slice(0, 7)}-${String(dayNumber).padStart(2, '0')}`;
+      return { date, dayNumber };
+    }),
+  ];
+}
 
 function FormField({ label, type, value, onChange, sx }: { 
   label: string; 
@@ -95,10 +286,23 @@ function FormSelectField({ label, value, options, onChange, sx }: {
   onChange: (value: string) => void;
   sx?: object;
 }) {
+  const labelId = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-label`;
+  const readableSelectSx = {
+    '& .MuiSelect-select': {
+      overflow: 'visible',
+      textOverflow: 'clip',
+      whiteSpace: 'normal',
+    },
+  };
   return (
-    <FormControl fullWidth size="small" sx={sx}>
-      <InputLabel>{label}</InputLabel>
+    <FormControl
+      fullWidth
+      size="small"
+      sx={sx ? [sx, readableSelectSx] : readableSelectSx}
+    >
+      <InputLabel id={labelId}>{label}</InputLabel>
       <Select
+        labelId={labelId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         label={label}
@@ -158,15 +362,43 @@ function MissionSummaryLine({
   strong?: boolean;
 }) {
   return (
-    <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'baseline', flexWrap: 'wrap' }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.2, flexShrink: 0 }}>
+    <Box className={`mission-summary-line${strong ? ' is-strong' : ''}`}>
+      <Typography variant="caption" color="text.secondary">
         {label} :
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: strong ? 850 : 650, overflowWrap: 'anywhere', lineHeight: 1.3 }}>
+      <Typography variant="body2">
         {value}
       </Typography>
     </Box>
   );
+}
+
+function formatHoursFr(value: number): string {
+  return value.toFixed(2).replace('.', ',');
+}
+
+function minutesFromTime(value: string): number {
+  const [hours, minutes] = value.split(':').map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0;
+  return hours * 60 + minutes;
+}
+
+function formatDateFr(value: string): string {
+  if (!value) return 'Date à choisir';
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function getMissionChecks(values: MissionFormValues): string[] {
+  const checks: string[] = [];
+  const totalMinutes = minutesFromTime(values.defaultEndTime) - minutesFromTime(values.defaultStartTime);
+  if (!values.pharmacieId) checks.push('Pharmacie manquante');
+  if (totalMinutes <= 0) checks.push('Horaire incomplet');
+  if (values.defaultUnpaidBreakMinutes > totalMinutes) checks.push('Pause à vérifier');
+  if (values.tauxHoraire <= 0) checks.push('Taux horaire manquant');
+  if (values.distanceReferenceKm <= 0) checks.push('Distance non calculée');
+  return checks;
 }
 
 export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
@@ -190,11 +422,10 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     addExpense,
     addTypedExpense,
     removeExpense,
-    removeDay,
     updateExpense,
     addReceipt,
     deleteReceipt,
-    recalcDistance,
+    changePharmacien,
     changePharmacie,
     buildMissionFromForm,
   } = useMissionForm(mode, missionId);
@@ -202,10 +433,71 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
   const invoice = existing ? findInvoice(state, existing.invoiceId) ?? missionInvoice(state, existing) : undefined;
   const [openDayId, setOpenDayId] = useState<string | null>(null);
   const [showNotes, setShowNotes] = useState(false);
+  const [pharmacistPickerOpen, setPharmacistPickerOpen] = useState(false);
+  const [pharmacyPickerOpen, setPharmacyPickerOpen] = useState(false);
   const [pharmacieModalOpen, setPharmacieModalOpen] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<WorkflowAction | null>(null);
   const preview = useMissionFinancialPreview(values);
   const returnPath = mode === 'edit' && existing ? `/missions?selected=${existing.id}` : '/missions';
+  const missionChecks = getMissionChecks(values);
+
+  const markPharmacyUsed = useCallback((pharmacieId: string, timestamp = new Date().toISOString()) => {
+    updateAppState((current) => ({
+      ...current,
+      pharmacies: current.pharmacies.map((item) =>
+        item.id === pharmacieId ? { ...item, lastUsedAt: timestamp } : item,
+      ),
+    }));
+  }, []);
+
+  const handleSelectPharmacy = useCallback((pharmacieId: string) => {
+    changePharmacie(pharmacieId);
+    markPharmacyUsed(pharmacieId);
+    setPharmacyPickerOpen(false);
+  }, [changePharmacie, markPharmacyUsed]);
+
+  const handleSelectPharmacist = useCallback((pharmacienId: string) => {
+    changePharmacien(pharmacienId);
+    setPharmacistPickerOpen(false);
+  }, [changePharmacien]);
+
+  const handleToggleFavoritePharmacy = useCallback((pharmacieId: string) => {
+    updateAppState((current) => {
+      const favoriteRanks = current.pharmacies
+        .map((item) => item.favoriteRank)
+        .filter((rank): rank is number => typeof rank === 'number');
+      const nextRank = favoriteRanks.length ? Math.max(...favoriteRanks) + 1 : 1;
+
+      return {
+        ...current,
+        pharmacies: current.pharmacies.map((item) => {
+          if (item.id !== pharmacieId) return item;
+          const nextFavorite = !item.isFavorite;
+          return {
+            ...item,
+            isFavorite: nextFavorite,
+            favoriteRank: nextFavorite ? item.favoriteRank ?? nextRank : item.favoriteRank,
+          };
+        }),
+      };
+    });
+  }, []);
+
+  const handleCreatedPharmacy = useCallback((createdPharmacie: Pharmacie) => {
+    setValues((current) => {
+      const pharmacyDaySchedule = getPharmacyScheduleForDate(createdPharmacie.weeklySchedule, current.dateDebut);
+      return regenerateDays({
+        ...current,
+        pharmacieId: createdPharmacie.id,
+        distanceReferenceKm: 0,
+        defaultStartTime: pharmacyDaySchedule?.enabled ? pharmacyDaySchedule.startTime ?? current.defaultStartTime : current.defaultStartTime,
+        defaultEndTime: pharmacyDaySchedule?.enabled ? pharmacyDaySchedule.endTime ?? current.defaultEndTime : current.defaultEndTime,
+      });
+    });
+    markPharmacyUsed(createdPharmacie.id);
+    setPharmacieModalOpen(false);
+    setPharmacyPickerOpen(false);
+  }, [markPharmacyUsed, regenerateDays, setValues]);
 
   useEffect(() => {
     setValues((current) => regenerateDays(current));
@@ -215,7 +507,7 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     const mission = buildMissionFromForm(values, existing);
     const status: MissionStatus = action === 'save_draft'
       ? 'DRAFT'
-      : action === 'confirm' || action === 'confirm_generate'
+      : action === 'confirm'
         ? 'CONFIRMED'
       : mission.status;
     const finalMission = { ...mission, status };
@@ -255,6 +547,8 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
       if (fromOnboarding) {
         navigate('/welcome');
+      } else if (mode === 'create' && action === 'confirm') {
+        navigate(`/missions/${finalMission.id}/invoice`);
       } else {
         navigate(`/missions?selected=${finalMission.id}`);
       }
@@ -286,50 +580,116 @@ export function MissionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     <PageHeader
       eyebrow="Missions"
       title={mode === 'edit' ? 'Modifier mission' : 'Nouvelle mission'}
-      description="Créez une mission de remplacement. La facture sera générée automatiquement à partir des horaires, frais et informations saisies."
-      backTo={mode === 'edit' ? returnPath : '/activity'}
-      backLabel={mode === 'edit' ? 'Missions' : 'Accueil'}
+      backTo={returnPath}
+      backLabel="Missions"
       data-testid="mission-form-back-button"
+      sx={(theme) => ({
+        borderRadius: 10,
+        minHeight: 70,
+        px: { xs: 2, md: 2.5 },
+        py: { xs: 0.75, md: 1 },
+        background:
+          theme.palette.mode === 'dark'
+            ? 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'
+            : 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+        '& > .MuiStack-root': {
+          gap: 0.75,
+        },
+        '& .MuiTypography-overline': {
+          color: alpha(theme.palette.common.white, 0.78),
+          fontWeight: 800,
+          letterSpacing: '0.12em',
+        },
+        '& .MuiTypography-h1': {
+          fontSize: { xs: '1.42rem', md: '1.72rem' },
+          lineHeight: 1.05,
+        },
+        '& .MuiButtonBase-root': {
+          borderRadius: 1.5,
+        },
+      })}
     />
     {mode === 'edit' ? <MissionWarning invoice={invoice} /> : null}
-    <div className="mission-form-grid">
-      <div className="mission-pharmacien-strip">
-        <span>Mission pour <strong>{pharmacien?.nom ?? 'Pharmacien'}</strong></span>
-        <button className="mission-link-button" type="button" onClick={() => navigate('/')}>Changer</button>
+    <div className="mission-form-workspace">
+      <div className="mission-form-main-column" aria-label="Parcours de création de mission">
+        <MissionContextCard
+          values={values}
+          pharmacist={pharmacien}
+          pharmacy={pharmacie}
+          onOpenPharmacistPicker={() => setPharmacistPickerOpen(true)}
+          onOpenPharmacyPicker={() => setPharmacyPickerOpen(true)}
+          onSetValues={setValues}
+          regenerateDays={regenerateDays}
+        />
+        <MissionCoreCard
+          values={values}
+          pharmacyWeeklySchedule={pharmacie?.weeklySchedule}
+          onSetActType={(value) => setField('actType', value)}
+          onSetValues={setValues}
+        />
+        <MissionScheduleCard
+          values={values}
+          onSetValues={setValues}
+          regenerateDays={regenerateDays}
+        />
+        <MissionDaysFeesNotesSection
+          values={values}
+          receipts={[...state.expenseReceipts, ...pendingReceipts]}
+          openDayId={openDayId}
+          setOpenDayId={setOpenDayId}
+          updateDay={updateDay}
+          addExpense={addExpense}
+          addTypedExpense={addTypedExpense}
+          updateExpense={updateExpense}
+          removeExpense={removeExpense}
+          addReceipt={addReceipt}
+          deleteReceipt={deleteReceipt}
+          showNotes={showNotes}
+          onShowNotes={() => setShowNotes(true)}
+          onChangeNotes={(value) => setField('notes', value)}
+        />
       </div>
-      <MissionLocationCard
+      <MissionLiveSidebar
+        mode={mode}
+        invoice={invoice}
         values={values}
-        pharmacies={state.pharmacies}
-        pharmacyName={pharmacie ? pharmacieDisplayName(pharmacie) : undefined}
-        address={addressOf(pharmacie)}
-        onOpenPharmacyModal={() => setPharmacieModalOpen(true)}
-        onChangePharmacie={changePharmacie}
-        onRecalcDistance={recalcDistance}
-        onDistanceChange={(nextValue) => setField('distanceReferenceKm', parseMoney(nextValue))}
+        pharmacy={pharmacie}
+        preview={preview}
+        checks={missionChecks}
+        submittingAction={submittingAction}
+        onSubmit={submit}
+        onCancel={() => navigate(returnPath)}
       />
-      <MissionCoreCard
-        values={values}
-        onSetActType={(value) => setField('actType', value)}
-        onSetValues={setValues}
-        regenerateDays={regenerateDays}
-      />
-      <MissionScheduleCard
-        values={values}
-        onSetValues={setValues}
-        regenerateDays={regenerateDays}
-        pharmacyName={pharmacie ? pharmacieDisplayName(pharmacie) : undefined}
-        pharmacistName={pharmacien?.nom}
-      />
-      <MissionDaysSection values={values} receipts={[...state.expenseReceipts, ...pendingReceipts]} openDayId={openDayId} setOpenDayId={setOpenDayId} updateDay={updateDay} addExpense={addExpense} addTypedExpense={addTypedExpense} updateExpense={updateExpense} removeExpense={removeExpense} removeDay={removeDay} addReceipt={addReceipt} deleteReceipt={deleteReceipt} />
-      <MissionNotesCard showNotes={showNotes} notes={values.notes} onShowNotes={() => setShowNotes(true)} onChangeNotes={(value) => setField('notes', value)} />
-      <MissionFinancialPreview preview={preview} rate={values.tauxHoraire} />
-      <MissionFormActions mode={mode} invoice={invoice} submittingAction={submittingAction} onSubmit={submit} onCancel={() => navigate(returnPath)} />
     </div>
+
+    <PharmacistPickerModal
+      open={pharmacistPickerOpen}
+      pharmacists={state.pharmaciens}
+      selectedPharmacistId={values.pharmacienId}
+      onSelect={handleSelectPharmacist}
+      onClose={() => setPharmacistPickerOpen(false)}
+      onCreateNew={() => navigate('/pharmacien/new')}
+    />
+
+    <PharmacyPickerModal
+      open={pharmacyPickerOpen}
+      pharmacies={state.pharmacies}
+      selectedPharmacyId={values.pharmacieId}
+      missionDate={values.dateDebut}
+      onSelect={handleSelectPharmacy}
+      onToggleFavorite={handleToggleFavoritePharmacy}
+      onClose={() => setPharmacyPickerOpen(false)}
+      onCreateNew={() => {
+        setPharmacyPickerOpen(false);
+        setPharmacieModalOpen(true);
+      }}
+    />
     
     <PharmacieFormModal
       open={pharmacieModalOpen}
       onClose={() => setPharmacieModalOpen(false)}
       pharmacieId={undefined}
+      onSaved={handleCreatedPharmacy}
     />
   </main>;
 }
@@ -360,11 +720,7 @@ export function buildNextMissionState({
   let missionToStore = finalMission;
   let regeneratedInvoice: Invoice | undefined;
 
-  if (mode === 'create' && action === 'confirm_generate') {
-    const invoice = createInvoiceFromMission(finalMission, current);
-    invoices = [...invoices, invoice];
-    missionToStore = { ...finalMission, invoiceId: invoice.id };
-  } else if (mode === 'edit' && currentInvoice && action === 'save_regenerate') {
+  if (mode === 'edit' && currentInvoice && action === 'save_regenerate') {
     const invoiceMissions = invoiceMissionIds(currentInvoice)
       .map((missionId) => (missionId === finalMission.id ? finalMission : current.missions.find((mission) => mission.id === missionId)))
       .filter((mission): mission is Mission => Boolean(mission));
@@ -495,127 +851,442 @@ function buildMissionAuditInput({
   };
 }
 
-function MissionLocationCard({
+function MissionContextCard({
   values,
-  pharmacies,
-  pharmacyName,
-  address,
-  onOpenPharmacyModal,
-  onChangePharmacie,
-  onRecalcDistance,
-  onDistanceChange,
+  pharmacist,
+  pharmacy,
+  onOpenPharmacistPicker,
+  onOpenPharmacyPicker,
+  onSetValues,
+  regenerateDays,
 }: {
   values: MissionFormValues;
-  pharmacies: Array<{ id: string; nom: string; displayLabel?: string }>;
-  pharmacyName?: string;
-  address: string;
-  onOpenPharmacyModal: () => void;
-  onChangePharmacie: (pharmacieId: string) => void;
-  onRecalcDistance: () => void;
-  onDistanceChange: (value: string) => void;
+  pharmacist?: Pharmacien;
+  pharmacy?: Pharmacie;
+  onOpenPharmacistPicker: () => void;
+  onOpenPharmacyPicker: () => void;
+  onSetValues: Dispatch<SetStateAction<MissionFormValues>>;
+  regenerateDays: (values?: MissionFormValues) => MissionFormValues;
 }) {
   return (
     <section className="mission-form-card">
-      <h2>1. Lieu de mission</h2>
+      <div className="mission-section-title">
+        <h2>1. Contexte</h2>
+      </div>
       <div className="mission-form-fields">
-        <FormControl fullWidth size="small">
-          <InputLabel>Pharmacie</InputLabel>
-          <Select
-            value={values.pharmacieId}
-            onChange={(event) => {
-              const selectedValue = event.target.value;
-              if (selectedValue === 'NEW_PHARMACIE') {
-                onOpenPharmacyModal();
-              } else {
-                onChangePharmacie(selectedValue);
-              }
-            }}
-            label="Pharmacie"
-            variant="outlined"
-          >
-            {pharmacies.map((item) => (
-              <MenuItem key={item.id} value={item.id}>
-                {pharmacieDisplayName(item)}
-              </MenuItem>
-            ))}
-            <Divider sx={{ my: 0.5 }} />
-            <MenuItem value="NEW_PHARMACIE" sx={{ color: 'primary.main' }}>
-              <AddRoundedIcon sx={{ mr: 1, fontSize: 20 }} />
-              Ajouter une nouvelle pharmacie
-            </MenuItem>
-          </Select>
-        </FormControl>
-        <ReadOnlyField label="Adresse" value={address || 'Non renseignée'} wide />
-        <div className="mission-form-field is-half">
-          <span>Trajet domicile → pharmacie</span>
-          <div className="mission-distance-display">
-            <strong>{values.distanceReferenceKm > 0 ? `${values.distanceReferenceKm.toFixed(1)} km aller-retour` : 'Distance non calculée'}</strong>
-            <button className="mission-small-button" type="button" onClick={onRecalcDistance}>
-              {values.distanceReferenceKm > 0 ? 'Recalculer' : 'Calculer'}
-            </button>
-            <input aria-label="Modifier la distance" type="number" value={values.distanceReferenceKm || ''} placeholder="km" onChange={(event) => onDistanceChange(event.target.value)} />
-          </div>
-          <span>Cette distance sert de référence. Le frais km est ajouté uniquement avec + Km auto.</span>
-        </div>
+        <PharmacistContextSummary
+          pharmacist={pharmacist}
+          onOpenPicker={onOpenPharmacistPicker}
+        />
+        <PharmacyContextSummary
+          pharmacy={pharmacy}
+          missionDate={values.dateDebut}
+          onOpenPicker={onOpenPharmacyPicker}
+        />
+        {!values.pharmacieId ? <div className="mission-field-warning">Sélectionnez une pharmacie pour créer la mission.</div> : null}
+        <FormField
+          label="Taux horaire ($ / h)"
+          type="number"
+          value={String(values.tauxHoraire)}
+          onChange={(value) => onSetValues((current) => regenerateDays({ ...current, tauxHoraire: parseMoney(value) }))}
+          sx={{ gridColumn: { xs: '1 / -1', md: 'span 2' } }}
+        />
       </div>
     </section>
   );
 }
 
+function PharmacistContextSummary({
+  pharmacist,
+  onOpenPicker,
+}: {
+  pharmacist?: Pharmacien;
+  onOpenPicker: () => void;
+}) {
+  const address = pharmacist ? addressOf(pharmacist) || 'Adresse de départ non renseignée' : 'Aucun pharmacien sélectionné';
+  return (
+    <button
+      className="mission-person-summary"
+      type="button"
+      onClick={onOpenPicker}
+      aria-label={`Choisir le pharmacien${pharmacist ? `, ${pharmacist.nom}` : ''}`}
+    >
+      <span className="mission-pharmacy-label">Pharmacien</span>
+      <strong>{pharmacist?.nom ?? 'Choisir un pharmacien'}</strong>
+      <small>{address}</small>
+    </button>
+  );
+}
+
+function PharmacistPickerModal({
+  open,
+  pharmacists,
+  selectedPharmacistId,
+  onSelect,
+  onClose,
+  onCreateNew,
+}: {
+  open: boolean;
+  pharmacists: Pharmacien[];
+  selectedPharmacistId?: string;
+  onSelect: (pharmacistId: string) => void;
+  onClose: () => void;
+  onCreateNew: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const filtered = searchPharmaciens(
+    [...pharmacists].sort((left, right) => left.nom.localeCompare(right.nom, 'fr', { sensitivity: 'base' })),
+    query,
+  );
+
+  useEffect(() => {
+    if (!open) setQuery('');
+  }, [open]);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="pharmacist-picker-title"
+      data-testid="pharmacist-picker-modal"
+      slotProps={{ paper: { sx: { borderRadius: 4 } } }}
+    >
+      <DialogTitle id="pharmacist-picker-title" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 750 }}>Choisir un pharmacien</Typography>
+        <Button color="inherit" size="small" onClick={onClose}>Fermer</Button>
+      </DialogTitle>
+      <DialogContent className="pharmacy-picker-content">
+        <TextField
+          autoFocus
+          fullWidth
+          size="small"
+          label="Recherche"
+          placeholder="Rechercher un pharmacien, une adresse..."
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {!pharmacists.length ? (
+          <div className="pharmacy-picker-empty">
+            <strong>Aucun pharmacien enregistré.</strong>
+            <p>Ajoutez un pharmacien pour créer une mission.</p>
+          </div>
+        ) : !filtered.length ? (
+          <div className="pharmacy-picker-empty">
+            <strong>Aucun pharmacien ne correspond à cette recherche.</strong>
+          </div>
+        ) : (
+          <div className="pharmacy-picker-list">
+            {filtered.map((pharmacist) => (
+              <button
+                key={pharmacist.id}
+                className={`pharmacist-picker-card${pharmacist.id === selectedPharmacistId ? ' is-selected' : ''}`}
+                type="button"
+                onClick={() => onSelect(pharmacist.id)}
+              >
+                <strong>{pharmacist.nom}</strong>
+                <span>{addressOf(pharmacist) || 'Adresse de départ non renseignée'}</span>
+                {pharmacist.id === selectedPharmacistId ? <small>Actuel</small> : null}
+              </button>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, justifyContent: 'space-between' }}>
+        <Button variant="text" startIcon={<AddRoundedIcon />} onClick={onCreateNew}>
+          Ajouter un pharmacien
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function PharmacyContextSummary({
+  pharmacy,
+  missionDate,
+  onOpenPicker,
+}: {
+  pharmacy?: Pharmacie;
+  missionDate: string;
+  onOpenPicker: () => void;
+}) {
+  if (!pharmacy) {
+    return (
+      <button className="mission-pharmacy-summary mission-pharmacy-summary--empty" type="button" onClick={onOpenPicker}>
+        <div>
+          <span className="mission-pharmacy-label">Pharmacie</span>
+          <p>Aucune pharmacie sélectionnée.</p>
+          <small>Sélectionnez une pharmacie pour afficher la bannière, l’horaire et l’adresse.</small>
+        </div>
+        <span className="mission-pharmacy-change">Choisir une pharmacie</span>
+      </button>
+    );
+  }
+
+  const franchiseLabel = pharmacyContextFranchiseLabel(pharmacy);
+  const daySchedule = formatPharmacyScheduleForDate(pharmacy.weeklySchedule, missionDate);
+  const address = pharmacyContextAddress(pharmacy);
+
+  return (
+    <button className="mission-pharmacy-summary" type="button" onClick={onOpenPicker} aria-label={`Changer de pharmacie, ${pharmacieDisplayName(pharmacy)}`}>
+      <div className="mission-pharmacy-summary-main">
+        <div>
+          <span className="mission-pharmacy-label">Pharmacie</span>
+          <div className="mission-pharmacy-name-row">
+            <strong>{pharmacieDisplayName(pharmacy)}</strong>
+            {pharmacy.isFavorite ? <span className="mission-pharmacy-favorite"><StarRoundedIcon fontSize="inherit" /> Favorite</span> : null}
+          </div>
+        </div>
+        <span className="mission-pharmacy-change">Changer</span>
+      </div>
+      <div className="mission-pharmacy-meta">
+        <span>🏷 {franchiseLabel}</span>
+        <span>🕘 {daySchedule}</span>
+      </div>
+      <p className="mission-pharmacy-address">📍 {address}</p>
+    </button>
+  );
+}
+
+function PharmacyPickerModal({
+  open,
+  pharmacies,
+  selectedPharmacyId,
+  missionDate,
+  onSelect,
+  onToggleFavorite,
+  onClose,
+  onCreateNew,
+}: {
+  open: boolean;
+  pharmacies: Pharmacie[];
+  selectedPharmacyId?: string;
+  missionDate: string;
+  onSelect: (pharmacyId: string) => void;
+  onToggleFavorite: (pharmacyId: string) => void;
+  onClose: () => void;
+  onCreateNew: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const sorted = sortPharmaciesForPicker(pharmacies);
+  const filtered = searchPharmacies(sorted, query);
+  const favorites = filtered.filter((pharmacy) => pharmacy.isFavorite);
+  const others = filtered.filter((pharmacy) => !pharmacy.isFavorite);
+  const hasQuery = Boolean(query.trim());
+
+  useEffect(() => {
+    if (!open) setQuery('');
+  }, [open]);
+
+  function renderPharmacyCard(pharmacy: Pharmacie) {
+    const selected = pharmacy.id === selectedPharmacyId;
+    const franchiseLabel = pharmacyContextFranchiseLabel(pharmacy);
+    const daySchedule = formatPharmacyScheduleForDate(pharmacy.weeklySchedule, missionDate);
+    const address = pharmacyContextAddress(pharmacy);
+
+    return (
+      <div
+        key={pharmacy.id}
+        className={`pharmacy-picker-card${selected ? ' is-selected' : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-label={`Sélectionner ${pharmacieDisplayName(pharmacy)}`}
+        onClick={() => onSelect(pharmacy.id)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelect(pharmacy.id);
+          }
+        }}
+      >
+        <button
+          className="pharmacy-picker-favorite"
+          type="button"
+          aria-label={pharmacy.isFavorite ? 'Retirer des favorites' : 'Ajouter aux favorites'}
+          aria-pressed={Boolean(pharmacy.isFavorite)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleFavorite(pharmacy.id);
+          }}
+        >
+          {pharmacy.isFavorite ? <StarRoundedIcon fontSize="small" /> : <StarBorderRoundedIcon fontSize="small" />}
+        </button>
+        <div className="pharmacy-picker-card-body">
+          <div className="pharmacy-picker-card-title">
+            <strong>{pharmacieDisplayName(pharmacy)}</strong>
+            {selected ? <span>Actuelle</span> : null}
+          </div>
+          <p>{franchiseLabel} · {daySchedule}</p>
+          <small>{address}</small>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="pharmacy-picker-title"
+      data-testid="pharmacy-picker-modal"
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 4,
+          },
+        },
+      }}
+    >
+      <DialogTitle id="pharmacy-picker-title" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 750 }}>Choisir une pharmacie</Typography>
+        <Button color="inherit" size="small" onClick={onClose}>Fermer</Button>
+      </DialogTitle>
+      <DialogContent className="pharmacy-picker-content">
+        <TextField
+          autoFocus
+          fullWidth
+          size="small"
+          label="Recherche"
+          placeholder="Rechercher une pharmacie, une bannière, une adresse..."
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+
+        {!pharmacies.length ? (
+          <div className="pharmacy-picker-empty">
+            <strong>Aucune pharmacie enregistrée.</strong>
+            <p>Ajoutez une pharmacie pour créer une mission.</p>
+          </div>
+        ) : !filtered.length ? (
+          <div className="pharmacy-picker-empty">
+            <strong>Aucune pharmacie ne correspond à cette recherche.</strong>
+            <p>Vous pouvez créer une nouvelle fiche pharmacie.</p>
+          </div>
+        ) : (
+          <div className="pharmacy-picker-sections">
+            {favorites.length ? (
+              <section>
+                <h3>Favorites</h3>
+                <div className="pharmacy-picker-list">{favorites.map(renderPharmacyCard)}</div>
+              </section>
+            ) : null}
+            {others.length ? (
+              <section>
+                <h3>{hasQuery || favorites.length ? 'Toutes les pharmacies' : 'Pharmacies'}</h3>
+                <div className="pharmacy-picker-list">{others.map(renderPharmacyCard)}</div>
+              </section>
+            ) : null}
+          </div>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, justifyContent: 'space-between' }}>
+        <Button variant="text" startIcon={<AddRoundedIcon />} onClick={onCreateNew}>
+          Ajouter une pharmacie
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 function MissionCoreCard({
   values,
+  pharmacyWeeklySchedule,
   onSetActType,
   onSetValues,
-  regenerateDays,
 }: {
   values: MissionFormValues;
+  pharmacyWeeklySchedule?: PharmacyWeeklySchedule;
   onSetActType: (value: string) => void;
   onSetValues: Dispatch<SetStateAction<MissionFormValues>>;
-  regenerateDays: (values?: MissionFormValues) => MissionFormValues;
 }) {
-  const theme = useTheme();
-  const actType = getActTypeDefinition(values.actType);
+  const { notify } = useNotifications();
+  const [calendarMonth, setCalendarMonth] = useState(values.dateDebut);
+  const selectedDates = selectedDatesFromPeriod(values);
+  const selectedDateSet = new Set(selectedDates);
+  const calendarDays = calendarDaysForMonth(calendarMonth);
+  const selectedCountLabel = `${selectedDates.length} jour${selectedDates.length > 1 ? 's' : ''} sélectionné${selectedDates.length > 1 ? 's' : ''}`;
+  const toggleSelectedDate = (date: string) => {
+    const removedDay = values.days.find((day) => day.dateService === date);
+    const wasSelected = selectedDateSet.has(date);
+    if (wasSelected && selectedDateSet.size <= 1) return;
+
+    const nextSelected = wasSelected
+      ? selectedDates.filter((selectedDate) => selectedDate !== date)
+      : [...selectedDates, date];
+
+    onSetValues((current) => buildMissionValuesFromSelectedDates(current, nextSelected, pharmacyWeeklySchedule));
+
+    if (wasSelected && removedDay) {
+      notify({
+        severity: 'info',
+        message: 'Jour retiré',
+        onUndo: () => {
+          onSetValues((current) =>
+            buildMissionValuesFromSelectedDates(
+              current,
+              [...selectedDatesFromPeriod(current), removedDay.dateService],
+              pharmacyWeeklySchedule,
+              removedDay,
+            ),
+          );
+        },
+      });
+    }
+  };
+  const selectedClosedDays = selectedDates.filter((date) => {
+    const schedule = getPharmacyScheduleForDate(pharmacyWeeklySchedule, date);
+    return schedule && schedule.enabled === false;
+  });
 
   return (
     <section className="mission-form-card">
-      <h2>2. Mission</h2>
+      <div className="mission-section-title">
+        <h2>2. Mission</h2>
+      </div>
       <div className="mission-form-fields">
-        <FormSelectField label="Type" value={values.actType} onChange={onSetActType} options={missionTypes} />
-        <FormField
-          label="Date"
-          type="date"
-          value={values.dateDebut}
-          onChange={(value) => onSetValues((current) => regenerateDays({ ...current, dateDebut: value, dateFin: current.isMultiDay ? current.dateFin : value }))}
+        <FormSelectField
+          label="Type de mission"
+          value={values.actType}
+          onChange={onSetActType}
+          options={missionTypes}
+          sx={{ gridColumn: { xs: '1 / -1', md: 'span 2' } }}
         />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minHeight: 48 }}>
-          <Checkbox
-            checked={values.isMultiDay}
-            onChange={(event) => onSetValues((current) => regenerateDays({
-              ...current,
-              isMultiDay: event.target.checked,
-              dateFin: event.target.checked ? current.dateFin : current.dateDebut,
-            }))}
-          />
-          <Typography variant="body1" sx={{ fontWeight: 700, color: 'text.primary' }}>
-            Mission sur plusieurs jours
-          </Typography>
-        </Box>
-        {values.isMultiDay ? (
-          <FormField
-            label="Date fin"
-            type="date"
-            value={values.dateFin}
-            onChange={(value) => onSetValues((current) => regenerateDays({ ...current, dateFin: value }))}
-          />
-        ) : null}
-        {values.isMultiDay ? (
-          <Button variant="outlined" size="small" onClick={() => onSetValues(regenerateDays())} sx={{ borderRadius: theme.runtimeTokens.controlRadius, alignSelf: 'flex-start' }}>
-            Mettre à jour les jours
-          </Button>
-        ) : null}
-        <Alert severity="info" sx={{ gridColumn: '1 / -1' }}>
-          Libellé facture par défaut: {actType.defaultInvoiceLabel}. {actType.fiscalWarning}
-        </Alert>
+        <div className="mission-period-box">
+          <div className="mission-subsection-heading">
+            <strong>Période de mission</strong>
+          </div>
+          <div className="mission-calendar-picker" aria-label="Calendrier de sélection des jours travaillés">
+            <div className="mission-calendar-header">
+              <button className="mission-small-button" type="button" onClick={() => setCalendarMonth((current) => addMonthsIso(current, -1))}>←</button>
+              <strong>{monthLabel(calendarMonth)}</strong>
+              <button className="mission-small-button" type="button" onClick={() => setCalendarMonth((current) => addMonthsIso(current, 1))}>→</button>
+            </div>
+            <div className="mission-calendar-grid" aria-hidden="true">
+              {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
+            </div>
+            <div className="mission-calendar-grid">
+              {calendarDays.map((day, index) => day ? (
+                <button
+                  key={day.date}
+                  type="button"
+                  className={`mission-calendar-day${selectedDateSet.has(day.date) ? ' is-selected' : ''}`}
+                  aria-pressed={selectedDateSet.has(day.date)}
+                  aria-label={`${selectedDateSet.has(day.date) ? 'Désélectionner' : 'Sélectionner'} le ${day.date}`}
+                  onClick={() => toggleSelectedDate(day.date)}
+                >
+                  {day.dayNumber}
+                </button>
+              ) : <span key={`blank-${index}`} className="mission-calendar-empty" />)}
+            </div>
+          </div>
+          <div className="mission-period-actions">
+            <span>{selectedCountLabel}</span>
+            {selectedClosedDays.length ? <span className="mission-period-warning">Pharmacie indiquée fermée ce jour</span> : null}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -625,20 +1296,26 @@ function MissionScheduleCard({
   values,
   onSetValues,
   regenerateDays,
-  pharmacyName,
-  pharmacistName,
 }: {
   values: MissionFormValues;
   onSetValues: Dispatch<SetStateAction<MissionFormValues>>;
   regenerateDays: (values?: MissionFormValues) => MissionFormValues;
-  pharmacyName?: string;
-  pharmacistName?: string;
 }) {
+  const paidHours = calculateDayHours(values.defaultStartTime, values.defaultEndTime, values.defaultUnpaidBreakMinutes);
+  const totalMinutes = minutesFromTime(values.defaultEndTime) - minutesFromTime(values.defaultStartTime);
+  const scheduleError = totalMinutes <= 0
+    ? 'L’heure de fin doit être après l’heure de début.'
+    : values.defaultUnpaidBreakMinutes > totalMinutes
+      ? 'La pause ne peut pas dépasser la durée de la mission.'
+      : undefined;
+
   return (
     <section className="mission-form-card">
-      <h2>3. Horaire</h2>
+      <div className="mission-section-title">
+        <h2>3. Horaire</h2>
+      </div>
       <div className="mission-schedule-summary">
-        {values.defaultStartTime} → {values.defaultEndTime} · pause {values.defaultUnpaidBreakMinutes} min · {calculateDayHours(values.defaultStartTime, values.defaultEndTime, values.defaultUnpaidBreakMinutes).toFixed(2)} h payées
+        {values.defaultStartTime} → {values.defaultEndTime} · pause {values.defaultUnpaidBreakMinutes} min · {formatHoursFr(paidHours)} h payées
       </div>
       <div className="mission-form-fields">
         <FormField
@@ -654,7 +1331,7 @@ function MissionScheduleCard({
           onChange={(value) => onSetValues((current) => regenerateDays({ ...current, defaultEndTime: value }))}
         />
         <FormField
-          label="Pause (minutes)"
+          label="Pause"
           type="number"
           value={String(values.defaultUnpaidBreakMinutes)}
           onChange={(value) => onSetValues((current) => regenerateDays({
@@ -662,18 +1339,7 @@ function MissionScheduleCard({
             defaultUnpaidBreakMinutes: Number(value) || 0,
           }))}
         />
-        <Typography variant="body2" color="text.secondary" sx={{ gridColumn: 'span 1', pt: 1 }}>
-          Préremplie depuis {pharmacyName ?? 'la pharmacie'}
-        </Typography>
-        <FormField
-          label="Taux horaire"
-          type="number"
-          value={String(values.tauxHoraire)}
-          onChange={(value) => onSetValues((current) => regenerateDays({ ...current, tauxHoraire: parseMoney(value) }))}
-        />
-        <Typography variant="body2" color="text.secondary" sx={{ gridColumn: 'span 1', pt: 1 }}>
-          Prérempli depuis {pharmacistName ?? 'le profil pharmacien'}
-        </Typography>
+        {scheduleError ? <div className="mission-field-warning">{scheduleError}</div> : null}
       </div>
     </section>
   );
@@ -694,8 +1360,18 @@ function MissionNotesCard({
 
   return (
     <section className="mission-form-card mission-notes-card">
-      <h2>5. Notes</h2>
-      {showNotes || notes ? (
+      <div className="mission-section-title">
+        <span>Frais et notes</span>
+        <h2>Notes</h2>
+      </div>
+      {notes && !showNotes ? (
+        <div className="mission-note-preview">
+          <p>{notes.length > 140 ? `${notes.slice(0, 140)}…` : notes}</p>
+          <Button variant="outlined" size="small" onClick={onShowNotes} startIcon={<EditRoundedIcon />} sx={{ borderRadius: theme.runtimeTokens.controlRadius }}>
+            Modifier
+          </Button>
+        </div>
+      ) : showNotes ? (
         <div className="mission-form-fields">
           <TextField
             multiline
@@ -718,16 +1394,50 @@ function MissionNotesCard({
   );
 }
 
-function MissionDaysSection({ values, receipts, openDayId, setOpenDayId, updateDay, addExpense, addTypedExpense, updateExpense, removeExpense, removeDay, addReceipt, deleteReceipt }: { values: MissionFormValues; receipts: ExpenseReceipt[]; openDayId: string | null; setOpenDayId: (id: string | null) => void; updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void; addExpense: (dayId: string, type: ExpenseType) => void; addTypedExpense: (dayId: string, typeKey: string) => void; updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void; removeExpense: (dayId: string, feeId: string) => void; removeDay: (dayId: string) => void; addReceipt: (dayId: string, expenseId: string, file: File) => string | null; deleteReceipt: (receiptId: string) => void }) {
+function MissionDaysFeesNotesSection({
+  values,
+  receipts,
+  openDayId,
+  setOpenDayId,
+  updateDay,
+  addExpense,
+  addTypedExpense,
+  updateExpense,
+  removeExpense,
+  addReceipt,
+  deleteReceipt,
+  showNotes,
+  onShowNotes,
+  onChangeNotes,
+}: {
+  values: MissionFormValues;
+  receipts: ExpenseReceipt[];
+  openDayId: string | null;
+  setOpenDayId: (id: string | null) => void;
+  updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void;
+  addExpense: (dayId: string, type: ExpenseType) => void;
+  addTypedExpense: (dayId: string, typeKey: string) => void;
+  updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void;
+  removeExpense: (dayId: string, feeId: string) => void;
+  addReceipt: (dayId: string, expenseId: string, file: File) => string | null;
+  deleteReceipt: (receiptId: string) => void;
+  showNotes: boolean;
+  onShowNotes: () => void;
+  onChangeNotes: (value: string) => void;
+}) {
+  const theme = useTheme();
+  const notes = values.notes;
+
   return (
     <section className="mission-form-card">
-      <h2>4. Jours travaillés</h2>
+      <div className="mission-section-title">
+        <h2>4. Jours travaillés</h2>
+      </div>
       <div className="mission-day-list">
-        {values.days.map((day, index) => (
+        {values.days.map((day) => (
           <MissionDayAccordion
             key={day.id}
             day={day}
-            canRemove={values.days.length > 1}
             receipts={receipts}
             open={openDayId === day.id}
             onToggle={() => setOpenDayId(openDayId === day.id ? null : day.id)}
@@ -736,20 +1446,48 @@ function MissionDaysSection({ values, receipts, openDayId, setOpenDayId, updateD
             addTypedExpense={addTypedExpense}
             updateExpense={updateExpense}
             removeExpense={removeExpense}
-            onRemoveDay={() => {
-              removeDay(day.id);
-              if (openDayId === day.id) setOpenDayId(null);
-            }}
             addReceipt={addReceipt}
             deleteReceipt={deleteReceipt}
           />
         ))}
       </div>
+      <div className="mission-notes-inline">
+        <div className="mission-subsection-heading">
+          <strong>Notes</strong>
+          <span>Facultatif</span>
+        </div>
+        {notes && !showNotes ? (
+          <div className="mission-note-preview">
+            <p>{notes.length > 140 ? `${notes.slice(0, 140)}…` : notes}</p>
+            <Button variant="outlined" size="small" onClick={onShowNotes} startIcon={<EditRoundedIcon />} sx={{ borderRadius: theme.runtimeTokens.controlRadius }}>
+              Modifier
+            </Button>
+          </div>
+        ) : showNotes ? (
+          <div className="mission-form-fields">
+            <TextField
+              multiline
+              rows={2}
+              value={notes}
+              onChange={(event) => onChangeNotes(event.target.value)}
+              variant="outlined"
+              size="small"
+              fullWidth
+              sx={{ gridColumn: '1 / -1' }}
+              placeholder="Ajoutez des notes..."
+            />
+          </div>
+        ) : (
+          <Button variant="outlined" size="small" onClick={onShowNotes} startIcon={<EditRoundedIcon />} sx={{ borderRadius: theme.runtimeTokens.controlRadius }}>
+            Ajouter une note
+          </Button>
+        )}
+      </div>
     </section>
   );
 }
 
-function MissionDayAccordion({ day, canRemove, receipts, open, onToggle, updateDay, addExpense, addTypedExpense, updateExpense, removeExpense, onRemoveDay, addReceipt, deleteReceipt }: { day: MissionDayFormValue; canRemove: boolean; receipts: ExpenseReceipt[]; open: boolean; onToggle: () => void; updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void; addExpense: (dayId: string, type: ExpenseType) => void; addTypedExpense: (dayId: string, typeKey: string) => void; updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void; removeExpense: (dayId: string, feeId: string) => void; onRemoveDay: () => void; addReceipt: (dayId: string, expenseId: string, file: File) => string | null; deleteReceipt: (receiptId: string) => void }) {
+function MissionDayAccordion({ day, receipts, open, onToggle, updateDay, addExpense, addTypedExpense, updateExpense, removeExpense, addReceipt, deleteReceipt }: { day: MissionDayFormValue; receipts: ExpenseReceipt[]; open: boolean; onToggle: () => void; updateDay: (id: string, patch: Partial<MissionDayFormValue>) => void; addExpense: (dayId: string, type: ExpenseType) => void; addTypedExpense: (dayId: string, typeKey: string) => void; updateExpense: (dayId: string, expense: MissionExpenseFormValue) => void; removeExpense: (dayId: string, feeId: string) => void; addReceipt: (dayId: string, expenseId: string, file: File) => string | null; deleteReceipt: (receiptId: string) => void }) {
   const feeTotalCents = day.expenses.reduce((sum, fee) => sum + fee.amountCents, 0);
   const feeTypes = [...new Set(day.expenses.map((fee) => expenseTypeConfig(fee.typeKey).label.toLocaleLowerCase('fr-CA')))].join(', ');
   return (
@@ -759,19 +1497,6 @@ function MissionDayAccordion({ day, canRemove, receipts, open, onToggle, updateD
       </button>
       {open ? (
         <div className="mission-day-panel">
-          {canRemove ? (
-            <div className="mission-day-panel-actions">
-              <Button
-                variant="text"
-                size="small"
-                color="error"
-                startIcon={<DeleteOutlineRoundedIcon fontSize="small" />}
-                onClick={onRemoveDay}
-              >
-                Retirer le jour
-              </Button>
-            </div>
-          ) : null}
           <div className="mission-form-fields">
             <FormField label="Début" type="time" value={day.startTime} onChange={(value) => updateDay(day.id, { startTime: value })} />
             <FormField label="Fin" type="time" value={day.endTime} onChange={(value) => updateDay(day.id, { endTime: value })} />
@@ -800,23 +1525,42 @@ function MissionDayHeader({ day, feeTotalCents, feeTypes }: { day: MissionDayFor
     <>
       <div>
         <strong>{dayName(day.dateService)}</strong>
-        <small>{day.startTime} → {day.endTime} · {day.paidHours.toFixed(2)} h</small>
+        <small>{day.startTime} → {day.endTime} · pause {day.unpaidBreakMinutes} min · {formatHoursFr(day.paidHours)} h payées</small>
       </div>
-      <span>Frais : {formatMoney(feeTotalCents)}{feeTypes ? ` (${feeTypes})` : ''}</span>
+      {feeTotalCents > 0 ? (
+        <span>{feeTypes || 'Frais'} · {formatMoney(feeTotalCents)}</span>
+      ) : (
+        <span className="mission-day-muted-action">+ Ajouter un frais</span>
+      )}
+      <span className="mission-day-edit-label">Modifier ce jour</span>
     </>
   );
 }
 
 function MissionExpensesEditor({ expenses, receipts, onAddMeal, onAddKm, onAddTyped, onUpdateExpense, onDeleteExpense, onAddReceipt, onDeleteReceipt }: { expenses: MissionExpenseFormValue[]; receipts: ExpenseReceipt[]; onAddMeal: () => void; onAddKm: () => void; onAddTyped: (typeKey: string) => void; onUpdateExpense: (expense: MissionExpenseFormValue) => void; onDeleteExpense: (expenseId: string) => void; onAddReceipt: (expenseId: string, file: File) => string | null; onDeleteReceipt: (receiptId: string) => void }) {
-  const [showOtherTypes, setShowOtherTypes] = useState(false);
+  const [showExpenseMenu, setShowExpenseMenu] = useState(false);
   return (
     <div className="mission-expenses-editor">
       <MissionExpensesHeader
-        onAddMeal={onAddMeal}
-        onAddKm={onAddKm}
-        onToggleOtherTypes={() => setShowOtherTypes((value) => !value)}
+        onToggleExpenseMenu={() => setShowExpenseMenu((value) => !value)}
       />
-      {showOtherTypes ? <MissionExpenseTypeList onAddTyped={onAddTyped} onClose={() => setShowOtherTypes(false)} /> : null}
+      {showExpenseMenu ? (
+        <MissionExpenseTypeList
+          onAddMeal={() => {
+            onAddMeal();
+            setShowExpenseMenu(false);
+          }}
+          onAddKm={() => {
+            onAddKm();
+            setShowExpenseMenu(false);
+          }}
+          onAddTyped={(typeKey) => {
+            onAddTyped(typeKey);
+            setShowExpenseMenu(false);
+          }}
+          onClose={() => setShowExpenseMenu(false)}
+        />
+      ) : null}
       {expenses.length ? (
         <MissionExpenseList
           expenses={expenses}
@@ -834,34 +1578,31 @@ function MissionExpensesEditor({ expenses, receipts, onAddMeal, onAddKm, onAddTy
 }
 
 function MissionExpensesHeader({
-  onAddMeal,
-  onAddKm,
-  onToggleOtherTypes,
+  onToggleExpenseMenu,
 }: {
-  onAddMeal: () => void;
-  onAddKm: () => void;
-  onToggleOtherTypes: () => void;
+  onToggleExpenseMenu: () => void;
 }) {
   return (
     <div className="mission-expenses-heading">
       <strong>Frais</strong>
       <div className="mission-expense-actions">
-        <button className="mission-small-button" type="button" onClick={onAddMeal}>+ Repas</button>
-        <button className="mission-small-button" type="button" onClick={onAddKm}>+ Km auto</button>
-        <button className="mission-small-button" type="button" onClick={onToggleOtherTypes}>+ Autre</button>
+        <button className="mission-small-button" type="button" onClick={onToggleExpenseMenu}>+ Ajouter un frais</button>
       </div>
     </div>
   );
 }
 
-function MissionExpenseTypeList({ onAddTyped, onClose }: { onAddTyped: (typeKey: string) => void; onClose: () => void }) {
+function MissionExpenseTypeList({ onAddMeal, onAddKm, onAddTyped, onClose }: { onAddMeal: () => void; onAddKm: () => void; onAddTyped: (typeKey: string) => void; onClose: () => void }) {
   return (
-    <div className="mission-expense-type-list">
+    <div className="mission-expense-type-list" role="menu" aria-label="Choisir un type de frais">
+      <button className="mission-small-button" type="button" role="menuitem" onClick={onAddMeal}>Repas</button>
+      <button className="mission-small-button" type="button" role="menuitem" onClick={onAddKm}>Kilométrage</button>
       {missionQuickExpenseTypes().map((type) => (
         <button
           key={type.key}
           className="mission-small-button"
           type="button"
+          role="menuitem"
           onClick={() => {
             onAddTyped(type.key);
             onClose();
@@ -908,40 +1649,54 @@ function MissionExpenseList({
 
 function MissionExpenseRow({ expense, receipts, onUpdate, onDelete, onAddReceipt, onDeleteReceipt }: { expense: MissionExpenseFormValue; receipts: ExpenseReceipt[]; onUpdate: (expense: MissionExpenseFormValue) => void; onDelete: (expenseId: string) => void; onAddReceipt: (file: File) => string | null; onDeleteReceipt: (receiptId: string) => void }) {
   const [editing, setEditing] = useState(false);
-  const config = expenseTypeConfig(expense.typeKey);
+  const { notify } = useNotifications();
   useEffect(() => { function onKey(event: KeyboardEvent) { if (event.key === 'Escape') setEditing(false); } if (editing) window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [editing]);
   
-  const handleExpenseDelete = useCallback(async () => {
-    const confirmed = await getPlatform().system.showConfirm('Supprimer ce frais ?');
-    if (confirmed) {
-      onDelete(expense.id);
-    }
-  }, [expense.id, onDelete]);
-  if (editing) {
-    return (
-      <MissionExpenseEditor
-        expense={expense}
-        receipts={receipts}
-        onSave={(next) => {
-          onUpdate(next);
-          setEditing(false);
-        }}
-        onCancel={() => setEditing(false)}
-        onDelete={() => {
-          handleExpenseDelete().catch(() => {});
-        }}
-        onAddReceipt={onAddReceipt}
-        onDeleteReceipt={onDeleteReceipt}
-      />
-    );
-  }
+  const handleExpenseDelete = useCallback(() => {
+    onDelete(expense.id);
+    notify({
+      severity: 'info',
+      message: 'Frais supprimé',
+      onUndo: () => onUpdate(expense),
+    });
+    setEditing(false);
+  }, [expense, notify, onDelete, onUpdate]);
 
   return (
-    <MissionExpenseItem
-      expense={expense}
-      receiptsCount={receipts.length}
-      onEdit={() => setEditing(true)}
-    />
+    <>
+      <MissionExpenseItem
+        expense={expense}
+        receiptsCount={receipts.length}
+        onEdit={() => setEditing(true)}
+        onDelete={handleExpenseDelete}
+      />
+      <Dialog
+        open={editing}
+        onClose={() => setEditing(false)}
+        maxWidth="sm"
+        fullWidth
+        aria-labelledby={`expense-editor-${expense.id}`}
+        slotProps={{ paper: { sx: { borderRadius: 4 } } }}
+      >
+        <DialogTitle id={`expense-editor-${expense.id}`}>
+          Modifier le frais
+        </DialogTitle>
+        <DialogContent>
+          <MissionExpenseEditor
+            expense={expense}
+            receipts={receipts}
+            onSave={(next) => {
+              onUpdate(next);
+              setEditing(false);
+            }}
+            onCancel={() => setEditing(false)}
+            onDelete={handleExpenseDelete}
+            onAddReceipt={onAddReceipt}
+            onDeleteReceipt={onDeleteReceipt}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -949,13 +1704,15 @@ function MissionExpenseItem({
   expense,
   receiptsCount,
   onEdit,
+  onDelete,
 }: {
   expense: MissionExpenseFormValue;
   receiptsCount: number;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   const amountLabel = expense.typeKey === 'MILEAGE' && expense.distanceKm
-    ? `${String(expense.distanceKm)} km · ${formatMoney(expense.amountCents)}`
+    ? `Km auto · ${String(expense.distanceKm)} km AR · ${formatMoney(expense.amountCents)}`
     : formatMoney(expense.amountCents);
 
   return (
@@ -970,6 +1727,9 @@ function MissionExpenseItem({
       </button>
       <button className="mission-link-button" type="button" aria-label={'Modifier ' + expense.label} onClick={onEdit}>
         ✎
+      </button>
+      <button className="mission-link-button mission-expense-delete" type="button" aria-label={'Supprimer ' + expense.label} onClick={onDelete}>
+        <DeleteOutlineRoundedIcon fontSize="small" />
       </button>
     </div>
   );
@@ -1136,35 +1896,44 @@ function ExpenseReceiptPreview({ receipt, onDeleteReceipt }: { receipt: ExpenseR
   );
 }
 
-function MissionFinancialPreview({ preview, rate }: { preview: { hours: number; subtotal: number; expenses: number; total: number }; rate: number }) {
-  const theme = useTheme();
-  const [open, setOpen] = useState(false);
+function MissionLiveSidebar({
+  mode,
+  invoice,
+  values,
+  pharmacy,
+  preview,
+  checks,
+  submittingAction,
+  onSubmit,
+  onCancel,
+}: {
+  mode: 'create' | 'edit';
+  invoice?: Invoice;
+  values: MissionFormValues;
+  pharmacy?: Pharmacie;
+  preview: { hours: number; subtotal: number; expenses: number; total: number };
+  checks: string[];
+  submittingAction: WorkflowAction | null;
+  onSubmit: (action: WorkflowAction) => Promise<void>;
+  onCancel: () => void;
+}) {
   return (
-    <section className="mission-form-card mission-summary-card">
-      <h2>Résumé</h2>
-      <div className="mission-summary-main">
-        <MissionSummaryLine label="Début" value={`${preview.hours.toFixed(2)} h`} />
-        <MissionSummaryLine label="Financier" value={formatMoney(moneyToCents(preview.total))} strong />
-        <Button 
-          variant="outlined" 
-          size="small" 
-          onClick={() => setOpen((value) => !value)}
-          startIcon={open ? undefined : <EditRoundedIcon />}
-          sx={{ borderRadius: theme.runtimeTokens.controlRadius, alignSelf: 'flex-start' }}
-        >
-          {open ? 'Masquer le détail' : 'Voir le détail'}
-        </Button>
+    <aside className="mission-live-sidebar" aria-label="Résumé évolutif de la mission" data-testid="mission-live-sidebar">
+      <div className="mission-live-sidebar-inner">
+        <MissionSummaryPanel
+        pharmacyName={pharmacy ? pharmacieDisplayName(pharmacy) : 'Pharmacie non sélectionnée'}
+        pharmacyAddress={pharmacy ? pharmacyContextAddress(pharmacy) : 'Adresse non renseignée'}
+        dates={formatMissionDatesSummary(values)}
+        daysWorked={values.days.length}
+        paidHours={preview.hours}
+        hourlyRateCents={Math.round(values.tauxHoraire * 100)}
+        subtotalCents={Math.round(preview.subtotal * 100)}
+        expensesCents={Math.round(preview.expenses * 100)}
+        totalCents={Math.round(preview.total * 100)}
+      />
+        <MissionFormActions mode={mode} invoice={invoice} submittingAction={submittingAction} onSubmit={onSubmit} onCancel={onCancel} />
       </div>
-      {open ? (
-        <div className="mission-preview-grid">
-          <MissionSummaryLine label="Taux" value={`${rate.toFixed(2)} $`} />
-          <MissionSummaryLine label="Sous-total" value={formatMoney(moneyToCents(preview.subtotal))} />
-          <MissionSummaryLine label="Frais" value={formatMoney(moneyToCents(preview.expenses))} />
-          <MissionSummaryLine label="Taxes" value="Selon type" />
-          <MissionSummaryLine label="Total" value={formatMoney(moneyToCents(preview.total))} strong />
-        </div>
-      ) : null}
-    </section>
+    </aside>
   );
 }
 
@@ -1184,31 +1953,28 @@ function MissionFormActions({
   const isSubmitting = Boolean(submittingAction);
   if (mode === 'create') {
     return (
-      <div className="mission-form-actions">
-        <Button 
-          variant="outlined" 
-          type="button" 
-          disabled={isSubmitting}
-          onClick={() => onSubmit('save_draft')}
-        >
-          Enregistrer brouillon
-        </Button>
-        <Button 
-          variant="outlined" 
-          type="button" 
-          disabled={isSubmitting}
-          onClick={() => onSubmit('confirm')}
-        >
-          Valider mission
-        </Button>
-        <Button 
-          variant="contained" 
-          type="button" 
-          disabled={isSubmitting}
-          onClick={() => onSubmit('confirm_generate')}
-        >
-          Valider et générer facture
-        </Button>
+      <div className="mission-actions-block">
+        <div className="mission-form-actions">
+          <Button 
+            variant="outlined" 
+            type="button" 
+            disabled={isSubmitting}
+            onClick={() => onSubmit('save_draft')}
+            title="Enregistre la mission sans la valider."
+          >
+            Enregistrer brouillon
+          </Button>
+          <Button 
+            variant="contained" 
+            type="button" 
+            disabled={isSubmitting}
+            onClick={() => onSubmit('confirm')}
+            title="Valide la mission et ouvre l’étape de facturation."
+            data-testid="mission-primary-submit"
+          >
+            Valider
+          </Button>
+        </div>
       </div>
     );
   }

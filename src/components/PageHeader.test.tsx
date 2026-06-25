@@ -23,6 +23,6 @@ describe('PageHeader', () => {
 
     expect(screen.getByRole('heading', { name: 'Missions' })).toBeInTheDocument();
     expect(screen.getByText('Suivez les missions.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Accueil' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Accueil' })).toHaveAttribute('href', '/activity');
   });
 });

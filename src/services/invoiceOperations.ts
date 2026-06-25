@@ -3,11 +3,12 @@ import { todayIso } from './ids';
 
 export type InvoiceQueue =
   | 'all'
+  | 'active'
+  | 'archived'
   | 'to_send'
   | 'overdue'
   | 'sent'
   | 'paid'
-  | 'archived'
   | 'attention'
   | 'corrected_originals'
   | 'corrected_versions';
@@ -49,7 +50,7 @@ export type InvoiceOperationalSummary = {
   draftCents: number;
 };
 
-const actionableStatuses = new Set<InvoiceStatus>(['GENERATED', 'SENT']);
+const actionableStatuses = new Set<InvoiceStatus>(['draft', 'ready_to_send', 'sent', 'GENERATED', 'SENT']);
 
 function invoiceMissionIds(invoice: Pick<Invoice, 'missionIds' | 'missionId'>): string[] {
   return invoice.missionIds?.length
@@ -132,12 +133,15 @@ export function buildInvoiceOperationalRows(
       const correctedVersions = state.invoices.filter(
         (item) => item.correctedFromInvoiceId === invoice.id,
       );
-      const daysUntilDue = diffDays(nowIso, invoice.dateEcheance);
-      const isOverdue = invoice.status === 'SENT' && daysUntilDue < 0;
+      
+      // Calculer isOverdue pour les factures envoyées (statut 'sent')
+      const isOverdue = (invoice.status === 'sent' || invoice.status === 'SENT') && diffDays(nowIso, invoice.dateEcheance) < 0;
       const consistencyIssues = invoiceConsistencyIssues(invoice, missions);
       const hasBlockingIssue = consistencyIssues.some((issue) => issue.severity === 'error');
       const isActionable = actionableStatuses.has(invoice.status);
       const isCorrectedVersion = Boolean(invoice.correctedFromInvoiceId);
+      const daysUntilDue = diffDays(nowIso, invoice.dateEcheance);
+      
       const priority: InvoiceOperationalRow['priority'] = hasBlockingIssue
         ? 3
         : isOverdue
@@ -183,23 +187,28 @@ export function buildInvoiceOperationalSummary(
   return rows.reduce<InvoiceOperationalSummary>(
     (summary, row) => {
       const { invoice } = row;
-      if (invoice.status === 'GENERATED') {
+      // Support anciens et nouveaux statuts
+      const isDraft = invoice.status === 'draft' || invoice.status === 'GENERATED';
+      const isSent = invoice.status === 'sent' || invoice.status === 'SENT';
+      const isPaid = invoice.paymentStatus === 'paid' || invoice.status === 'PAID';
+      const isArchived = invoice.status === 'archived' || invoice.status === 'ARCHIVED';
+      
+      if (isDraft) {
         summary.toSendCount += 1;
         summary.draftCents += invoice.amountCents;
-      }
-      if (invoice.status === 'SENT') {
+      } else if (isSent && !isPaid) {
         summary.sentCount += 1;
-        summary.receivableCents += invoice.amountCents;
+        summary.receivableCents += (invoice.balanceDue ?? invoice.amountCents);
       }
       if (row.isOverdue) {
         summary.overdueCount += 1;
-        summary.overdueCents += invoice.amountCents;
+        summary.overdueCents += (invoice.balanceDue ?? invoice.amountCents);
       }
-      if (invoice.status === 'PAID') {
+      if (isPaid) {
         summary.paidCount += 1;
         summary.paidCents += invoice.amountCents;
       }
-      if (invoice.status === 'ARCHIVED') summary.archivedCount += 1;
+      if (isArchived) summary.archivedCount += 1;
       if (row.consistencyIssues.length) summary.attentionCount += 1;
       if (row.hasCorrectedVersions) summary.correctedOriginalCount += 1;
       if (row.isCorrectedVersion) summary.correctedVersionCount += 1;
@@ -232,11 +241,12 @@ export function filterInvoiceRows(
     const { invoice } = row;
     const matchesQueue =
       queue === 'all' ||
-      (queue === 'to_send' && invoice.status === 'GENERATED') ||
+      (queue === 'active' && invoice.status !== 'archived' && invoice.status !== 'replaced') ||
+      (queue === 'archived' && invoice.status === 'archived') ||
+      (queue === 'to_send' && invoice.status === 'draft') ||
       (queue === 'overdue' && row.isOverdue) ||
-      (queue === 'sent' && invoice.status === 'SENT') ||
-      (queue === 'paid' && invoice.status === 'PAID') ||
-      (queue === 'archived' && invoice.status === 'ARCHIVED') ||
+      (queue === 'sent' && invoice.status === 'sent') ||
+      (queue === 'paid' && invoice.status === 'sent' && invoice.paymentStatus === 'paid') ||
       (queue === 'attention' && row.consistencyIssues.length > 0) ||
       (queue === 'corrected_originals' && row.hasCorrectedVersions) ||
       (queue === 'corrected_versions' && row.isCorrectedVersion);

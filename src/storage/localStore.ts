@@ -3,9 +3,12 @@ import {
   APP_SCHEMA_VERSION,
   APP_STORAGE_KEY,
   type AppState,
+  type DistanceReference,
   type Invoice,
   type Mission,
   type OpqPharmacistRegistry,
+  type PaymentStatus,
+  type Pharmacie,
   type TaxPayment,
 } from './schema';
 import type { AppOptions } from './settings/appOptions';
@@ -13,6 +16,7 @@ import { createDefaultFiscalSettings, createSeedState } from './seedData';
 import { createDefaultUiSettings } from './settings/uiSettings';
 import { createDefaultLocalDataSettings } from './settings/localDataSettings';
 import { normalizeMissionExpense } from '../services/expenseTypes';
+import { buildAddressFingerprint } from '../services/distanceService';
 import {
   appendAuditTrail,
   buildAuditTrailEntry,
@@ -27,6 +31,14 @@ import {
   isIndexedDBSupported,
 } from './indexedDB';
 import { getPlatformAsync } from '../services/platformService';
+import {
+  createWeeklyScheduleFromRange,
+  detectPharmacyFranchise,
+  extractSanteQuebecWeeklyScheduleFromNotes,
+  extractWeeklyScheduleFromNotes,
+  normalizePharmacyWeeklySchedule,
+  pharmacyFranchiseLabels,
+} from '../services/pharmacyMetadata';
 
 type Listener = () => void;
 type BootstrapStatus = 'loading' | 'ready' | 'error';
@@ -42,10 +54,7 @@ let cachedState: AppState | null = null;
 const listeners = new Set<Listener>();
 const bootstrapListeners = new Set<Listener>();
 
-// Indique si on utilise IndexedDB (défini après l'initialisation)
 let useIndexedDB = false;
-
-// Indique si on utilise la plateforme Tauri (déterminé à l'initialisation)
 let useTauriPlatform = false;
 
 let bootstrapSnapshot: StorageBootstrapSnapshot = isTauriRuntime()
@@ -134,18 +143,171 @@ function normalizeInvoiceForV3(
   };
 }
 
+function normalizeInvoiceForV4(invoice: Invoice): Invoice {
+  // Mapper les anciens statuts vers les nouveaux
+  let status = invoice.status;
+  if (status === 'GENERATED') {
+    status = 'draft';
+  } else if (status === 'SENT') {
+    status = 'sent';
+  } else if (status === 'PAID') {
+    status = 'sent';
+  }
+  
+  // Calculer les valeurs par défaut pour les champs ajoutés
+  const paidAmountCents = invoice.paidAmountCents ?? 0;
+  const balanceDue = Math.max(0, invoice.amountCents - paidAmountCents);
+  
+  let paymentStatus: PaymentStatus = 'to_collect';
+  if (paidAmountCents > 0) {
+    paymentStatus = paidAmountCents >= invoice.amountCents ? 'paid' : 'partial';
+  }
+  
+  return {
+    ...invoice,
+    status,
+    paymentStatus,
+    paidAmountCents,
+    balanceDue,
+    payments: invoice.payments ?? [],
+    versionInfo: invoice.versionInfo,
+    correctionState: invoice.correctionState,
+    previousPaidAmount: invoice.previousPaidAmount,
+    remainingBalanceFromCorrection: invoice.remainingBalanceFromCorrection,
+    overpayment: invoice.overpayment,
+    pdfGeneratedAt: invoice.pdfGeneratedAt,
+    pdfPath: invoice.pdfPath,
+    updatedAt: invoice.updatedAt ?? invoice.createdAt,
+  };
+}
+
+function normalizeDistanceReferenceForV3(candidate: MigrationCandidate, reference: Partial<DistanceReference> & {
+  source?: DistanceReference['source'] | 'calculated';
+}): DistanceReference | null {
+  if (!reference.id || !reference.pharmacienId || !reference.pharmacieId) return null;
+  const distanceKm = Number(reference.distanceKm);
+  if (!Number.isFinite(distanceKm) || distanceKm < 0) return null;
+
+  const pharmacien = candidate.pharmaciens?.find((item) => item.id === reference.pharmacienId);
+  const pharmacie = candidate.pharmacies?.find((item) => item.id === reference.pharmacieId);
+  const fromAddressHash = reference.fromAddressHash || reference.pharmacienAddressKey || buildAddressFingerprint(pharmacien);
+  const toAddressHash = reference.toAddressHash || reference.pharmacieAddressKey || buildAddressFingerprint(pharmacie);
+  const computedAt = reference.computedAt || reference.updatedAt || new Date().toISOString();
+  const source: DistanceReference['source'] =
+    reference.source === 'manual'
+      ? 'manual'
+      : reference.source === 'route'
+        ? 'route'
+        : 'cached';
+
+  return {
+    id: reference.id,
+    pharmacienId: reference.pharmacienId,
+    pharmacieId: reference.pharmacieId,
+    distanceKm: Math.round(distanceKm),
+    distanceAllerKm: Number.isFinite(reference.distanceAllerKm)
+      ? Math.round(Number(reference.distanceAllerKm))
+      : undefined,
+    fromAddressHash,
+    toAddressHash,
+    provider: reference.provider ?? (source === 'manual' ? 'manual' : source === 'route' ? 'osrm' : undefined),
+    computedAt,
+    errorReason: reference.errorReason,
+    source,
+    updatedAt: reference.updatedAt || computedAt,
+    pharmacienAddressKey: fromAddressHash,
+    pharmacieAddressKey: toAddressHash,
+  };
+}
+
+function normalizePharmacieForV3(pharmacie: Pharmacie): Pharmacie {
+  const legacyPharmacie = pharmacie as Pharmacie & {
+    usualSchedule?: { startTime?: string; endTime?: string };
+    scheduleSource?: 'manual' | 'notes_migration' | 'default' | 'unknown';
+  };
+  const detected = detectPharmacyFranchise(pharmacie.displayLabel || pharmacie.nom || '');
+  const hasManualFranchise = Boolean(pharmacie.franchise && pharmacie.franchise !== 'unknown');
+  const legacyWeeklySchedule = legacyPharmacie.usualSchedule
+    ? createWeeklyScheduleFromRange(legacyPharmacie.usualSchedule.startTime, legacyPharmacie.usualSchedule.endTime, {
+        source: legacyPharmacie.scheduleSource === 'notes_migration' ? 'notes_migration' : 'manual',
+        extractedFromNotes: legacyPharmacie.scheduleSource === 'notes_migration',
+        updatedAt: new Date().toISOString(),
+      })
+    : undefined;
+  const extractedSchedule = pharmacie.weeklySchedule || legacyWeeklySchedule
+    ? null
+    : extractSanteQuebecWeeklyScheduleFromNotes(pharmacie.notes ?? '') ?? extractWeeklyScheduleFromNotes(pharmacie.notes ?? '');
+  const weeklySchedule = normalizePharmacyWeeklySchedule(pharmacie.weeklySchedule ?? legacyWeeklySchedule ?? extractedSchedule ?? undefined);
+  const franchise = pharmacie.franchise ?? detected.franchise;
+  const franchiseLabel = pharmacie.franchiseLabel
+    ?? (hasManualFranchise ? pharmacyFranchiseLabels[franchise] : detected.label);
+
+  return {
+    ...pharmacie,
+    defaultBreakMinutes: Math.max(Number(pharmacie.defaultBreakMinutes) || 0, 0),
+    franchise,
+    franchiseLabel,
+    weeklySchedule,
+    isFavorite: pharmacie.isFavorite ?? false,
+    favoriteRank: pharmacie.favoriteRank,
+    lastUsedAt: pharmacie.lastUsedAt,
+  };
+}
+
 function normalizeV3State(
   candidate: MigrationCandidate,
   version: AppState['version'] = APP_SCHEMA_VERSION,
 ): AppState {
-  const defaultFiscalSettings = createDefaultFiscalSettings();
-  return {
+  const v3 = {
+    ...candidate,
     version,
     activePharmacienId: candidate.activePharmacienId ?? null,
     pharmaciens: candidate.pharmaciens ?? [],
-    pharmacies: candidate.pharmacies ?? [],
+    pharmacies: (candidate.pharmacies ?? []).map(normalizePharmacieForV3),
     missions: (candidate.missions ?? []).map(normalizeMissionForV3),
     invoices: (candidate.invoices ?? []).map(normalizeInvoiceForV3),
+    taxPayments: candidate.taxPayments ?? [],
+    deductibleExpenses: candidate.deductibleExpenses ?? [],
+    expenseReceipts: candidate.expenseReceipts ?? [],
+    fiscalSettings: {
+      ...createDefaultFiscalSettings(),
+      ...(candidate.fiscalSettings ?? {}),
+      smallSupplierThresholdCents:
+        candidate.fiscalSettings?.smallSupplierThresholdCents ??
+        createDefaultFiscalSettings().smallSupplierThresholdCents,
+      smallSupplierWarningRate: normalizeSmallSupplierWarningRate(
+        candidate.fiscalSettings?.smallSupplierWarningRate,
+      ),
+    },
+    distanceReferences: (candidate.distanceReferences ?? [])
+      .map((reference) => normalizeDistanceReferenceForV3(candidate, reference as Partial<DistanceReference>))
+      .filter((reference): reference is DistanceReference => Boolean(reference)),
+    opqPharmacistRegistry: normalizeOpqPharmacistRegistry(candidate.opqPharmacistRegistry),
+    appOptions: candidate.appOptions ?? createDefaultAppOptions(),
+    uiSettings: candidate.uiSettings ?? createDefaultUiSettings(),
+    localDataSettings: candidate.localDataSettings ?? createDefaultLocalDataSettings(),
+    ui: {
+      missionFilters: candidate.ui?.missionFilters ?? {},
+      lastVisitedAt: candidate.ui?.lastVisitedAt,
+      auditTrail: candidate.ui?.auditTrail ?? [],
+    },
+  };
+
+  return {
+    ...v3,
+    invoices: v3.invoices.map(normalizeInvoiceForV4),
+  };
+}
+
+function normalizeV4State(candidate: MigrationCandidate): AppState {
+  const defaultFiscalSettings = createDefaultFiscalSettings();
+  return {
+    version: 4,
+    activePharmacienId: candidate.activePharmacienId ?? null,
+    pharmaciens: candidate.pharmaciens ?? [],
+    pharmacies: (candidate.pharmacies ?? []).map(normalizePharmacieForV3),
+    missions: (candidate.missions ?? []).map(normalizeMissionForV3),
+    invoices: (candidate.invoices ?? []).map(normalizeInvoiceForV4),
     taxPayments: candidate.taxPayments ?? [],
     deductibleExpenses: candidate.deductibleExpenses ?? [],
     expenseReceipts: candidate.expenseReceipts ?? [],
@@ -159,7 +321,9 @@ function normalizeV3State(
         candidate.fiscalSettings?.smallSupplierWarningRate,
       ),
     },
-    distanceReferences: candidate.distanceReferences ?? [],
+    distanceReferences: (candidate.distanceReferences ?? [])
+      .map((reference) => normalizeDistanceReferenceForV3(candidate, reference as Partial<DistanceReference>))
+      .filter((reference): reference is DistanceReference => Boolean(reference)),
     opqPharmacistRegistry: normalizeOpqPharmacistRegistry(candidate.opqPharmacistRegistry),
     appOptions: candidate.appOptions ?? createDefaultAppOptions(),
     uiSettings: candidate.uiSettings ?? createDefaultUiSettings(),
@@ -372,31 +536,33 @@ function migrateLegacyToV2(candidate: MigrationCandidate): AppState {
 export function migrateAppState(raw: unknown): AppState {
   const candidate = raw as MigrationCandidate | null;
 
-  // Si déjà version 3, normaliser pour les champs ajoutés progressivement.
+  if (candidate?.version === 4) {
+    return normalizeV4State(candidate);
+  }
+
   if (candidate?.version === 3) {
-    return normalizeV3State(candidate);
+    const v3State = normalizeV3State(candidate);
+    return normalizeV4State(v3State as MigrationCandidate);
   }
 
-  // Si version 2, migrer vers v3
   if (candidate?.version === 2) {
-    return normalizeV3State(candidate);
+    const v3State = normalizeV3State(candidate);
+    return normalizeV4State(v3State as MigrationCandidate);
   }
 
-  // Si version 1, migrer vers v2
   if (candidate?.version === 1) {
-    return migrateV1ToV2(candidate);
+    const v3State = migrateV1ToV2(candidate);
+    return normalizeV4State(v3State as MigrationCandidate);
   }
 
-  // Si pas de version ou version inconnue, essayer de préserver les données
   if (candidate) {
-    return migrateLegacyToV2(candidate);
+    const v3State = migrateLegacyToV2(candidate);
+    return normalizeV4State(v3State as MigrationCandidate);
   }
 
-  // Aucun état valide, retourner seed
   return createSeedState();
 }
 
-// Initialisation asynchrone de IndexedDB et migration des données
 async function initStorage(): Promise<void> {
   useTauriPlatform = isTauriRuntime();
 
@@ -424,7 +590,6 @@ async function initStorage(): Promise<void> {
   }
 }
 
-// Appel initial de l'initialisation
 initStorage().catch(() => {});
 
 async function readStorage(options: { throwOnFailure?: boolean } = {}): Promise<AppState> {
@@ -434,7 +599,6 @@ async function readStorage(options: { throwOnFailure?: boolean } = {}): Promise<
     let raw: unknown | null = null;
 
     if (useTauriPlatform) {
-      // Utiliser l'adapter Tauri
       raw = await (await getPlatformAsync()).storage.loadState();
     } else if (useIndexedDB) {
       raw = await loadFromIndexedDB();
@@ -455,7 +619,6 @@ async function readStorage(options: { throwOnFailure?: boolean } = {}): Promise<
 async function persist(state: AppState): Promise<void> {
   try {
     if (useTauriPlatform) {
-      // Utiliser l'adapter Tauri
       await (await getPlatformAsync()).storage.saveState(state);
     } else {
       localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
@@ -482,7 +645,6 @@ function emit(): void {
 // Cache pour la version synchrone (nécessaire pour useSyncExternalStore)
 let syncCachedState: AppState | null = null;
 
-// Initialisation synchrone pour le premier chargement
 function syncReadStorage(): AppState {
   try {
     if (cachedState) {
@@ -542,7 +704,6 @@ export function setAppState(nextState: AppState, auditInput?: AuditTrailInput | 
   syncCachedState = stateWithTimestamp;
   syncPersist(stateWithTimestamp);
 
-  // Persistance asynchrone
   persist(stateWithTimestamp).catch(() => {});
 
   emit();
@@ -592,7 +753,6 @@ export function exportAppState(): string {
   return JSON.stringify(getAppState(), null, 2);
 }
 
-// Fonctions asynchrones pour Tauri
 export async function exportAppStateAsync(): Promise<string> {
   if (useTauriPlatform) {
     return await (await getPlatformAsync()).storage.exportState();

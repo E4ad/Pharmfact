@@ -12,6 +12,7 @@ import { createId } from '../../services/ids';
 import { getPlatform } from '../../services/platformService';
 import { findOpqPharmacistByLicense, normalizeOpqLicenseNumber } from '../../services/opqRegistry';
 import { findDuplicatePharmacist } from '../../services/entityDuplicates';
+import { geocodeEntityAddressIfNeeded } from '../../services/distanceService';
 
 interface PharmacienFormModalProps {
   open: boolean;
@@ -35,6 +36,8 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
     numero: '',
     lat: undefined as number | undefined,
     lng: undefined as number | undefined,
+    geocodedAt: undefined as string | undefined,
+    geocodedAddressHash: undefined as string | undefined,
     telephone: '',
     email: '',
     hourlyRate: '80',
@@ -58,6 +61,8 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
         numero: existingPharmacien.numero || '',
         lat: existingPharmacien.lat,
         lng: existingPharmacien.lng,
+        geocodedAt: existingPharmacien.geocodedAt,
+        geocodedAddressHash: existingPharmacien.geocodedAddressHash,
         telephone: existingPharmacien.telephone || '',
         email: existingPharmacien.email || '',
         hourlyRate: String((existingPharmacien.hourlyRateCents || 0) / 100),
@@ -79,6 +84,8 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
         numero: '',
         lat: undefined,
         lng: undefined,
+        geocodedAt: undefined,
+        geocodedAddressHash: undefined,
         telephone: '',
         email: '',
         hourlyRate: '80',
@@ -92,7 +99,13 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
   }, [pharmacienId, existingPharmacien]);
 
   function update<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === 'adresse' || field === 'ville' || field === 'codePostal'
+        ? { lat: undefined, lng: undefined, geocodedAt: undefined, geocodedAddressHash: undefined }
+        : {}),
+    }));
   }
 
   function selectAddress(suggestion: GeocodeSuggestion) {
@@ -105,6 +118,8 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
       numero: suggestion.houseNumber || current.numero,
       lat: suggestion.lat,
       lng: suggestion.lng,
+      geocodedAt: new Date().toISOString(),
+      geocodedAddressHash: undefined,
     }));
   }
 
@@ -130,12 +145,12 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
     }
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.nom.trim()) return;
     if (duplicatePharmacien) return;
 
-    const pharmacien: Pharmacien = {
+    const pharmacien: Pharmacien = await geocodeEntityAddressIfNeeded({
       id: existingPharmacien?.id || createId('ph'),
       nom: form.nom.trim(),
       opqLicenseNumber: normalizedOpqLicenseNumber || undefined,
@@ -149,6 +164,8 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
       codePostal: form.codePostal.trim(),
       lat: form.lat,
       lng: form.lng,
+      geocodedAt: form.geocodedAt,
+      geocodedAddressHash: form.geocodedAddressHash,
       telephone: form.telephone.trim(),
       email: form.email.trim(),
       hourlyRateCents: eurosToCents(form.hourlyRate),
@@ -157,7 +174,7 @@ export function PharmacienFormModal({ open, onClose, pharmacienId }: PharmacienF
       gstNumber: form.gstNumber.trim() || undefined,
       qstNumber: form.qstNumber.trim() || undefined,
       favoritePharmacieId: form.favoritePharmacieId || undefined,
-    };
+    }, existingPharmacien);
 
     updateAppState((state) => {
       const updatedPharmaciens = existingPharmacien

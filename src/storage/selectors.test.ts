@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { activePharmacien, findPharmacien, findPharmacie, findMission, findInvoice, missionInvoice, selectAppOptions, selectMissionOptions, selectInvoiceOptions, selectPdfCalendarOptions, selectFinancialOptions, selectUiOptions, selectLocalDataOptions, resolveMissionDefaults, resolveInvoiceDefaults, resolveTaxSettingsForInvoice } from './selectors';
 import type { AppState } from './schema';
-import type { TaxStatus } from './schema';
 
 const state: AppState = {
   version: 2,
@@ -15,7 +14,7 @@ const state: AppState = {
     { id: 'pha2', nom: 'P2', adresse: '', ville: '', codePostal: '', telephone: '', email: '', defaultBreakMinutes: 60 },
   ],
   missions: [{ id: 'mis1', pharmacienId: 'ph1', pharmacieId: 'pha1', invoiceId: 'inv1', status: 'COMPLETED', dateDebut: '', dateFin: '', days: [], totalHours: 0, mealFeeCents: 0, mileageKm: 0, subtotalCents: 0, mealTotalCents: 0, mileageTotalCents: 0, totalCents: 0 } as any],
-  invoices: [{ id: 'inv1', numero: 'F1', pharmacienId: 'ph1', pharmacieId: 'pha1', missionId: 'mis1', dateFacture: '2026-06-10', dateEcheance: '2026-07-10', status: 'SENT', amountCents: 10000, hours: 0, createdAt: '' }],
+  invoices: [{ id: 'inv1', numero: 'F1', pharmacienId: 'ph1', pharmacieId: 'pha1', missionId: 'mis1', dateFacture: '2026-06-10', dateEcheance: '2026-07-10', status: 'sent', paymentStatus: 'to_collect', hours: 0, amountCents: 10000, paidAmountCents: 0, balanceDue: 10000, createdAt: '' }],
   taxPayments: [],
   deductibleExpenses: [],
   expenseReceipts: [],
@@ -112,10 +111,10 @@ describe('selectors', () => {
   });
 
   describe('resolvers', () => {
-    it('resolves mission defaults with priorities', () => {
+    it('resolves mission break defaults from pharmacist before global defaults', () => {
       const defaults = resolveMissionDefaults(state, 'ph2', 'pha1');
 
-      expect(defaults.defaultBreakMinutes).toBe(60);
+      expect(defaults.defaultBreakMinutes).toBe(45);
     });
 
     it('falls back to global defaults when no overrides', () => {

@@ -1,5 +1,7 @@
 import type { AppState, Invoice, Mission, Pharmacien, Pharmacie, AppOptions, FiscalSettings, UiSettings, LocalDataSettings, TaxStatus } from './schema';
 import { invoiceForMission } from '../services/businessRules';
+import { todayIso } from '../services/ids';
+import { getPharmacyScheduleForDate } from '../services/pharmacyMetadata';
 
 export function activePharmacien(state: AppState): Pharmacien | undefined {
   return state.pharmaciens.find((pharmacien) => pharmacien.id === state.activePharmacienId);
@@ -74,12 +76,13 @@ export function resolveMissionDefaults(state: AppState, pharmacienId?: string, p
   const pharmacien = pharmacienId ? state.pharmaciens.find(p => p.id === pharmacienId) : undefined;
   const pharmacie = pharmacieId ? state.pharmacies.find(p => p.id === pharmacieId) : undefined;
   const appOptions = state.appOptions;
+  const pharmacyDaySchedule = getPharmacyScheduleForDate(pharmacie?.weeklySchedule, todayIso());
 
   return {
     defaultMissionType: pharmacien?.defaultMissionType ?? pharmacie?.defaultMissionType ?? appOptions.missionDefaults.defaultMissionType,
-    defaultStartTime: pharmacien?.defaultStartTime ?? appOptions.missionDefaults.defaultStartTime,
-    defaultEndTime: pharmacien?.defaultEndTime ?? appOptions.missionDefaults.defaultEndTime,
-    defaultBreakMinutes: pharmacie?.defaultBreakMinutes ?? pharmacien?.defaultBreakMinutes ?? appOptions.missionDefaults.defaultBreakMinutes,
+    defaultStartTime: pharmacyDaySchedule?.enabled ? pharmacyDaySchedule.startTime ?? pharmacien?.defaultStartTime ?? appOptions.missionDefaults.defaultStartTime : pharmacien?.defaultStartTime ?? appOptions.missionDefaults.defaultStartTime,
+    defaultEndTime: pharmacyDaySchedule?.enabled ? pharmacyDaySchedule.endTime ?? pharmacien?.defaultEndTime ?? appOptions.missionDefaults.defaultEndTime : pharmacien?.defaultEndTime ?? appOptions.missionDefaults.defaultEndTime,
+    defaultBreakMinutes: pharmacien?.defaultBreakMinutes ?? appOptions.missionDefaults.defaultBreakMinutes,
     mealAutoEnabled: pharmacien?.mealAutoEnabled ?? appOptions.missionDefaults.mealAutoEnabled,
     mealThresholdHours: pharmacien?.mealThresholdHours ?? appOptions.missionDefaults.mealThresholdHours,
     mealDefaultCents: pharmacien?.mealDefaultCents ?? appOptions.missionDefaults.mealDefaultCents,

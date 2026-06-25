@@ -28,7 +28,7 @@ export function splitGeneratedInvoiceMissions(
   if (!invoice) {
     throw new Error('Facture introuvable.');
   }
-  if (invoice.status !== 'GENERATED') {
+  if (invoice.status !== 'GENERATED' && invoice.status !== 'draft') {
     throw new Error('La dissociation n’est disponible que pour une facture générée.');
   }
 
@@ -102,7 +102,7 @@ export function mergeGeneratedInvoices(
   if (invoices.length < 2) {
     throw new Error('Sélectionnez au moins deux factures à regrouper.');
   }
-  if (invoices.some((invoice) => invoice.status !== 'GENERATED')) {
+  if (invoices.some((invoice) => invoice.status !== 'GENERATED' && invoice.status !== 'draft')) {
     throw new Error('Le regroupement est réservé aux factures générées.');
   }
 

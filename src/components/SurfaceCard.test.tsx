@@ -15,7 +15,7 @@ describe('SurfaceCard', () => {
     );
 
     expect(screen.getByTestId('surface-content')).toBeInTheDocument();
-    expect(container.querySelector('.MuiCardContent-root')).toBeTruthy();
+    expect(container.querySelector('.MuiCard-root')).toBeTruthy();
   });
 
   it('supports flush surfaces for dense cards', () => {
@@ -28,6 +28,6 @@ describe('SurfaceCard', () => {
     );
 
     expect(screen.getByTestId('surface-content')).toBeInTheDocument();
-    expect(container.querySelector('.MuiCardContent-root')).toBeTruthy();
+    expect(container.querySelector('.MuiCard-root')).toBeTruthy();
   });
 });

@@ -12,14 +12,6 @@
 import { browserPlatform } from '../platform/browserPlatform';
 import type { AppPlatform } from '../platform/types';
 
-// Déclaration pour window.__TAURI__ (disponible dans Tauri v2)
-declare global {
-  interface Window {
-    __TAURI_INTERNALS__?: any;  // Tauri v2 utilise __TAURI_INTERNALS__
-    __TAURI__?: boolean;        // Compatibilité descendante
-  }
-}
-
 // Détection de Tauri v2
 function isTauri(): boolean {
   return typeof window !== 'undefined' && (

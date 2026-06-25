@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AppState } from '../storage/schema';
 import { createDemoState } from '../storage/seedData';
+import { createManualDistanceReference } from '../services/distanceService';
 import { buildMissionDefaults, canDeletePharmacien, canDeletePharmacie, resolveBreakMinutes } from './useMissionDefaults';
 
 function stateWithDefaults(): AppState {
@@ -8,14 +9,14 @@ function stateWithDefaults(): AppState {
 }
 
 describe('useMissionDefaults helpers', () => {
-  it('prioritizes pharmacy break over pharmacist and global defaults', () => {
+  it('uses pharmacist break over pharmacy break for mission defaults', () => {
     const state = stateWithDefaults();
     const pharmacien = { ...state.pharmaciens[0], defaultBreakMinutes: 30, favoritePharmacieId: state.pharmacies[0].id };
     const pharmacie = { ...state.pharmacies[0], defaultBreakMinutes: 45 };
     const next = { ...state, pharmaciens: [pharmacien], pharmacies: [pharmacie], activePharmacienId: pharmacien.id };
 
-    expect(resolveBreakMinutes({ pharmacie, pharmacien, globalDefault: 60 })).toBe(45);
-    expect(buildMissionDefaults(next).scheduleDefaults.breakMinutes).toBe(45);
+    expect(resolveBreakMinutes({ pharmacie, pharmacien, globalDefault: 60 })).toBe(30);
+    expect(buildMissionDefaults(next).scheduleDefaults.breakMinutes).toBe(30);
   });
 
   it('falls back to pharmacist then global defaults', () => {
@@ -32,9 +33,9 @@ describe('useMissionDefaults helpers', () => {
     const state = stateWithDefaults();
     const pharmacien = state.pharmaciens[0];
     const pharmacie = state.pharmacies[0];
-    const next = { ...state, distanceReferences: [{ id: 'd1', pharmacienId: pharmacien.id, pharmacieId: pharmacie.id, distanceKm: 24.6, source: 'manual' as const, updatedAt: '2026-01-01T00:00:00.000Z' }] };
+    const next = { ...state, distanceReferences: [createManualDistanceReference({ pharmacien, pharmacie, distanceKm: 24.6 })] };
 
-    expect(buildMissionDefaults(next).mileageDefaults.distanceKm).toBe(24.6);
+    expect(buildMissionDefaults(next).mileageDefaults.distanceKm).toBe(25);
   });
 
   it('exposes small supplier and registered tax defaults', () => {

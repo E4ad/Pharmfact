@@ -56,9 +56,12 @@ function invoice(id: string, patch: Partial<Invoice> = {}): Invoice {
     pharmacieId: 'pha1',
     dateFacture: '2026-06-01',
     dateEcheance: '2026-06-30',
-    status: 'SENT',
+    status: 'sent',
+    paymentStatus: 'to_collect',
     hours: 7.5,
     amountCents: 75000,
+    paidAmountCents: 0,
+    balanceDue: 75000,
     createdAt: '',
     ...patch,
   };
@@ -122,9 +125,9 @@ describe('invoiceOperations', () => {
   it('prioritizes blocking and overdue invoices before stable rows', () => {
     const appState = state({
       invoices: [
-        invoice('paid', { status: 'PAID', dateEcheance: '2026-06-10' }),
-        invoice('overdue', { status: 'SENT', dateEcheance: '2026-06-10' }),
-        invoice('missing', { missionIds: ['missing'], missionId: 'missing', status: 'GENERATED' }),
+        invoice('paid', { paymentStatus: 'paid', status: 'sent', dateEcheance: '2026-06-10' }),
+        invoice('overdue', { status: 'sent', paymentStatus: 'to_collect', dateEcheance: '2026-06-01' }),
+        invoice('missing', { missionIds: ['missing'], missionId: 'missing', status: 'draft' }),
       ],
     });
 
@@ -139,13 +142,13 @@ describe('invoiceOperations', () => {
     const rows = buildInvoiceOperationalRows(
       state({
         invoices: [
-          invoice('draft', { status: 'GENERATED', amountCents: 10000 }),
-          invoice('sent', { status: 'SENT', amountCents: 20000, dateEcheance: '2026-06-30' }),
-          invoice('late', { status: 'SENT', amountCents: 30000, dateEcheance: '2026-06-01' }),
-          invoice('paid', { status: 'PAID', amountCents: 40000 }),
-          invoice('original', { status: 'PAID', correctedFromInvoiceId: undefined }),
+          invoice('draft', { status: 'draft', amountCents: 10000, paidAmountCents: 0, balanceDue: 10000 }),
+          invoice('sent', { status: 'sent', amountCents: 20000, paidAmountCents: 0, balanceDue: 20000, dateEcheance: '2026-06-30' }),
+          invoice('late', { status: 'sent', amountCents: 30000, paidAmountCents: 0, balanceDue: 30000, dateEcheance: '2026-06-01' }),
+          invoice('paid', { status: 'sent', paymentStatus: 'paid', amountCents: 40000, paidAmountCents: 40000, balanceDue: 0 }),
+          invoice('original', { status: 'sent', paymentStatus: 'paid', amountCents: 30000, paidAmountCents: 30000, balanceDue: 0 }),
           invoice('corrected', {
-            status: 'GENERATED',
+            status: 'draft',
             correctedFromInvoiceId: 'original',
             numero: 'CORR-1',
           }),
@@ -155,10 +158,9 @@ describe('invoiceOperations', () => {
     );
 
     const summary = buildInvoiceOperationalSummary(rows);
-
     expect(summary.toSendCount).toBe(2);
     expect(summary.sentCount).toBe(2);
-    expect(summary.overdueCents).toBe(30000);
+    expect(summary.overdueCents).toBe(30000); // late invoice is overdue
     expect(summary.receivableCents).toBe(50000);
     expect(filterInvoiceRows(rows, 'overdue').map((row) => row.invoice.id)).toEqual(['late']);
     expect(filterInvoiceRows(rows, 'to_send').map((row) => row.invoice.id)).toEqual(['draft', 'corrected']);

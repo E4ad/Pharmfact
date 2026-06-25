@@ -15,6 +15,7 @@ import type { Pharmacien, TaxStatus } from '../../storage/schema';
 import { getPlatform } from '../../services/platformService';
 import { findOpqPharmacistByLicense, normalizeOpqLicenseNumber } from '../../services/opqRegistry';
 import { findDuplicatePharmacist } from '../../services/entityDuplicates';
+import { geocodeEntityAddressIfNeeded } from '../../services/distanceService';
 
 export function PharmacienNewPage() {
   const state = useAppState();
@@ -25,7 +26,7 @@ export function PharmacienNewPage() {
   const existingPharmacien = state.pharmaciens.find(p => p.id === id);
   const missingPharmacien = Boolean(id && !existingPharmacien);
   
-  const [form, setForm] = useState({ nom: '', opqLicenseNumber: '', adresse: '', ville: '', codePostal: '', rue: '', numero: '', lat: undefined as number | undefined, lng: undefined as number | undefined, telephone: '', email: '', hourlyRate: '80', distanceKmDomicile: '0', taxStatus: 'SMALL_SUPPLIER' as TaxStatus, gstNumber: '', qstNumber: '', favoritePharmacieId: '' });
+  const [form, setForm] = useState({ nom: '', opqLicenseNumber: '', adresse: '', ville: '', codePostal: '', rue: '', numero: '', lat: undefined as number | undefined, lng: undefined as number | undefined, geocodedAt: undefined as string | undefined, geocodedAddressHash: undefined as string | undefined, telephone: '', email: '', hourlyRate: '80', distanceKmDomicile: '0', taxStatus: 'SMALL_SUPPLIER' as TaxStatus, gstNumber: '', qstNumber: '', favoritePharmacieId: '' });
   
   // Charger les données existantes si on est en mode édition
   useEffect(() => {
@@ -40,6 +41,8 @@ export function PharmacienNewPage() {
         numero: existingPharmacien.numero || '',
         lat: existingPharmacien.lat,
         lng: existingPharmacien.lng,
+        geocodedAt: existingPharmacien.geocodedAt,
+        geocodedAddressHash: existingPharmacien.geocodedAddressHash,
         telephone: existingPharmacien.telephone || '',
         email: existingPharmacien.email || '',
         hourlyRate: String((existingPharmacien.hourlyRateCents || 0) / 100),
@@ -64,7 +67,13 @@ export function PharmacienNewPage() {
   }
 
   function update<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === 'adresse' || field === 'ville' || field === 'codePostal'
+        ? { lat: undefined, lng: undefined, geocodedAt: undefined, geocodedAddressHash: undefined }
+        : {}),
+    }));
   }
 
   function selectAddress(suggestion: GeocodeSuggestion) {
@@ -77,6 +86,8 @@ export function PharmacienNewPage() {
       numero: suggestion.houseNumber || current.numero,
       lat: suggestion.lat,
       lng: suggestion.lng,
+      geocodedAt: new Date().toISOString(),
+      geocodedAddressHash: undefined,
     }));
   }
 
@@ -102,11 +113,11 @@ export function PharmacienNewPage() {
     }
   }, [existingPharmacien, navigate]);
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.nom.trim()) return;
     if (duplicatePharmacien) return;
-    const pharmacien: Pharmacien = {
+    const pharmacien: Pharmacien = await geocodeEntityAddressIfNeeded({
       id: existingPharmacien?.id || createId('ph'),
       nom: form.nom.trim(),
       opqLicenseNumber: normalizedOpqLicenseNumber || undefined,
@@ -120,6 +131,8 @@ export function PharmacienNewPage() {
       codePostal: form.codePostal.trim(),
       lat: form.lat,
       lng: form.lng,
+      geocodedAt: form.geocodedAt,
+      geocodedAddressHash: form.geocodedAddressHash,
       telephone: form.telephone.trim(),
       email: form.email.trim(),
       hourlyRateCents: eurosToCents(form.hourlyRate),
@@ -128,7 +141,7 @@ export function PharmacienNewPage() {
       gstNumber: form.gstNumber.trim() || undefined,
       qstNumber: form.qstNumber.trim() || undefined,
       favoritePharmacieId: form.favoritePharmacieId || undefined,
-    };
+    }, existingPharmacien);
     updateAppState((state) => {
       const updatedPharmaciens = existingPharmacien
         ? state.pharmaciens.map(p => p.id === existingPharmacien.id ? pharmacien : p)

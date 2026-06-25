@@ -54,7 +54,7 @@ export function buildSmallSupplierSnapshot(state: AppState, asOfIso: string): Sm
   const periodEnd = asOfIso;
   const includedInvoices = state.invoices.filter((invoice) =>
     invoice.status !== 'VOIDED' &&
-    invoice.status !== 'ARCHIVED' &&
+    invoice.status !== 'archived' && invoice.status !== 'ARCHIVED' &&
     invoice.dateFacture >= periodStart &&
     invoice.dateFacture <= periodEnd
   );

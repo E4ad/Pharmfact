@@ -14,9 +14,12 @@ describe('auditTrail', () => {
       pharmacieId: 'pa1',
       dateFacture: '2026-06-01',
       dateEcheance: '2026-06-30',
-      status: 'GENERATED',
+      status: 'draft',
+      paymentStatus: 'to_collect',
       hours: 1,
       amountCents: 10000,
+      paidAmountCents: 0,
+      balanceDue: 10000,
       createdAt: '',
     };
     const next = {
