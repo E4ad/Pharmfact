@@ -198,7 +198,7 @@ describe('MissionsPage render', () => {
     const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
     expect(card).toBeTruthy();
     fireEvent.click(card!);
-    const drawer = screen.getByTestId('mission-drawer');
+    const drawer = screen.getByTestId('mission-detail-panel');
     expect(within(drawer).getByLabelText('Télécharger le calendrier ICS')).toBeInTheDocument();
   });
 
@@ -207,7 +207,7 @@ describe('MissionsPage render', () => {
     const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
     expect(card).toBeTruthy();
     fireEvent.click(card!);
-    const drawer = screen.getByTestId('mission-drawer');
+    const drawer = screen.getByTestId('mission-detail-panel');
     expect(drawer).toBeInTheDocument();
     expect(within(drawer).getByLabelText('Fermer le panneau')).toBeInTheDocument();
     expect(within(drawer).getByLabelText('Télécharger le calendrier ICS')).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe('MissionsPage render', () => {
     const card = screen.getByText('MIS-2026-001').closest('[role="button"]');
     expect(card).toBeTruthy();
     fireEvent.click(card!);
-    const drawer = screen.getByTestId('mission-drawer');
+    const drawer = screen.getByTestId('mission-detail-panel');
     expect(drawer).toBeInTheDocument();
     expect(within(drawer).getByRole('button', { name: 'Générer la facture' })).toBeInTheDocument();
     expect(within(drawer).getByRole('button', { name: 'Modifier la mission' })).toBeInTheDocument();
@@ -243,7 +243,7 @@ describe('MissionsPage render', () => {
     const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
     expect(card).toBeTruthy();
     fireEvent.click(card!);
-    const drawer = screen.getByTestId('mission-drawer');
+    const drawer = screen.getByTestId('mission-detail-panel');
     expect(within(drawer).getByRole('button', { name: 'Modifier la mission' })).toBeInTheDocument();
     expect(within(drawer).queryByRole('button', { name: 'Générer la facture' })).not.toBeInTheDocument();
   });
@@ -258,7 +258,7 @@ describe('MissionsPage render', () => {
     renderMissionsPage();
     const card = screen.getByText('MIS-2026-001').closest('[role="button"]');
     fireEvent.click(card!);
-    const drawer = screen.getByTestId('mission-drawer');
+    const drawer = screen.getByTestId('mission-detail-panel');
     expect(drawer).toBeInTheDocument();
     expect(within(drawer).getByText('Résumé')).toBeInTheDocument();
     expect(within(drawer).getByText(/900,00\s*\$/)).toBeInTheDocument();
@@ -269,7 +269,7 @@ describe('MissionsPage render', () => {
     renderMissionsPage();
     const card = screen.getByText('MIS-2026-001').closest('[role="button"]');
     fireEvent.click(card!);
-    const drawer = screen.getByTestId('mission-drawer');
+    const drawer = screen.getByTestId('mission-detail-panel');
     expect(within(drawer).getAllByText('Jours travaillés').length).toBeGreaterThanOrEqual(1);
     expect(within(drawer).getAllByText('11,00 h').length).toBeGreaterThanOrEqual(1);
   });
@@ -278,7 +278,7 @@ describe('MissionsPage render', () => {
     renderMissionsPage();
     const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
     fireEvent.click(card!);
-    const drawer = screen.getByTestId('mission-drawer');
+    const drawer = screen.getByTestId('mission-detail-panel');
     expect(within(drawer).getByRole('button', { name: 'En cours' })).toBeInTheDocument();
     expect(within(drawer).getByRole('button', { name: 'Annulée' })).toBeInTheDocument();
   });
@@ -287,7 +287,7 @@ describe('MissionsPage render', () => {
     renderMissionsPage();
     const card = screen.getByText(/PJC 092 - Martin Chao/).closest('[role="button"]');
     fireEvent.click(card!);
-    const drawer = screen.getByTestId('mission-drawer');
+    const drawer = screen.getByTestId('mission-detail-panel');
     fireEvent.click(within(drawer).getByRole('button', { name: 'Annulée' }));
     expect(screen.getByText('Annuler la mission ?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: "Confirmer l'annulation" })).toBeInTheDocument();

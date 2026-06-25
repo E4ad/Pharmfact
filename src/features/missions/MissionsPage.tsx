@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Chip,
+  Collapse,
   IconButton,
   Stack,
   Tooltip,
@@ -21,7 +22,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { PageSection } from '../../components/PageSection';
 import { SurfaceCard } from '../../components/SurfaceCard';
 import { MetricCard } from '../../components/MetricCard';
-import { MissionDrawer } from './MissionDrawer';
+import { MissionDetailPanel } from './MissionDetailPanel';
 import { buildMissionIcs, downloadIcs } from '../../services/calendarIcs';
 import { createId } from '../../services/ids';
 import { createInvoiceFromMission, createInvoiceFromMissions, createInvoicePayment, addPaymentToInvoice } from '../../services/invoiceWorkflow';
@@ -192,10 +193,6 @@ export function MissionsPage() {
     return new Set([...firstByPharmacy.values()].map((mission) => mission.id));
   }, [state.missions]);
 
-  const selected = state.missions.find((mission) => mission.id === selectedId);
-  const selectedInvoice = selected
-    ? findInvoice(state, selected.invoiceId) ?? missionInvoice(state, selected)
-    : undefined;
   const invoiceReadyGroups = useMemo(() => {
     const groups = new Map<string, Mission[]>();
     missionsReadyToInvoice(state).forEach((mission) => {
@@ -528,20 +525,41 @@ export function MissionsPage() {
           <SurfaceCard flush sx={{ borderRadius: borderRadiusScale.xl }}>
             {missions.length ? (
               <Stack spacing={0} role="list">
-                {missions.map((mission) => (
-                  <MissionCard
-                    key={mission.id}
-                    mission={mission}
-                    invoice={findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission)}
-                    pharmacie={findPharmacie(state, mission.pharmacieId)}
-                    isFirstMissionAtPharmacy={firstMissionIdsByPharmacy.has(mission.id)}
-                    selected={selectedId === mission.id}
-                    onClick={() => openMission(mission.id)}
-                    onToggleFavorite={() => toggleFavoritePharmacie(mission.pharmacieId)}
-                    onDownloadPdf={downloadPdf}
-                    onDownloadIcs={downloadCalendar}
-                  />
-                ))}
+                {missions.map((mission) => {
+                  const missionInv = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
+                  const missionPharmacy = findPharmacie(state, mission.pharmacieId);
+                  const isOpen = selectedId === mission.id;
+                  return (
+                    <Box key={mission.id} role="listitem">
+                      <MissionCard
+                        mission={mission}
+                        invoice={missionInv}
+                        pharmacie={missionPharmacy}
+                        isFirstMissionAtPharmacy={firstMissionIdsByPharmacy.has(mission.id)}
+                        selected={isOpen}
+                        onClick={() => (isOpen ? closeMission() : openMission(mission.id))}
+                        onToggleFavorite={() => toggleFavoritePharmacie(mission.pharmacieId)}
+                        onDownloadPdf={downloadPdf}
+                        onDownloadIcs={downloadCalendar}
+                      />
+                      <Collapse in={isOpen} unmountOnExit>
+                        <MissionDetailPanel
+                          mission={mission}
+                          pharmacy={missionPharmacy}
+                          invoice={missionInv}
+                          onClose={closeMission}
+                          onEditMission={(id) => navigate(`/missions/${id}/edit`)}
+                          onOpenInvoice={(id) => navigate(`/missions/${id}/invoice`)}
+                          onDownloadPdf={downloadPdf}
+                          onDownloadIcs={downloadCalendar}
+                          onChangeMissionStatus={updateMissionStatus}
+                          onGenerateInvoice={generateInvoice}
+                          onSavePayment={savePayment}
+                        />
+                      </Collapse>
+                    </Box>
+                  );
+                })}
               </Stack>
             ) : (
               <EmptyState onPrimary={() => navigate('/missions/new')} onSecondary={() => { setMissionStatusFilter('ALL'); setMissionFocus('all'); }} hasFilter={statusFilter !== 'ALL' || focusFilter !== 'all'} />
@@ -550,20 +568,6 @@ export function MissionsPage() {
         </FadeIn>
       </PageSection>
 
-      <MissionDrawer
-        open={!!selected}
-        mission={selected ?? null}
-        pharmacy={selected ? findPharmacie(state, selected.pharmacieId) : undefined}
-        invoice={selectedInvoice}
-        onClose={closeMission}
-        onEditMission={(missionId) => navigate(`/missions/${missionId}/edit`)}
-        onOpenInvoice={(missionId) => navigate(`/missions/${missionId}/invoice`)}
-        onDownloadPdf={downloadPdf}
-        onDownloadIcs={downloadCalendar}
-        onChangeMissionStatus={updateMissionStatus}
-        onGenerateInvoice={generateInvoice}
-        onSavePayment={savePayment}
-      />
     </Stack>
   );
 }
