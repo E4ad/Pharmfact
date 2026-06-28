@@ -829,9 +829,9 @@ export function MissionsPage() {
   }
 
   const compactHeaderSx = (theme: import('@mui/material').Theme) => ({
-    minHeight: 80,
+    minHeight: 64,
     px: { xs: 2, md: 2.5 },
-    py: { xs: 0.75, md: 1 },
+    py: { xs: 0.5, md: 0.75 },
     borderRadius: 10,
     background:
       theme.palette.mode === 'dark'
@@ -841,10 +841,15 @@ export function MissionsPage() {
       color: alpha(theme.palette.common.white, 0.78),
       fontWeight: 800,
       letterSpacing: '0.12em',
+      lineHeight: 1,
+      mb: 0,
     },
     '& .MuiTypography-h1': {
       fontSize: { xs: '1.42rem', md: '1.72rem' },
       lineHeight: 1.05,
+    },
+    '& .MuiStack-root': {
+      gap: '4px',
     },
   });
 
@@ -1124,15 +1129,27 @@ export function MissionsPage() {
         )}
 
         <FadeIn>
-          <SurfaceCard flush sx={{ borderRadius: borderRadiusScale.xl }}>
             {missions.length ? (
-              <Stack spacing={0} role="list">
+              <Stack spacing={1.5} role="list">
                 {missions.map((mission) => {
                   const missionInv = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
                   const missionPharmacy = findPharmacie(state, mission.pharmacieId);
                   const isOpen = selectedId === mission.id;
                   return (
-                    <Box key={mission.id} role="listitem">
+                    <Box
+                      key={mission.id}
+                      role="listitem"
+                      sx={(t) => ({
+                        borderRadius: borderRadiusScale.lg,
+                        overflow: 'hidden',
+                        bgcolor: 'background.paper',
+                        border: `1px solid ${t.palette.mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)'}`,
+                        boxShadow: isOpen
+                          ? '0 4px 24px rgba(0,0,0,0.28)'
+                          : '0 1px 4px rgba(0,0,0,0.10), 0 0px 1px rgba(0,0,0,0.08)',
+                        transition: 'box-shadow 180ms ease',
+                      })}
+                    >
                       <MissionListCard
                         mission={mission}
                         invoice={missionInv}
@@ -1173,19 +1190,20 @@ export function MissionsPage() {
                 })}
               </Stack>
             ) : (
-              <EmptyState
-                onPrimary={() => navigate('/missions/new')}
-                onSecondary={() => {
-                  setMainFilter('ALL');
-                  setStatusFilter('ALL');
-                  setFocusFilter('all');
-                  setAdvancedFilter(EMPTY_ADVANCED_FILTER);
-                  setPendingFilter(EMPTY_ADVANCED_FILTER);
-                }}
-                hasFilter={mainFilter !== 'ALL' || statusFilter !== 'ALL' || focusFilter !== 'all'}
-              />
+              <SurfaceCard flush sx={{ borderRadius: borderRadiusScale.xl }}>
+                <EmptyState
+                  onPrimary={() => navigate('/missions/new')}
+                  onSecondary={() => {
+                    setMainFilter('ALL');
+                    setStatusFilter('ALL');
+                    setFocusFilter('all');
+                    setAdvancedFilter(EMPTY_ADVANCED_FILTER);
+                    setPendingFilter(EMPTY_ADVANCED_FILTER);
+                  }}
+                  hasFilter={mainFilter !== 'ALL' || statusFilter !== 'ALL' || focusFilter !== 'all'}
+                />
+              </SurfaceCard>
             )}
-          </SurfaceCard>
         </FadeIn>
       </PageSection>
 

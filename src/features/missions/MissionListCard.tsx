@@ -2,9 +2,8 @@ import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRound
 import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded';
-import { Box, Chip, IconButton, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Chip, IconButton, Stack, Step, StepLabel, Stepper, Typography, useTheme } from '@mui/material';
 import { brandColors, borderRadiusScale } from '../../design-system/tokens';
-import { StatusChip } from '../../components/StatusChip';
 import {
   businessMissionStatusTone,
   deriveMissionBusinessStatus,
@@ -13,9 +12,33 @@ import { nextMissionStatuses } from '../../services/missionStatus';
 import { formatMoney } from '../../services/money';
 import type { Invoice, Mission, MissionStatus, Pharmacie } from '../../storage/schema';
 import { pharmacieDisplayName } from '../../storage/selectors';
-import { formatMissionDatesSummary, hoursLabel } from './missionFormatters';
+import { formatMissionDatesSummary, formatShortDate, hoursLabel } from './missionFormatters';
 
 const OPEN_GRADIENT = 'linear-gradient(145deg, #075985 0%, #0f3f5c 58%, #0f172a 100%)';
+
+const MISSION_STEPS = ['Brouillon', 'À venir', 'En cours', 'Terminée', 'Archivée'];
+const INVOICE_STEPS = ['Sans facture', 'Brouillon', 'Prête à envoyer', 'Envoyée', 'Payée'];
+
+function missionBusinessStepIndex(status: string): number {
+  switch (status) {
+    case 'draft':       return 0;
+    case 'planned':     return 1;
+    case 'in_progress': return 2;
+    case 'completed':   return 3;
+    case 'archived':    return 4;
+    default:            return 0;
+  }
+}
+
+function invoiceStepperIndex(invoice: Invoice | undefined): number {
+  if (!invoice) return 0;
+  const s = invoice.status?.toLowerCase();
+  if (s === 'draft') return 1;
+  if (s === 'ready_to_send' || s === 'generated') return 2;
+  if (s === 'sent') return 3;
+  if (s === 'paid' || invoice.paymentStatus === 'paid') return 4;
+  return 0;
+}
 
 export function prevMissionStatus(status: MissionStatus): MissionStatus | undefined {
   switch (status) {
@@ -27,17 +50,6 @@ export function prevMissionStatus(status: MissionStatus): MissionStatus | undefi
 }
 
 // ─── Invoice frise helpers ────────────────────────────────────────────────────
-
-function invoiceStepLabel(invoice: Invoice | undefined): string {
-  if (!invoice) return 'Sans fact.';
-  const s = invoice.status?.toLowerCase();
-  if (s === 'draft') return 'Brouillon';
-  if (s === 'ready_to_send' || s === 'generated') return 'Prête à envoyer';
-  if (s === 'sent') return 'Envoyée';
-  if (s === 'paid' || invoice.paymentStatus === 'paid') return 'Payée';
-  if (s === 'voided' || s === 'archived' || s === 'replaced') return 'Archivée';
-  return 'Brouillon';
-}
 
 function invoiceNextIndex(invoice: Invoice | undefined): number | null {
   if (!invoice) return 1;
@@ -115,7 +127,10 @@ export function MissionListCard({
   const businessStatus = deriveMissionBusinessStatus(mission, invoice);
   const tone = businessMissionStatusTone(businessStatus);
   const totalHours = mission.days.reduce((sum, d) => sum + d.hours, 0);
-  const dateSummary = formatMissionDatesSummary(mission.days.map((d) => d.dateService));
+  const numDays = mission.days.length;
+  const dateSummary = numDays > 5
+    ? `${formatShortDate(mission.dateDebut)} (${numDays} jours sélectionnés)`
+    : formatMissionDatesSummary(mission.days.map((d) => d.dateService));
 
   const accentColor =
     tone === 'primary' ? theme.palette.primary.main
@@ -130,16 +145,18 @@ export function MissionListCard({
   const invNextLabel = invoiceNextLabel(invoice);
   const invCanRevert = canRevertInvoice(invoice);
   const address = addressLabel(pharmacy);
+  const missionStep = missionBusinessStepIndex(businessStatus);
+  const invoiceStep = invoiceStepperIndex(invoice);
 
   const stopProp = (e: React.MouseEvent) => e.stopPropagation();
 
-  // Style helpers
   const mutedColor = isOpen ? 'rgba(255,255,255,0.65)' : 'text.secondary';
 
   const actionChipSx = {
     fontSize: '0.7rem',
     height: 20,
     fontWeight: 700,
+    flexShrink: 0,
     ...(isOpen && {
       color: 'common.white',
       borderColor: 'rgba(255,255,255,0.35)',
@@ -151,9 +168,37 @@ export function MissionListCard({
   const revertBtnSx = {
     width: 24,
     height: 24,
+    flexShrink: 0,
     color: isOpen ? 'rgba(255,255,255,0.6)' : 'text.disabled',
     '& svg': { fontSize: '0.7rem' },
     '&:disabled': { opacity: 0.35 },
+  };
+
+  const stepperSx = {
+    flex: 1,
+    minWidth: 0,
+    py: 0,
+    '& .MuiStepIcon-root': {
+      fontSize: '0.9rem',
+      color: isOpen ? 'rgba(255,255,255,0.22)' : 'action.disabled',
+      '&.Mui-active': { color: isOpen ? 'rgba(255,255,255,0.95)' : 'primary.main' },
+      '&.Mui-completed': { color: isOpen ? 'rgba(255,255,255,0.55)' : 'success.main' },
+    },
+    '& .MuiStepIcon-text': {
+      fontSize: '0.55rem',
+      fill: isOpen ? '#0f172a' : undefined,
+    },
+    '& .MuiStepLabel-label': {
+      fontSize: '0.62rem',
+      fontWeight: 600,
+      color: isOpen ? 'rgba(255,255,255,0.4)' : 'text.disabled',
+      mt: 0.25,
+      '&.Mui-active': { color: isOpen ? 'rgba(255,255,255,0.95)' : 'text.primary', fontWeight: 700 },
+      '&.Mui-completed': { color: isOpen ? 'rgba(255,255,255,0.6)' : 'text.secondary', fontWeight: 600 },
+    },
+    '& .MuiStepConnector-line': {
+      borderColor: isOpen ? 'rgba(255,255,255,0.18)' : 'divider',
+    },
   };
 
   return (
@@ -177,8 +222,6 @@ export function MissionListCard({
         cursor: 'pointer',
         textAlign: 'left',
         borderLeft: isOpen ? '3px solid rgba(255,255,255,0.55)' : `3px solid ${accentColor}`,
-        borderBottom: '1px solid',
-        borderColor: isOpen ? 'rgba(255,255,255,0.12)' : 'divider',
         backgroundImage: isOpen ? OPEN_GRADIENT : 'none',
         backgroundColor: isOpen ? 'primary.dark' : 'transparent',
         color: isOpen ? 'common.white' : 'inherit',
@@ -207,7 +250,6 @@ export function MissionListCard({
           >
             {pharmacy ? pharmacieDisplayName(pharmacy) : 'Remplacement officine'}
           </Typography>
-          <StatusChip kind="mission" status={mission.status} />
         </Stack>
         {address ? (
           <Typography variant="body2" sx={{ color: mutedColor }}>
@@ -259,30 +301,29 @@ export function MissionListCard({
         </Box>
       </Stack>
 
-      {/* Frise row — full width */}
+      {/* Stepper row — full width */}
       <Box
-        sx={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 1 }}
+        sx={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 0.75 }}
         onClick={stopProp}
       >
-        {/* Mission frise */}
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+        {/* Mission stepper */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <IconButton
             size="small"
-            aria-label="Reculer : Mission :"
+            aria-label="Reculer : Mission"
             disabled={!hasPrevMission}
             onClick={() => onRevertMissionStep(mission.id)}
             sx={revertBtnSx}
           >
             <ArrowBackIosNewRoundedIcon />
           </IconButton>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: mutedColor, fontSize: '0.7rem' }}>
-            {businessStatus === 'draft' ? 'Brouillon'
-              : businessStatus === 'planned' ? 'Planifiée'
-              : businessStatus === 'in_progress' ? 'En cours'
-              : businessStatus === 'completed' ? 'Terminée'
-              : businessStatus === 'archived' ? 'Archivée'
-              : 'Mission'}
-          </Typography>
+          <Stepper activeStep={missionStep} sx={stepperSx}>
+            {MISSION_STEPS.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
           {primaryMissionNext && NEXT_STATUS_LABELS[primaryMissionNext] ? (
             <Chip
               label={`→ ${NEXT_STATUS_LABELS[primaryMissionNext]}`}
@@ -294,22 +335,26 @@ export function MissionListCard({
           ) : (
             <Box sx={{ width: 24 }} />
           )}
-        </Stack>
+        </Box>
 
-        {/* Invoice frise */}
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+        {/* Invoice stepper */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <IconButton
             size="small"
-            aria-label="Reculer : Facture :"
+            aria-label="Reculer : Facture"
             disabled={!invCanRevert}
             onClick={() => onRevertInvoiceStep(mission.id)}
             sx={revertBtnSx}
           >
             <ArrowBackIosNewRoundedIcon />
           </IconButton>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: mutedColor, fontSize: '0.7rem' }}>
-            {invoiceStepLabel(invoice)}
-          </Typography>
+          <Stepper activeStep={invoiceStep} sx={stepperSx}>
+            {INVOICE_STEPS.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
           {invNextIdx !== null && invNextLabel ? (
             <Chip
               label={`→ ${invNextLabel}`}
@@ -331,7 +376,7 @@ export function MissionListCard({
               <ArrowForwardIosRoundedIcon />
             </IconButton>
           ) : null}
-        </Stack>
+        </Box>
       </Box>
     </Box>
   );
