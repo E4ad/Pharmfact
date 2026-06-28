@@ -16,6 +16,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  alpha,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -263,7 +264,6 @@ export function InvoicesPage() {
                           key={item}
                           value={item}
                           aria-label={queueLabels[item]}
-                          sx={{ borderRadius: 1, border: 1, borderColor: 'divider' }}
                         >
                           {queueLabels[item]}
                         </ToggleButton>
@@ -382,10 +382,7 @@ export function InvoicesPage() {
                               sx={(theme) => ({
                                 cursor: 'pointer',
                                 '&.Mui-selected': {
-                                  bgcolor:
-                                    theme.palette.mode === 'dark'
-                                      ? 'rgba(144, 202, 249, 0.14)'
-                                      : 'rgba(25, 118, 210, 0.08)',
+                                  bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.14 : 0.08),
                                 },
                               })}
                             >

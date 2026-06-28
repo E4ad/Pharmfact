@@ -37,7 +37,7 @@ export function PageHeader({
         (theme) => ({
           position: 'relative',
           overflow: 'hidden',
-          borderRadius: borderRadiusScale.xs,
+          borderRadius: theme.runtimeTokens.surfaceRadius,
           minHeight: { xs: 128, md: 144 },
           px: { xs: spacingScale.md, md: spacingScale.lg },
           py: { xs: spacingScale.md, md: spacingScale.lg },
@@ -77,7 +77,7 @@ export function PageHeader({
                 color: 'common.white',
                 bgcolor: alpha(theme.palette.common.white, 0.12),
                 border: `${borderWidth.thin}px solid ${alpha(theme.palette.common.white, 0.2)}`,
-                borderRadius: borderRadiusScale.xs,
+                borderRadius: theme.runtimeTokens.controlRadius,
                 fontWeight: 800,
                 textTransform: 'none',
                 '&:hover': {

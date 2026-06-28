@@ -72,12 +72,12 @@ export type RuntimeDesignTokens = {
   };
 };
 
-// Default values: all radii at 1px, borderWidth at 2px
+// Default values: surfaces and controls at 10px, borderWidth at 2px
 export const defaultRuntimeDesignTokenOverrides: Required<RuntimeDesignTokenOverrides> = {
-  surfaceRadius: borderRadiusScale.xs,      // 1px
-  controlRadius: borderRadiusScale.xs,      // 1px
-  iconRadius: borderRadiusScale.xs,         // 1px
-  borderWidth: 2,                         // 2px
+  surfaceRadius: 10,
+  controlRadius: 10,
+  iconRadius: 10,
+  borderWidth: 2,
   primaryHue: 217,
   shadowIntensity: 'soft',
 };
