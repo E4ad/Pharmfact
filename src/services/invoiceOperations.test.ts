@@ -163,9 +163,8 @@ describe('invoiceOperations', () => {
     expect(summary.overdueCents).toBe(30000); // late invoice is overdue
     expect(summary.receivableCents).toBe(50000);
     expect(filterInvoiceRows(rows, 'overdue').map((row) => row.invoice.id)).toEqual(['late']);
-    expect(filterInvoiceRows(rows, 'to_send').map((row) => row.invoice.id)).toEqual(['draft', 'corrected']);
-    expect(filterInvoiceRows(rows, 'corrected_versions').map((row) => row.invoice.id)).toEqual(['corrected']);
-    expect(filterInvoiceRows(rows, 'corrected_originals').map((row) => row.invoice.id)).toEqual(['original']);
+    expect(filterInvoiceRows(rows, 'to_collect').map((row) => row.invoice.id)).toEqual(['late', 'sent']);
+    expect(filterInvoiceRows(rows, 'paid').map((row) => row.invoice.id)).toEqual(['paid', 'original']);
     expect(summary.correctedVersionCount).toBe(1);
     expect(summary.correctedOriginalCount).toBe(1);
   });

@@ -1,17 +1,7 @@
 import type { AppState, Invoice, InvoiceStatus, Mission } from '../storage/schema';
 import { todayIso } from './ids';
 
-export type InvoiceQueue =
-  | 'all'
-  | 'active'
-  | 'archived'
-  | 'to_send'
-  | 'overdue'
-  | 'sent'
-  | 'paid'
-  | 'attention'
-  | 'corrected_originals'
-  | 'corrected_versions';
+export type InvoiceQueue = 'all' | 'to_collect' | 'overdue' | 'paid' | 'archived';
 
 export type InvoiceConsistencyIssue = {
   id: string;
@@ -239,17 +229,15 @@ export function filterInvoiceRows(
   const normalizedSearch = search.trim().toLowerCase();
   return rows.filter((row) => {
     const { invoice } = row;
+    const isSent = invoice.status === 'SENT' || invoice.status === 'sent';
+    const isPaid = invoice.paymentStatus === 'paid' || invoice.status === 'PAID';
+    const isArchived = invoice.status === 'archived' || invoice.status === 'ARCHIVED';
     const matchesQueue =
       queue === 'all' ||
-      (queue === 'active' && invoice.status !== 'archived' && invoice.status !== 'replaced') ||
-      (queue === 'archived' && invoice.status === 'archived') ||
-      (queue === 'to_send' && invoice.status === 'draft') ||
+      (queue === 'to_collect' && isSent && !isPaid) ||
       (queue === 'overdue' && row.isOverdue) ||
-      (queue === 'sent' && invoice.status === 'sent') ||
-      (queue === 'paid' && invoice.status === 'sent' && invoice.paymentStatus === 'paid') ||
-      (queue === 'attention' && row.consistencyIssues.length > 0) ||
-      (queue === 'corrected_originals' && row.hasCorrectedVersions) ||
-      (queue === 'corrected_versions' && row.isCorrectedVersion);
+      (queue === 'paid' && isPaid) ||
+      (queue === 'archived' && isArchived);
 
     if (!matchesQueue) return false;
     if (!normalizedSearch) return true;

@@ -29,7 +29,7 @@ function pageTitle(pathname: string): string {
   if (pathname.startsWith('/mission/new') || pathname.startsWith('/missions/new')) return 'Nouvelle mission';
   if (pathname.startsWith('/missions/') && pathname.endsWith('/edit')) return 'Modifier une mission';
   if (pathname.startsWith('/missions')) return 'Missions';
-  if (pathname.startsWith('/invoices')) return 'Factures & encaissements';
+  if (pathname.startsWith('/invoices')) return 'Encaissements';
   if (pathname.startsWith('/financial')) return 'Pilotage fiscal';
   if (pathname.startsWith('/options')) return 'Options';
   if (pathname.startsWith('/pharmacies')) return 'Référentiels';
