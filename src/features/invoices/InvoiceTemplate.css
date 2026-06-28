@@ -19,14 +19,21 @@
 .invoice-document {
   width: 210mm;
   min-height: 297mm;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   margin: 0 auto;
-  padding: 12mm 10mm 18mm 10mm;
+  padding: 12mm 10mm 10mm 10mm;
   background: #ffffff;
   color: #111827;
   font-family: Inter, "Helvetica Neue", Arial, sans-serif;
   font-size: 9pt;
   line-height: 1.35;
   box-shadow: 0 18px 50px rgba(15, 23, 42, 0.14);
+}
+
+.invoice-main-content {
+  flex: 1;
 }
 
 .invoice-document * {
@@ -296,15 +303,25 @@
 }
 
 .invoice-payment-box {
-  margin-top: 24px;
-  padding: 14px 16px;
+  margin-top: auto;
+  padding: 7px 10px;
   border: 1px solid #e5e7eb;
   border-radius: var(--pf-radius-surface);
   background: #f8fafc;
-  font-size: 9pt;
+  font-size: 7.5pt;
   color: #374151;
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+.invoice-payment-box h3 {
+  font-size: 8pt;
+  font-weight: 700;
+  margin: 0 0 3px 0;
+}
+
+.invoice-payment-box p {
+  margin: 0 0 1px 0;
 }
 
 .invoice-status {

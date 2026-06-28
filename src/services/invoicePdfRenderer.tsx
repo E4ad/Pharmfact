@@ -71,16 +71,12 @@ async function htmlInvoiceToPdfBlob(element: HTMLElement): Promise<Blob> {
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
   const image = canvas.toDataURL('image/jpeg', 0.98);
 
-  let y = 0;
-  let remainingHeight = imgHeight;
-  pdf.addImage(image, 'JPEG', 0, y, imgWidth, imgHeight);
-  remainingHeight -= pageHeight;
+  // Subtract 1mm before ceiling to absorb floating-point rounding (297mm CSS → ~297.01mm after pixel conversion)
+  const pageCount = Math.max(1, Math.ceil((imgHeight - 1) / pageHeight));
 
-  while (remainingHeight > 0) {
-    y -= pageHeight;
-    pdf.addPage();
-    pdf.addImage(image, 'JPEG', 0, y, imgWidth, imgHeight);
-    remainingHeight -= pageHeight;
+  for (let page = 0; page < pageCount; page++) {
+    if (page > 0) pdf.addPage();
+    pdf.addImage(image, 'JPEG', 0, -page * pageHeight, imgWidth, imgHeight);
   }
 
   return pdf.output('blob');

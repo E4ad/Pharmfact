@@ -12,6 +12,7 @@ type MetricCardProps = {
   actionLabel?: string;
   onAction?: () => void;
   compact?: boolean;
+  active?: boolean;
 };
 
 export function MetricCard({
@@ -22,6 +23,7 @@ export function MetricCard({
   actionLabel,
   onAction,
   compact = false,
+  active = false,
 }: MetricCardProps) {
   const color =
     tone === 'warning'
@@ -35,7 +37,14 @@ export function MetricCard({
             : 'text.primary';
 
   return (
-    <SurfaceCard contentSx={{ p: compact ? 2 : 2.5 }} radius="dashboardCard">
+    <SurfaceCard
+      contentSx={{ p: compact ? 2 : 2.5, height: '100%' }}
+      radius="dashboardCard"
+      sx={[
+        { height: '100%' },
+        active ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } : {},
+      ]}
+    >
       <Stack spacing={1.25} sx={{ height: '100%' }}>
         <Typography
           variant="caption"
@@ -68,4 +77,3 @@ export function MetricCard({
     </SurfaceCard>
   );
 }
-

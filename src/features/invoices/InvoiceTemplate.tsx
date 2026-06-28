@@ -93,14 +93,16 @@ function InvoiceDocument({ invoice, state, mission, missions, pharmacien, pharma
 
   return (
     <article className="invoice-document" aria-label={`Facture ${invoice.numero}`}>
-      <InvoiceHeader invoice={invoice} missions={missionList} pharmacien={pharmacien} relations={relations} />
-      <div className="invoice-section-divider" />
-      <InvoiceClientBlock missions={missionList} pharmacie={pharmacie} />
-      <div className="invoice-section-divider" />
-      <InvoiceItemsTable invoice={invoice} missions={missionList} />
-      <InvoiceExpensesTable expenses={expenses} />
-      <div className="invoice-section-divider" />
-      <InvoiceTotalsBox taxes={taxes} feeSubtotalCents={feeSubtotalCents} serviceSubtotalCents={serviceSubtotalCents} />
+      <div className="invoice-main-content">
+        <InvoiceHeader invoice={invoice} missions={missionList} pharmacien={pharmacien} relations={relations} />
+        <div className="invoice-section-divider" />
+        <InvoiceClientBlock missions={missionList} pharmacie={pharmacie} />
+        <div className="invoice-section-divider" />
+        <InvoiceItemsTable invoice={invoice} missions={missionList} />
+        <InvoiceExpensesTable expenses={expenses} />
+        <div className="invoice-section-divider" />
+        <InvoiceTotalsBox taxes={taxes} feeSubtotalCents={feeSubtotalCents} serviceSubtotalCents={serviceSubtotalCents} />
+      </div>
       <InvoicePaymentTerms invoice={invoice} />
     </article>
   );
@@ -188,12 +190,14 @@ function InvoiceClientBlock({ missions, pharmacie }: { missions: Mission[]; phar
               <div className="invoice-mission-summary">{mission ? getMissionInvoiceLabel(mission) : 'Services professionnels'}</div>
             </div>
           </td>
-          <td className="invoice-transport-col">
-            <div className="invoice-info-label">Déplacement</div>
-            <div className="invoice-info-value">
-              {totalMileageKm > 0 ? <>{totalMileageKm.toFixed(1)} km facturés<br />{((mileageRateCents ?? 0) / 100).toFixed(2).replace('.', ',')} $/km</> : 'Aucun déplacement facturé'}
-            </div>
-          </td>
+          {totalMileageKm > 0 ? (
+            <td className="invoice-transport-col">
+              <div className="invoice-info-label">Déplacement</div>
+              <div className="invoice-info-value">
+                {totalMileageKm.toFixed(1)} km facturés<br />{((mileageRateCents ?? 0) / 100).toFixed(2).replace('.', ',')} $/km
+              </div>
+            </td>
+          ) : null}
         </tr>
       </tbody>
     </table>
@@ -232,9 +236,15 @@ function InvoiceTotalsBox({ taxes, feeSubtotalCents, serviceSubtotalCents }: { t
   return (
     <div className="invoice-totals-section"><div className="invoice-totals-wrapper"><table className="invoice-totals-table"><tbody>
       <tr><td className="invoice-totals-label">Sous-total prestation</td><td className="invoice-totals-value">{money(serviceSubtotalCents)}</td></tr>
-      <tr><td className="invoice-totals-label">Sous-total frais</td><td className="invoice-totals-value">{money(feeSubtotalCents)}</td></tr>
-      <tr><td className="invoice-totals-label">TPS (5%)</td><td className={`invoice-totals-value ${taxes.collectsTaxes ? '' : 'invoice-exempt'}`}>{taxes.collectsTaxes ? money(taxes.gstCents) : 'Non applicable'}</td></tr>
-      <tr><td className="invoice-totals-label">TVQ (9,975%)</td><td className={`invoice-totals-value ${taxes.collectsTaxes ? '' : 'invoice-exempt'}`}>{taxes.collectsTaxes ? money(taxes.qstCents) : 'Non applicable'}</td></tr>
+      {feeSubtotalCents > 0 ? <tr><td className="invoice-totals-label">Sous-total frais</td><td className="invoice-totals-value">{money(feeSubtotalCents)}</td></tr> : null}
+      {taxes.collectsTaxes ? (
+        <>
+          <tr><td className="invoice-totals-label">TPS (5%)</td><td className="invoice-totals-value">{money(taxes.gstCents)}</td></tr>
+          <tr><td className="invoice-totals-label">TVQ (9,975%)</td><td className="invoice-totals-value">{money(taxes.qstCents)}</td></tr>
+        </>
+      ) : (
+        <tr><td className="invoice-totals-label">Taxes (TPS/TVQ)</td><td className="invoice-totals-value invoice-exempt">Non applicable</td></tr>
+      )}
       <tr className="invoice-total-final"><td>TOTAL</td><td>{money(taxes.grandTotalCents)}</td></tr>
     </tbody></table></div></div>
   );
