@@ -9,10 +9,12 @@ type PageSectionProps = {
   actions?: ReactNode;
   children: ReactNode;
   spacing?: keyof typeof spacingFractional | number;
+  titleVariant?: 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
   sx?: SxProps<Theme>;
 };
 
-export function PageSection({ title, description, eyebrow, actions, children, spacing = '2.5', sx }: PageSectionProps) {
+export function PageSection({ title, description, eyebrow, actions, children, spacing = '2.5', titleVariant, sx }: PageSectionProps) {
+  const isCompactTitle = titleVariant === 'h4' || titleVariant === 'h5' || titleVariant === 'h6';
   return (
     <Stack component="section" spacing={spacingFractional[spacing as keyof typeof spacingFractional] || spacing} sx={sx}>
       <Stack
@@ -26,11 +28,11 @@ export function PageSection({ title, description, eyebrow, actions, children, sp
               {eyebrow}
             </Typography>
           ) : null}
-          <Typography variant="h2" sx={{ letterSpacing: '-0.03em' }}>
+          <Typography variant={titleVariant ?? 'h2'} sx={{ letterSpacing: isCompactTitle ? '-0.02em' : '-0.03em' }}>
             {title}
           </Typography>
           {description ? (
-            <Typography color="text.secondary" sx={{ maxWidth: 720 }}>
+            <Typography variant={isCompactTitle ? 'body2' : undefined} color="text.secondary" sx={{ maxWidth: 720 }}>
               {description}
             </Typography>
           ) : null}

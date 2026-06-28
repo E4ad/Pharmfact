@@ -38,14 +38,14 @@ export function MetricCard({
 
   return (
     <SurfaceCard
-      contentSx={{ p: compact ? 2 : 2.5, height: '100%' }}
+      contentSx={{ p: compact ? 1.5 : 2.5, height: '100%' }}
       radius="dashboardCard"
       sx={[
         { height: '100%' },
         active ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } : {},
       ]}
     >
-      <Stack spacing={1.25} sx={{ height: '100%' }}>
+      <Stack spacing={compact ? 1 : 1.25} sx={{ height: '100%' }}>
         <Typography
           variant="caption"
           color="text.secondary"
@@ -59,7 +59,7 @@ export function MetricCard({
         >
           {value}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
+        <Typography variant="body2" color="text.secondary">
           {helperText}
         </Typography>
         {actionLabel && onAction ? (

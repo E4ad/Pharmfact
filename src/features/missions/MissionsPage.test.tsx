@@ -190,7 +190,7 @@ describe('MissionsPage render', () => {
     expect(screen.getByText('À venir')).toBeInTheDocument();
   });
 
-  it('hides ARCHIVED missions by default (ACTIVE filter)', () => {
+  it('hides ARCHIVED missions when Actives filter is selected', () => {
     currentState = {
       ...baseState,
       missions: [
@@ -199,6 +199,7 @@ describe('MissionsPage render', () => {
       ],
     };
     renderMissionsPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Actives' }));
     expect(screen.getByText('MIS-2026-001')).toBeInTheDocument();
     expect(screen.queryByText('MIS-2026-002')).not.toBeInTheDocument();
   });
@@ -384,7 +385,7 @@ describe('MissionsPage — À faire maintenant CTA ladder', () => {
     const drawer = screen.getByTestId('mission-detail-panel');
     fireEvent.click(within(drawer).getByRole('button', { name: 'Prévisualiser la facture' }));
     expect(screen.getByRole('dialog', { name: /Facture brouillon/ })).toBeInTheDocument();
-    expect(screen.getAllByText('FAC-2026-001').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/FAC-2026-001/).length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows invoice number in action bar context for draft invoice', () => {

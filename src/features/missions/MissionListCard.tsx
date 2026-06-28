@@ -2,8 +2,8 @@ import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRound
 import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded';
-import { Box, Chip, IconButton, Stack, Step, StepLabel, Stepper, Typography, useTheme } from '@mui/material';
-import { brandColors, borderRadiusScale } from '../../design-system/tokens';
+import { Box, IconButton, Stack, Step, StepLabel, Stepper, Typography, useTheme } from '@mui/material';
+import { brandColors } from '../../design-system/tokens';
 import {
   businessMissionStatusTone,
   deriveMissionBusinessStatus,
@@ -17,26 +17,27 @@ import { formatMissionDatesSummary, formatShortDate, hoursLabel } from './missio
 const OPEN_GRADIENT = 'linear-gradient(145deg, #075985 0%, #0f3f5c 58%, #0f172a 100%)';
 
 const MISSION_STEPS = ['Brouillon', 'À venir', 'En cours', 'Terminée', 'Archivée'];
-const INVOICE_STEPS = ['Sans facture', 'Brouillon', 'Prête à envoyer', 'Envoyée', 'Payée'];
+const INVOICE_STEPS = ['Sans fact.', 'Brouillon', 'Prête à envoyer', 'Envoyée', 'Payée'];
 
-function missionBusinessStepIndex(status: string): number {
+function missionStepIndex(status: MissionStatus): number {
   switch (status) {
-    case 'draft':       return 0;
-    case 'planned':     return 1;
-    case 'in_progress': return 2;
-    case 'completed':   return 3;
-    case 'archived':    return 4;
+    case 'DRAFT':       return 0;
+    case 'CONFIRMED':   return 1;
+    case 'IN_PROGRESS': return 2;
+    case 'COMPLETED':   return 3;
+    case 'ARCHIVED':    return 4;
     default:            return 0;
   }
 }
 
 function invoiceStepperIndex(invoice: Invoice | undefined): number {
   if (!invoice) return 0;
+  if (invoice.paymentStatus === 'paid') return 4;
   const s = invoice.status?.toLowerCase();
+  if (s === 'paid') return 4;
   if (s === 'draft') return 1;
   if (s === 'ready_to_send' || s === 'generated') return 2;
   if (s === 'sent') return 3;
-  if (s === 'paid' || invoice.paymentStatus === 'paid') return 4;
   return 0;
 }
 
@@ -49,23 +50,14 @@ export function prevMissionStatus(status: MissionStatus): MissionStatus | undefi
   }
 }
 
-// ─── Invoice frise helpers ────────────────────────────────────────────────────
-
 function invoiceNextIndex(invoice: Invoice | undefined): number | null {
   if (!invoice) return 1;
+  if (invoice.paymentStatus === 'paid') return null;
   const s = invoice.status?.toLowerCase();
+  if (s === 'paid') return null;
   if (s === 'draft') return 2;
   if (s === 'ready_to_send' || s === 'generated') return 3;
-  if (s === 'sent' && invoice.paymentStatus !== 'paid') return 5;
-  return null;
-}
-
-function invoiceNextLabel(invoice: Invoice | undefined): string | null {
-  if (!invoice) return 'Créer facture';
-  const s = invoice.status?.toLowerCase();
-  if (s === 'draft') return 'Prévisualiser';
-  if (s === 'ready_to_send' || s === 'generated') return 'Envoyée';
-  if (s === 'sent' && invoice.paymentStatus !== 'paid') return 'Encaisser';
+  if (s === 'sent') return 5;
   return null;
 }
 
@@ -77,15 +69,6 @@ function canRevertInvoice(invoice: Invoice | undefined): boolean {
   return s === 'draft' || s === 'ready_to_send' || s === 'generated' || s === 'sent';
 }
 
-const NEXT_STATUS_LABELS: Partial<Record<MissionStatus, string>> = {
-  CONFIRMED:   'Confirmer',
-  IN_PROGRESS: 'Démarrer',
-  COMPLETED:   'Terminer',
-  ARCHIVED:    'Archiver',
-};
-
-// ─── Address helper ───────────────────────────────────────────────────────────
-
 function addressLabel(pharmacie?: Pharmacie): string {
   if (!pharmacie) return '';
   const city = pharmacie.ville
@@ -93,8 +76,6 @@ function addressLabel(pharmacie?: Pharmacie): string {
     : '';
   return [pharmacie.adresse, city].filter(Boolean).join(' · ');
 }
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface MissionListCardProps {
   mission: Mission;
@@ -109,8 +90,6 @@ export interface MissionListCardProps {
   onRevertMissionStep: (missionId: string) => void;
   onRevertInvoiceStep: (missionId: string) => void;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function MissionListCard({
   mission,
@@ -139,30 +118,28 @@ export function MissionListCard({
     : tone === 'error'   ? theme.palette.error.main
     : theme.palette.divider;
 
-  const [primaryMissionNext] = nextMissionStatuses(mission.status);
   const hasPrevMission = prevMissionStatus(mission.status) !== undefined;
-  const invNextIdx = invoiceNextIndex(invoice);
-  const invNextLabel = invoiceNextLabel(invoice);
+  const [primaryMissionNext] = nextMissionStatuses(mission.status).filter(s => s !== 'CANCELLED');
+  const isArchiveNext = primaryMissionNext === 'ARCHIVED';
+  const canAdvanceMission = Boolean(primaryMissionNext) && (!isArchiveNext || invoice?.paymentStatus === 'paid');
   const invCanRevert = canRevertInvoice(invoice);
+  // Bloquer la création de facture si la mission n'est pas COMPLETED
+  const invNextIdx = (!invoice && mission.status !== 'COMPLETED') ? null : invoiceNextIndex(invoice);
   const address = addressLabel(pharmacy);
-  const missionStep = missionBusinessStepIndex(businessStatus);
+  const missionStep = missionStepIndex(mission.status);
   const invoiceStep = invoiceStepperIndex(invoice);
+  const isCancelled = mission.status === 'CANCELLED';
 
   const stopProp = (e: React.MouseEvent) => e.stopPropagation();
-
   const mutedColor = isOpen ? 'rgba(255,255,255,0.65)' : 'text.secondary';
 
-  const actionChipSx = {
-    fontSize: '0.7rem',
-    height: 20,
-    fontWeight: 700,
+  const fwdBtnSx = {
+    width: 24,
+    height: 24,
     flexShrink: 0,
-    ...(isOpen && {
-      color: 'common.white',
-      borderColor: 'rgba(255,255,255,0.35)',
-      bgcolor: 'rgba(255,255,255,0.1)',
-      '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' },
-    }),
+    color: isOpen ? 'rgba(255,255,255,0.7)' : 'text.secondary',
+    '& svg': { fontSize: '0.7rem' },
+    '&:disabled': { opacity: 0.35 },
   };
 
   const revertBtnSx = {
@@ -243,14 +220,12 @@ export function MissionListCard({
     >
       {/* Col 1 — Identity */}
       <Stack spacing={0.5}>
-        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 800, lineHeight: 1.2, color: isOpen ? 'common.white' : 'text.primary' }}
-          >
-            {pharmacy ? pharmacieDisplayName(pharmacy) : 'Remplacement officine'}
-          </Typography>
-        </Stack>
+        <Typography
+          variant="subtitle1"
+          sx={{ fontWeight: 800, lineHeight: 1.2, color: isOpen ? 'common.white' : 'text.primary' }}
+        >
+          {pharmacy ? pharmacieDisplayName(pharmacy) : 'Remplacement officine'}
+        </Typography>
         {address ? (
           <Typography variant="body2" sx={{ color: mutedColor }}>
             {address}
@@ -302,82 +277,70 @@ export function MissionListCard({
       </Stack>
 
       {/* Stepper row — full width */}
-      <Box
-        sx={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 0.75 }}
-        onClick={stopProp}
-      >
-        {/* Mission stepper */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton
-            size="small"
-            aria-label="Reculer : Mission"
-            disabled={!hasPrevMission}
-            onClick={() => onRevertMissionStep(mission.id)}
-            sx={revertBtnSx}
-          >
-            <ArrowBackIosNewRoundedIcon />
-          </IconButton>
-          <Stepper activeStep={missionStep} sx={stepperSx}>
-            {MISSION_STEPS.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-          {primaryMissionNext && NEXT_STATUS_LABELS[primaryMissionNext] ? (
-            <Chip
-              label={`→ ${NEXT_STATUS_LABELS[primaryMissionNext]}`}
-              size="small"
-              variant="outlined"
-              onClick={() => onAdvanceMissionStep(mission.id, primaryMissionNext)}
-              sx={{ ...actionChipSx, borderRadius: borderRadiusScale.full }}
-            />
-          ) : (
-            <Box sx={{ width: 24 }} />
-          )}
-        </Box>
-
-        {/* Invoice stepper */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton
-            size="small"
-            aria-label="Reculer : Facture"
-            disabled={!invCanRevert}
-            onClick={() => onRevertInvoiceStep(mission.id)}
-            sx={revertBtnSx}
-          >
-            <ArrowBackIosNewRoundedIcon />
-          </IconButton>
-          <Stepper activeStep={invoiceStep} sx={stepperSx}>
-            {INVOICE_STEPS.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-          {invNextIdx !== null && invNextLabel ? (
-            <Chip
-              label={`→ ${invNextLabel}`}
-              size="small"
-              variant="outlined"
-              onClick={() => onAdvanceInvoiceStep(mission.id, invNextIdx)}
-              sx={{ ...actionChipSx, borderRadius: borderRadiusScale.full }}
-            />
-          ) : (
-            <Box sx={{ width: 24 }} />
-          )}
-          {invNextIdx !== null ? (
+      {!isCancelled && (
+        <Box
+          sx={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 0.75 }}
+          onClick={stopProp}
+        >
+          {/* Mission stepper */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <IconButton
               size="small"
-              aria-label={`Avancer : Facture : ${invNextLabel}`}
-              onClick={() => onAdvanceInvoiceStep(mission.id, invNextIdx)}
-              sx={{ ...revertBtnSx, color: isOpen ? 'rgba(255,255,255,0.7)' : 'text.secondary' }}
+              aria-label="Reculer : Mission :"
+              disabled={!hasPrevMission}
+              onClick={() => onRevertMissionStep(mission.id)}
+              sx={revertBtnSx}
+            >
+              <ArrowBackIosNewRoundedIcon />
+            </IconButton>
+            <Stepper activeStep={missionStep} sx={stepperSx}>
+              {MISSION_STEPS.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+            <IconButton
+              size="small"
+              aria-label="Avancer : Mission"
+              disabled={!primaryMissionNext}
+              onClick={() => primaryMissionNext && onAdvanceMissionStep(mission.id, primaryMissionNext)}
+              sx={fwdBtnSx}
             >
               <ArrowForwardIosRoundedIcon />
             </IconButton>
-          ) : null}
+          </Box>
+
+          {/* Invoice stepper */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <IconButton
+              size="small"
+              aria-label="Reculer : Facture :"
+              disabled={!invCanRevert}
+              onClick={() => onRevertInvoiceStep(mission.id)}
+              sx={revertBtnSx}
+            >
+              <ArrowBackIosNewRoundedIcon />
+            </IconButton>
+            <Stepper activeStep={invoiceStep} sx={stepperSx}>
+              {INVOICE_STEPS.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+            <IconButton
+              size="small"
+              aria-label="Avancer : Facture"
+              disabled={invNextIdx === null}
+              onClick={() => invNextIdx !== null && onAdvanceInvoiceStep(mission.id, invNextIdx)}
+              sx={fwdBtnSx}
+            >
+              <ArrowForwardIosRoundedIcon />
+            </IconButton>
+          </Box>
         </Box>
-      </Box>
+      )}
     </Box>
   );
 }

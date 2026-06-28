@@ -1091,31 +1091,6 @@ export function MissionDetailPanel({
         </DialogActions>
       </Dialog>
 
-      {/* ── Delete payment confirm dialog ── */}
-      <Dialog open={Boolean(deletePaymentId)} onClose={() => setDeletePaymentId(null)} maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 800 }}>Supprimer ce paiement ?</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            Cette action est irréversible. Le solde sera recalculé.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setDeletePaymentId(null)} sx={{ fontWeight: 700 }}>Annuler</Button>
-          <Button
-            color="error"
-            variant="contained"
-            onClick={() => {
-              if (deletePaymentId && invoice) {
-                onDeletePayment(invoice.id, deletePaymentId);
-              }
-              setDeletePaymentId(null);
-            }}
-            sx={{ fontWeight: 700 }}
-          >
-            Supprimer
-          </Button>
-        </DialogActions>
-      </Dialog>
     </>
   );
 }

@@ -18,7 +18,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { borderWidth, borderRadiusScale } from '../../design-system/tokens';
 import { FadeIn } from '../../components/FadeIn';
@@ -46,7 +46,7 @@ import { findInvoice, findPharmacien, findPharmacie, missionInvoice, pharmacieDi
 import { undoManager } from '../../services/undoManager';
 import { todayIso } from '../../services/ids';
 
-type MissionFocus = 'all' | 'upcoming7d' | 'estimated7d' | 'toInvoice' | 'toFinalize' | 'overdue';
+type MissionFocus = 'all' | 'upcoming7d' | 'estimated7d' | 'toInvoice' | 'toFinalize' | 'overdue' | 'draft' | 'inProgress' | 'invoiceSent';
 
 const FOCUS_LABELS: Record<Exclude<MissionFocus, 'all'>, string> = {
   upcoming7d: 'À venir 7j',
@@ -76,15 +76,11 @@ const EMPTY_ADVANCED_FILTER: AdvancedMissionFilter = { missionStatuses: [], invo
 
 type SortKey = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 
-// Legacy type kept for focus filter compatibility
-type MissionFilterStatus = MissionStatus | 'ACTIVE' | 'ARCHIVED_ONLY' | 'ALL' | 'ready_to_invoice' | 'invoice_draft' | 'invoice_sent' | 'paid';
-
-
 function parseMissionFocus(value: string | null): MissionFocus {
-  if (value === 'upcoming_7d' || value === 'upcoming7d') return 'upcoming7d';
-  if (value === 'estimated_7d' || value === 'estimated7d') return 'estimated7d';
-  if (value === 'to_invoice' || value === 'toInvoice') return 'toInvoice';
-  if (value === 'to_finalize' || value === 'toFinalize') return 'toFinalize';
+  if (value === 'upcoming7d') return 'upcoming7d';
+  if (value === 'estimated7d') return 'estimated7d';
+  if (value === 'toInvoice') return 'toInvoice';
+  if (value === 'toFinalize') return 'toFinalize';
   if (value === 'overdue') return 'overdue';
   return 'all';
 }
@@ -120,6 +116,12 @@ function matchesMissionFocus(
     const invoice = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
     const s = invoice?.status?.toLowerCase();
     return Boolean(invoice && (s === 'sent') && invoice.dateEcheance != null && invoice.dateEcheance < todayIsoValue);
+  }
+  if (focus === 'draft')      return mission.status === 'DRAFT';
+  if (focus === 'inProgress') return mission.status === 'IN_PROGRESS';
+  if (focus === 'invoiceSent') {
+    const invoice = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
+    return Boolean(invoice && (invoice.status === 'sent' || invoice.status === 'SENT') && invoice.paymentStatus !== 'paid');
   }
   return true;
 }
@@ -159,27 +161,6 @@ function deriveInvoiceStage(invoice: Invoice | undefined): string {
   return 'none';
 }
 
-// Legacy filter kept for focus filter compatibility
-function matchesMissionStatusFilter(mission: Mission, filter: MissionFilterStatus, state: AppState): boolean {
-  if (filter === 'ALL') return true;
-  if (filter === 'ACTIVE') return mission.status !== 'ARCHIVED' && mission.status !== 'CANCELLED';
-  if (filter === 'ARCHIVED_ONLY') return mission.status === 'ARCHIVED' || mission.status === 'CANCELLED';
-  if (filter === 'ready_to_invoice') return mission.status === 'COMPLETED' && !mission.invoiceId;
-  if (filter === 'invoice_draft') {
-    const invoice = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
-    return Boolean(invoice && (invoice.status === 'draft' || invoice.status === 'ready_to_send'));
-  }
-  if (filter === 'invoice_sent') {
-    const invoice = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
-    return Boolean(invoice && (invoice.status === 'SENT' || invoice.status === 'sent' || invoice.status === 'GENERATED'));
-  }
-  if (filter === 'paid') {
-    const invoice = findInvoice(state, mission.invoiceId) ?? missionInvoice(state, mission);
-    return invoice?.paymentStatus === 'paid';
-  }
-  return mission.status === (filter as MissionStatus);
-}
-
 export function MissionsPage() {
   const state = useAppState();
   const navigate = useNavigate();
@@ -198,8 +179,6 @@ export function MissionsPage() {
   const [pendingExpenseChange, setPendingExpenseChange] = useState<{ missionId: string; dayId: string; expense: MissionExpense } | null>(null);
   const [activeKpi, setActiveKpi] = useState<string | null>(null);
   const today = todayIso();
-  // Legacy status filter kept for KPI focus clicks
-  const [statusFilter, setStatusFilter] = useState<MissionFilterStatus>('ACTIVE');
   const missionMetrics = useMemo(() => buildMissionWindowMetrics(state, today), [state, today]);
 
   const draftCount = useMemo(() => state.missions.filter((m) => m.status === 'DRAFT').length, [state.missions]);
@@ -221,7 +200,6 @@ export function MissionsPage() {
     () =>
       [...state.missions]
         .filter((mission) => matchesMainFilter(mission, mainFilter))
-        .filter((mission) => matchesMissionStatusFilter(mission, statusFilter, state))
         .filter((mission) => matchesMissionFocus(mission, focusFilter, today, missionMetrics.windowEndIso, state))
         .filter((mission) => matchesAdvancedFilter(mission, advancedFilter, state))
         .sort((a, b) => {
@@ -232,7 +210,7 @@ export function MissionsPage() {
             default:            return `${b.dateDebut}${b.createdAt}`.localeCompare(`${a.dateDebut}${a.createdAt}`);
           }
         }),
-    [state.missions, mainFilter, statusFilter, focusFilter, advancedFilter, sortKey, today, missionMetrics.windowEndIso, state],
+    [state.missions, mainFilter, focusFilter, advancedFilter, sortKey, today, missionMetrics.windowEndIso, state],
   );
 
   const uniquePharmacies = useMemo(
@@ -242,17 +220,6 @@ export function MissionsPage() {
         .filter((p): p is { id: string; pharmacie: NonNullable<ReturnType<typeof findPharmacie>> } => p.pharmacie != null),
     [state],
   );
-
-  const firstMissionIdsByPharmacy = useMemo(() => {
-    const firstByPharmacy = new Map<string, Mission>();
-    state.missions.forEach((mission) => {
-      const current = firstByPharmacy.get(mission.pharmacieId);
-      if (!current || `${mission.dateDebut}${mission.createdAt}`.localeCompare(`${current.dateDebut}${current.createdAt}`) < 0) {
-        firstByPharmacy.set(mission.pharmacieId, mission);
-      }
-    });
-    return new Set([...firstByPharmacy.values()].map((mission) => mission.id));
-  }, [state.missions]);
 
   const invoiceReadyGroups = useMemo(() => {
     const groups = new Map<string, Mission[]>();
@@ -323,14 +290,6 @@ export function MissionsPage() {
       else next.set('filter', focus);
       return next;
     });
-  }
-
-  function setMissionStatusFilter(filter: MissionFilterStatus) {
-    setStatusFilter(filter);
-    // Sync main filter to show the right scope for KPI clicks
-    if (filter === 'ALL') setMainFilter('ALL');
-    else if (filter === 'ARCHIVED_ONLY') setMainFilter('ARCHIVED');
-    else setMainFilter('ACTIVE');
   }
 
   function generateInvoice(mission: Mission) {
@@ -405,6 +364,14 @@ export function MissionsPage() {
     notify({ severity: 'success', message: 'Invitation calendrier téléchargée.' });
   }
 
+  function notifyPdfError(error: unknown) {
+    const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
+    logMappedError(mapped, error);
+    if (mapped.shouldDisplay) {
+      notify({ severity: mapped.severity, message: mapped.message, persist: mapped.severity === 'error' });
+    }
+  }
+
   async function downloadPdf(invoiceId: string) {
     const invoice = state.invoices.find((item) => item.id === invoiceId);
     if (!invoice) return;
@@ -416,11 +383,7 @@ export function MissionsPage() {
         throw result.error;
       }
     } catch (error) {
-      const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
-      logMappedError(mapped, error);
-      if (mapped.shouldDisplay) {
-        notify({ severity: mapped.severity, message: mapped.message, persist: mapped.severity === 'error' });
-      }
+      notifyPdfError(error);
     }
   }
 
@@ -490,11 +453,7 @@ export function MissionsPage() {
         throw result.error;
       }
     } catch (error) {
-      const mapped = mapError(error, { code: 'PDF_GENERATION_FAILED' });
-      logMappedError(mapped, error);
-      if (mapped.shouldDisplay) {
-        notify({ severity: mapped.severity, message: mapped.message, persist: mapped.severity === 'error' });
-      }
+      notifyPdfError(error);
     }
   }
 
@@ -801,10 +760,6 @@ export function MissionsPage() {
     setInvoiceRevertConfirm(null);
   }
 
-  function handleAdvanceMissionStep(missionId: string, targetStatus: MissionStatus) {
-    updateMissionStatus(missionId, targetStatus);
-  }
-
   function handleAdvanceInvoiceStep(missionId: string, nextIndex: number) {
     const mission = state.missions.find((m) => m.id === missionId);
     if (!mission) return;
@@ -855,7 +810,7 @@ export function MissionsPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-    <Stack spacing={{ xs: 1.5, md: 2 }} sx={{ width: 'min(1120px, 100%)', mx: 'auto', px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
+    <Stack spacing={{ xs: 2.5, md: 3 }} sx={{ width: 'min(1120px, 100%)', mx: 'auto', px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
       <PageHeader
         eyebrow="MISSIONS"
         title="Missions"
@@ -881,23 +836,24 @@ export function MissionsPage() {
 
       <PageSection
         title="Pilotage des missions"
-        spacing={1.5}
+        titleVariant="h4"
+        spacing={2}
       >
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)', lg: 'repeat(7, 1fr)' },
-            gap: 1,
+            gap: { xs: 1.5, sm: 2 },
           }}
         >
           {[
-            { label: 'À valider', value: String(draftCount), helper: 'Brouillons', tone: 'default' as const, action: () => { setMissionStatusFilter('DRAFT'); setMissionFocus('all', 'À valider'); } },
-            { label: 'À venir 7j', value: String(missionMetrics.upcomingCount), helper: 'Confirmées', tone: 'primary' as const, action: () => { setMissionFocus('upcoming7d', 'À venir 7j'); setMissionStatusFilter('ACTIVE'); } },
-            { label: 'En cours', value: String(inProgressCount), helper: 'Missions actives', tone: 'warning' as const, action: () => { setMissionStatusFilter('IN_PROGRESS'); setMissionFocus('all', 'En cours'); } },
-            { label: 'À facturer', value: String(missionMetrics.toInvoiceCount), helper: formatMoney(missionMetrics.toInvoiceCents), tone: 'warning' as const, action: () => { setMissionFocus('toInvoice', 'À facturer'); setMissionStatusFilter('ACTIVE'); } },
-            { label: 'Factures à finaliser', value: String(invoicesToFinalizeCount), helper: 'Non finalisées', tone: 'default' as const, action: () => { setMissionFocus('toFinalize', 'Factures à finaliser'); setMissionStatusFilter('ACTIVE'); } },
-            { label: 'À encaisser', value: String(toCollectCount), helper: 'Factures envoyées', tone: 'primary' as const, action: () => { setMissionStatusFilter('invoice_sent'); setMissionFocus('all', 'À encaisser'); } },
-            { label: 'En retard', value: String(overdueCount), helper: 'Échéance dépassée', tone: 'error' as const, action: () => { setMissionFocus('overdue', 'En retard'); setMainFilter('ALL'); setStatusFilter('ALL'); } },
+            { label: 'À valider', value: String(draftCount), helper: 'Brouillons', tone: 'default' as const, action: () => { setMissionFocus('draft', 'À valider'); setMainFilter('ACTIVE'); } },
+            { label: 'À venir 7j', value: String(missionMetrics.upcomingCount), helper: 'Confirmées', tone: 'primary' as const, action: () => { setMissionFocus('upcoming7d', 'À venir 7j'); setMainFilter('ACTIVE'); } },
+            { label: 'En cours', value: String(inProgressCount), helper: 'Missions actives', tone: 'warning' as const, action: () => { setMissionFocus('inProgress', 'En cours'); setMainFilter('ACTIVE'); } },
+            { label: 'À facturer', value: String(missionMetrics.toInvoiceCount), helper: formatMoney(missionMetrics.toInvoiceCents), tone: 'warning' as const, action: () => { setMissionFocus('toInvoice', 'À facturer'); setMainFilter('ACTIVE'); } },
+            { label: 'Factures à finaliser', value: String(invoicesToFinalizeCount), helper: 'Non finalisées', tone: 'default' as const, action: () => { setMissionFocus('toFinalize', 'Factures à finaliser'); setMainFilter('ACTIVE'); } },
+            { label: 'À encaisser', value: String(toCollectCount), helper: 'Factures envoyées', tone: 'primary' as const, action: () => { setMissionFocus('invoiceSent', 'À encaisser'); setMainFilter('ALL'); } },
+            { label: 'En retard', value: String(overdueCount), helper: 'Échéance dépassée', tone: 'error' as const, action: () => { setMissionFocus('overdue', 'En retard'); setMainFilter('ALL'); } },
           ].map((kpi) => (
             <Box key={kpi.label} sx={{ borderRadius: 8, overflow: 'hidden', cursor: 'pointer' }} onClick={kpi.action}>
               <MetricCard
@@ -911,10 +867,25 @@ export function MissionsPage() {
             </Box>
           ))}
         </Box>
+        {activeKpi && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+              Filtre actif :
+            </Typography>
+            <Chip
+              label={activeKpi}
+              size="small"
+              color="primary"
+              variant="outlined"
+              onDelete={() => { setMissionFocus('all'); setMainFilter('ACTIVE'); }}
+              sx={{ fontWeight: 700 }}
+            />
+          </Box>
+        )}
       </PageSection>
 
       {invoiceReadyGroups.length ? (
-        <PageSection title="Missions à facturer" description="Les regroupements sont limités aux missions d'une même pharmacie." spacing={2}>
+        <PageSection title="Missions à facturer" titleVariant="h4" description="Les regroupements sont limités aux missions d'une même pharmacie." spacing={2}>
           <Stack spacing={1.5}>
             {invoiceReadyGroups.map((group) => (
               <SurfaceCard key={group.pharmacie?.id ?? group.missions[0]?.pharmacieId} contentSx={{ p: 2 }} sx={{ borderRadius: borderRadiusScale.xl }}>
@@ -937,8 +908,9 @@ export function MissionsPage() {
 
       <PageSection
         title="File de missions"
+        titleVariant="h4"
         description={`${missions.length} mission${missions.length > 1 ? 's' : ''} affichée${missions.length > 1 ? 's' : ''}.`}
-        spacing={1.5}
+        spacing={2}
       >
         {/* Main filter chips + Filtres avancés */}
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }} role="group" aria-label="Filtrer les missions par statut">
@@ -950,7 +922,6 @@ export function MissionsPage() {
                 label={option.label}
                 onClick={() => {
                   setMainFilter(option.value);
-                  setStatusFilter('ALL');
                   setFocusFilter('all');
                   setActiveKpi(null);
                 }}
@@ -997,136 +968,16 @@ export function MissionsPage() {
             Filtres avancés
           </Button>
 
-          {/* Advanced filter popover */}
-          <Popover
-            open={Boolean(advancedAnchor)}
-            anchorEl={advancedAnchor}
+          <AdvancedFilterPopover
+            anchor={advancedAnchor}
             onClose={() => setAdvancedAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{ paper: { sx: { p: 2.5, minWidth: 280, borderRadius: borderRadiusScale.lg } } }}
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>Filtres avancés</Typography>
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Statut mission</Typography>
-                {(['DRAFT', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] as MissionStatus[]).map((s) => (
-                  <FormControlLabel
-                    key={s}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={pendingFilter.missionStatuses.includes(s)}
-                        onChange={(e) => setPendingFilter((f) => ({
-                          ...f,
-                          missionStatuses: e.target.checked ? [...f.missionStatuses, s] : f.missionStatuses.filter((x) => x !== s),
-                        }))}
-                      />
-                    }
-                    label={<Typography variant="body2">{
-                      s === 'DRAFT' ? 'Brouillon'
-                      : s === 'CONFIRMED' ? 'Validée'
-                      : s === 'IN_PROGRESS' ? 'En cours'
-                      : 'Terminée'
-                    }</Typography>}
-                    sx={{ display: 'flex', ml: 0 }}
-                  />
-                ))}
-              </Box>
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Facturation</Typography>
-                {[['none', 'Non créée'], ['draft', 'Brouillon'], ['ready_to_send', 'Prête à envoyer'], ['sent', 'Envoyée'], ['paid', 'Payée']].map(([val, lbl]) => (
-                  <FormControlLabel
-                    key={val}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={pendingFilter.invoiceStages.includes(val)}
-                        onChange={(e) => setPendingFilter((f) => ({
-                          ...f,
-                          invoiceStages: e.target.checked ? [...f.invoiceStages, val] : f.invoiceStages.filter((x) => x !== val),
-                        }))}
-                      />
-                    }
-                    label={<Typography variant="body2">{lbl}</Typography>}
-                    sx={{ display: 'flex', ml: 0 }}
-                  />
-                ))}
-              </Box>
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Paiement</Typography>
-                {[['to_collect', 'À encaisser'], ['partial', 'Partiel'], ['paid', 'Payée']].map(([val, lbl]) => (
-                  <FormControlLabel
-                    key={val}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={pendingFilter.paymentStatuses.includes(val)}
-                        onChange={(e) => setPendingFilter((f) => ({
-                          ...f,
-                          paymentStatuses: e.target.checked ? [...f.paymentStatuses, val] : f.paymentStatuses.filter((x) => x !== val),
-                        }))}
-                      />
-                    }
-                    label={<Typography variant="body2">{lbl}</Typography>}
-                    sx={{ display: 'flex', ml: 0 }}
-                  />
-                ))}
-              </Box>
-              {uniquePharmacies.length > 1 ? (
-                <Box>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pharmacie</Typography>
-                  {uniquePharmacies.map(({ id, pharmacie }) => (
-                    <FormControlLabel
-                      key={id}
-                      control={
-                        <Checkbox
-                          size="small"
-                          checked={pendingFilter.pharmacieIds.includes(id)}
-                          onChange={(e) => setPendingFilter((f) => ({
-                            ...f,
-                            pharmacieIds: e.target.checked ? [...f.pharmacieIds, id] : f.pharmacieIds.filter((pid) => pid !== id),
-                          }))}
-                        />
-                      }
-                      label={<Typography variant="body2">{pharmacieDisplayName(pharmacie)}</Typography>}
-                      sx={{ display: 'flex', ml: 0 }}
-                    />
-                  ))}
-                </Box>
-              ) : null}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5 }}>
-                <Button size="small" onClick={() => { setPendingFilter(EMPTY_ADVANCED_FILTER); }} color="inherit">
-                  Réinitialiser
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => { setAdvancedFilter(pendingFilter); setAdvancedAnchor(null); }}
-                >
-                  Appliquer
-                </Button>
-              </Box>
-            </Stack>
-          </Popover>
+            pendingFilter={pendingFilter}
+            setPendingFilter={setPendingFilter}
+            uniquePharmacies={uniquePharmacies}
+            onApply={() => { setAdvancedFilter(pendingFilter); setAdvancedAnchor(null); }}
+            onReset={() => setPendingFilter(EMPTY_ADVANCED_FILTER)}
+          />
         </Box>
-
-        {activeKpi && (
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Chip
-              label={`Filtre KPI : ${activeKpi}`}
-              onDelete={() => {
-                setMissionFocus('all');
-                setStatusFilter('ALL');
-                setMainFilter('ACTIVE');
-              }}
-              size="small"
-              color="primary"
-              variant="outlined"
-              sx={{ fontWeight: 700 }}
-            />
-          </Box>
-        )}
 
         <FadeIn>
             {missions.length ? (
@@ -1158,7 +1009,7 @@ export function MissionsPage() {
                         onToggle={() => (isOpen ? closeMission() : openMission(mission.id))}
                         onDownloadPdf={(invoiceId) => downloadPdf(invoiceId)}
                         onDownloadIcs={downloadCalendar}
-                        onAdvanceMissionStep={handleAdvanceMissionStep}
+                        onAdvanceMissionStep={updateMissionStatus}
                         onAdvanceInvoiceStep={handleAdvanceInvoiceStep}
                         onRevertMissionStep={handleRevertMissionStep}
                         onRevertInvoiceStep={handleRevertInvoiceStep}
@@ -1195,12 +1046,11 @@ export function MissionsPage() {
                   onPrimary={() => navigate('/missions/new')}
                   onSecondary={() => {
                     setMainFilter('ALL');
-                    setStatusFilter('ALL');
                     setFocusFilter('all');
                     setAdvancedFilter(EMPTY_ADVANCED_FILTER);
                     setPendingFilter(EMPTY_ADVANCED_FILTER);
                   }}
-                  hasFilter={mainFilter !== 'ALL' || statusFilter !== 'ALL' || focusFilter !== 'all'}
+                  hasFilter={mainFilter !== 'ALL' || focusFilter !== 'all' || advancedFilter.missionStatuses.length > 0 || advancedFilter.invoiceStages.length > 0 || advancedFilter.paymentStatuses.length > 0 || advancedFilter.pharmacieIds.length > 0}
                 />
               </SurfaceCard>
             )}
@@ -1358,6 +1208,130 @@ export function MissionsPage() {
   );
 }
 
+
+function AdvancedFilterPopover({
+  anchor,
+  onClose,
+  pendingFilter,
+  setPendingFilter,
+  uniquePharmacies,
+  onApply,
+  onReset,
+}: {
+  anchor: HTMLElement | null;
+  onClose: () => void;
+  pendingFilter: AdvancedMissionFilter;
+  setPendingFilter: Dispatch<SetStateAction<AdvancedMissionFilter>>;
+  uniquePharmacies: Array<{ id: string; pharmacie: NonNullable<ReturnType<typeof findPharmacie>> }>;
+  onApply: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <Popover
+      open={Boolean(anchor)}
+      anchorEl={anchor}
+      onClose={onClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      slotProps={{ paper: { sx: { p: 2.5, minWidth: 280, borderRadius: borderRadiusScale.lg } } }}
+    >
+      <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>Filtres avancés</Typography>
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Statut mission</Typography>
+          {(['DRAFT', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] as MissionStatus[]).map((s) => (
+            <FormControlLabel
+              key={s}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={pendingFilter.missionStatuses.includes(s)}
+                  onChange={(e) => setPendingFilter((f) => ({
+                    ...f,
+                    missionStatuses: e.target.checked ? [...f.missionStatuses, s] : f.missionStatuses.filter((x) => x !== s),
+                  }))}
+                />
+              }
+              label={<Typography variant="body2">{
+                s === 'DRAFT' ? 'Brouillon'
+                : s === 'CONFIRMED' ? 'Validée'
+                : s === 'IN_PROGRESS' ? 'En cours'
+                : 'Terminée'
+              }</Typography>}
+              sx={{ display: 'flex', ml: 0 }}
+            />
+          ))}
+        </Box>
+        <Box>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Facturation</Typography>
+          {[['none', 'Non créée'], ['draft', 'Brouillon'], ['ready_to_send', 'Prête à envoyer'], ['sent', 'Envoyée'], ['paid', 'Payée']].map(([val, lbl]) => (
+            <FormControlLabel
+              key={val}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={pendingFilter.invoiceStages.includes(val)}
+                  onChange={(e) => setPendingFilter((f) => ({
+                    ...f,
+                    invoiceStages: e.target.checked ? [...f.invoiceStages, val] : f.invoiceStages.filter((x) => x !== val),
+                  }))}
+                />
+              }
+              label={<Typography variant="body2">{lbl}</Typography>}
+              sx={{ display: 'flex', ml: 0 }}
+            />
+          ))}
+        </Box>
+        <Box>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Paiement</Typography>
+          {[['to_collect', 'À encaisser'], ['partial', 'Partiel'], ['paid', 'Payée']].map(([val, lbl]) => (
+            <FormControlLabel
+              key={val}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={pendingFilter.paymentStatuses.includes(val)}
+                  onChange={(e) => setPendingFilter((f) => ({
+                    ...f,
+                    paymentStatuses: e.target.checked ? [...f.paymentStatuses, val] : f.paymentStatuses.filter((x) => x !== val),
+                  }))}
+                />
+              }
+              label={<Typography variant="body2">{lbl}</Typography>}
+              sx={{ display: 'flex', ml: 0 }}
+            />
+          ))}
+        </Box>
+        {uniquePharmacies.length > 1 ? (
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pharmacie</Typography>
+            {uniquePharmacies.map(({ id, pharmacie }) => (
+              <FormControlLabel
+                key={id}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={pendingFilter.pharmacieIds.includes(id)}
+                    onChange={(e) => setPendingFilter((f) => ({
+                      ...f,
+                      pharmacieIds: e.target.checked ? [...f.pharmacieIds, id] : f.pharmacieIds.filter((pid) => pid !== id),
+                    }))}
+                  />
+                }
+                label={<Typography variant="body2">{pharmacieDisplayName(pharmacie)}</Typography>}
+                sx={{ display: 'flex', ml: 0 }}
+              />
+            ))}
+          </Box>
+        ) : null}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5 }}>
+          <Button size="small" onClick={onReset} color="inherit">Réinitialiser</Button>
+          <Button size="small" variant="contained" onClick={onApply}>Appliquer</Button>
+        </Box>
+      </Stack>
+    </Popover>
+  );
+}
 
 function EmptyState({ onPrimary, onSecondary, hasFilter }: { onPrimary: () => void; onSecondary: () => void; hasFilter: boolean }) {
   return (

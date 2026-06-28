@@ -82,7 +82,7 @@ export function InvoiceDraftModal({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      slotProps={{ paper: { 'aria-label': 'Prévisualisation facture' } }}
+      slotProps={{ paper: { 'aria-label': 'Facture brouillon' } }}
     >
       {/* Top bar */}
       <Box
